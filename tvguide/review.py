@@ -75,6 +75,25 @@ def _samples(con: sqlite3.Connection, show_id: int, limit: int = 3) -> list[dict
     return [dict(r) for r in rows]
 
 
+def review_entries_for_tconst(con: sqlite3.Connection, cfg: Config, tconst: str) -> list[dict]:
+    """Offene Review-Shows eines Werks inklusive Kandidaten (fuer die Werkseite)."""
+    rows = con.execute(
+        """SELECT s.show_key, s.show_name
+           FROM show_match sm JOIN epg_shows s ON s.id = sm.show_id
+           WHERE sm.tconst = ? AND sm.status = 'review'
+           ORDER BY s.show_name""", (tconst,)).fetchall()
+    if not rows:
+        return []
+    shows = load_shows(con, cfg)[0]
+    out = []
+    for r in rows:
+        s = shows.get(r["show_key"]) or {
+            "title": r["show_name"], "n": 0, "durs": [], "subs": set(), "desc": "", "yhint": None}
+        out.append({"show_key": r["show_key"], "show_name": r["show_name"],
+                    "suggestions": suggestions(con, s, cfg, 5)})
+    return out
+
+
 def list_review(con: sqlite3.Connection, cfg: Config, limit: int = 25, offset: int = 0) -> list[dict]:
     rows = _review_rows(con)[offset:offset + limit]
     shows = load_shows(con, cfg)[0]

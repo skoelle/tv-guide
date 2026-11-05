@@ -41,27 +41,10 @@
     {% for a in s.samples %}{{ a.channel }}, {{ a.start_ts | ts }}–{{ a.stop_ts | ts('%H:%M') }}{% if a.sub_title %} „{{ a.sub_title }}"{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
     {% if s.events > s.samples | length %} · … {{ s.events }} Termine insgesamt{% endif %}
   </p>
-  <form method="post" action="review/{{ s.show_key }}/confirm">
-    <input type="hidden" name="show_key" value="{{ s.show_key }}">
-    {% for c in s.suggestions %}
-    <label class="box" style="display:block; margin:.3rem 0; padding:.5rem .7rem">
-      <input type="radio" name="tconst" value="{{ c.tconst }}" {{ 'checked' if loop.first }}>
-      <b>{{ c.title }}</b>
-      <span class="muted">({{ c.year or '?' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}, {{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}{% if c.genres %}, {{ c.genres }}{% endif %})</span>
-      <span class="tag {{ 'bad' if c.status == 'none' else ('ok' if c.status == 'auto' else '') }}">{{ c.conf }}</span>
-      <span class="muted">{{ c.score }}</span>
-    </label>
-    {% else %}
-    <p class="muted">Keine Kandidaten gefunden.</p>
-    {% endfor %}
-    <p>
-      <button class="btn" type="submit" hx-post="api/review/confirm" hx-include="closest form"
-              hx-target="closest .review-item" hx-swap="delete">✔ Bestätigen</button>
-      <button class="btn" type="submit" formaction="review/{{ s.show_key }}/reject" formnovalidate
-              hx-post="api/review/reject" hx-include="closest form"
-              hx-target="closest .review-item" hx-swap="delete">✘ Kein Treffer</button>
-    </p>
-  </form>
+  {% with show_key=s.show_key, suggestions=s.suggestions, current_tconst='',
+          confirm_after='', reject_after='' %}
+  {% include "_review_form.html" %}
+  {% endwith %}
   <button class="btn" type="button"
           hx-post="api/review/format?show_key={{ s.show_key | urlencode }}"
           hx-target="closest .review-item" hx-swap="delete">Als Format markieren</button>

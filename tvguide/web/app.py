@@ -23,7 +23,8 @@ from ..config import Config, load_config
 from ..db import Db, connect
 from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
-from ..review import (apply_override, list_review, mark_as_format, review_count, show_key_for, undo_last)
+from ..review import (apply_override, list_review, mark_as_format, review_count,
+                      review_entries_for_tconst, show_key_for, undo_last)
 from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
@@ -192,8 +193,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             if not groups or groups[-1]["label"] != label:
                 groups.append({"label": label, "airings": []})
             groups[-1]["airings"].append(a)
+        review_shows = (review_entries_for_tconst(con, cfg, tconst)
+                        if w["status"] == "review" else [])
         ctx = _base(request, con, "")
-        ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst)})
+        ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
+                    "review_shows": review_shows})
         return templates.TemplateResponse(request, "work.html", ctx)
 
     @app.get("/api/now")
@@ -301,9 +305,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return RedirectResponse("/review", status_code=303)
 
     @app.get("/review/search")
-    def review_search(request: Request, con: Db = Depends(get_db), q: str = "", show_key: str = ""):
+    def review_search(request: Request, con: Db = Depends(get_db), q: str = "", show_key: str = "",
+                      scope: str = ""):
         results = search_titles(con, q, 20) if q.strip() else []
-        ctx = {"request": request, "results": results, "show_key": show_key, "q": q}
+        ctx = {"request": request, "results": results, "show_key": show_key, "q": q, "scope": scope}
         return templates.TemplateResponse(request, "_review_search.html", ctx)
 
     @app.get("/api/review")

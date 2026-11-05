@@ -48,7 +48,7 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 |---|---|
 | `/` | Now: "running now" and "tonight" with a filter bar |
 | `/browse` | Browse: cards per work, filter chips, sorting, pagination |
-| `/work/{tconst}` | Work detail with all airings |
+| `/work/{tconst}` | Work detail with all airings and review actions for uncertain matches |
 | `/review` | Review open matches: confirm, reject, pick another title, undo |
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
@@ -66,7 +66,9 @@ Every work is classified as **Film**, **Serie** or **Format**:
 
 Browse and Now show **Film + Serie** by default; the **Format** chip reveals the rest. Review only lists Film and Serie, so magazines, game shows and news formats no longer appear there.
 
-Manual control: on a work page you can mark it as **Format** or **keep it as a series** (this pulls an automatically detected format back). The last manual mark can be undone on the Review page. Marks are stored per IMDb title in `content_marks` and take precedence over the automatic genre classification.
+Manual control: a work classified as **Format** can be kept as a **film/series** (this pulls an automatically detected format back); other works can be marked as **Format**. The last manual mark can be undone on the Review page. Marks are stored per IMDb title in `content_marks` and take precedence over the automatic genre classification.
+
+Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
 ## Email (since M7)
 

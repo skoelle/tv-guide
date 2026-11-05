@@ -215,7 +215,10 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
 - **Stöbern:** Karten pro Werk, Filter-Chips (Kategorie/Typ, Dekade, Sendergruppe, Genre,
   Zuordnung, Retro), Sortierung, Paginierung; Format standardmäßig ausgeblendet.
 - **Werk-Detail:** Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
-  Buttons „Als Format markieren“, „Als Serie behalten“, „Markierung entfernen“.
+  bei unsicheren Zuordnungen eine Review-Box (Kandidaten bestätigen, „Kein Treffer“,
+  anderer Titel). Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei
+  Film/Serie, „Als Film/Serie behalten“ bei Format, „Markierung entfernen“ nur bei
+  manueller Markierung.
 - **Review:** nur Film/Serie; Vorschläge bestätigen, „Kein Treffer“, anderer Titel,
   „Als Format markieren“, Override-Undo und Markierungs-Undo.
 - **Suchen:** Liste, Treffer/„neu“, bearbeiten, löschen, aktualisieren.

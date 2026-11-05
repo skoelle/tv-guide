@@ -8,17 +8,22 @@ pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from tvguide.db import connect  # noqa: E402
-from tvguide.marks import undo_last as undo_last_mark  # noqa: E402
+from tvguide.marks import set_mark, undo_last as undo_last_mark  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import (apply_override, list_review, mark_as_format, review_count,  # noqa: E402
-                            show_key_for, undo_last)
+                            review_entries_for_tconst, show_key_for, undo_last)
 from tvguide.web.app import create_app  # noqa: E402
 
 
-def _review_show(cfg, key="sendung 0"):
+def _review_show(cfg, key="sendung 0", tconst=None):
     con = connect(cfg)
     run_match(con, cfg)
-    con.execute("UPDATE show_match SET status='review' WHERE show_id=(SELECT id FROM epg_shows WHERE show_key=?)", (key,))
+    if tconst is None:
+        con.execute("UPDATE show_match SET status='review' "
+                    "WHERE show_id=(SELECT id FROM epg_shows WHERE show_key=?)", (key,))
+    else:
+        con.execute("UPDATE show_match SET status='review', tconst=? "
+                    "WHERE show_id=(SELECT id FROM epg_shows WHERE show_key=?)", (tconst, key))
     con.commit()
     return con
 
@@ -33,6 +38,46 @@ def test_review_count_liste_und_suche(cfg):
     assert shows[0]["show_name"] == "Sendung 0"
     assert shows[0]["events"] == 1
     assert shows[0]["samples"][0]["channel"] == "Kabel Eins"
+
+
+def test_review_entries_for_tconst(cfg):
+    con = _review_show(cfg, tconst="tt0086659")
+    entries = review_entries_for_tconst(con, cfg, "tt0086659")
+    assert review_entries_for_tconst(con, cfg, "tt0000000") == []
+    con.close()
+    assert len(entries) == 1
+    assert entries[0]["show_key"] == "sendung 0"
+    assert isinstance(entries[0]["suggestions"], list)
+
+
+def test_work_page_zeigt_review_box(cfg):
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/work/tt0086659").text
+    assert "Zuordnung prüfen" in html
+    assert 'hx-post="api/review/confirm"' in html
+    assert 'hx-post="api/review/reject"' in html
+    assert "review/search?scope=work" in html
+    partial = client.get("/review/search", params={"q": "the", "show_key": "sendung 0",
+                                                   "scope": "work"}).text
+    assert "location.reload()" in partial
+
+
+def test_work_page_kategorie_buttons(cfg):
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/work/tt0086659").text
+    assert "Als Format markieren" in html
+    assert "Als Serie behalten" not in html
+
+    con = connect(cfg)
+    set_mark(con, "tt0086659", "format")
+    con.close()
+
+    html = client.get("/work/tt0086659").text
+    assert "Als Format markieren" not in html
+    assert "Als Serie behalten" in html
+    assert "Markierung entfernen" in html
 
 
 def test_show_key_for(cfg):

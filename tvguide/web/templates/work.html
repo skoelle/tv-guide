@@ -16,14 +16,43 @@
     <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
   </dl>
 </div>
+{% if review_shows %}
+<div class="box" style="margin-top:1rem">
+  <h2>Zuordnung prüfen</h2>
+  <p class="muted">Diese Show ist noch unsicher zugeordnet. Bestätige den Treffer, lehne ihn ab
+    oder wähle einen anderen Titel.</p>
+  {% for r in review_shows %}
+  <div class="review-item" style="margin-top:1rem">
+    {% if review_shows | length > 1 %}<h3>{{ r.show_name }}</h3>{% endif %}
+    {% with show_key=r.show_key, suggestions=r.suggestions, current_tconst=w.tconst,
+            confirm_after="location.reload()", reject_after="location.href='../browse'" %}
+    {% include "_review_form.html" %}
+    {% endwith %}
+    <details>
+      <summary class="btn">🔎 Anderer Titel…</summary>
+      <input type="search" name="q" placeholder="Titel suchen…"
+             hx-get="review/search?scope=work"
+             hx-target="#search-work-{{ r.show_key | replace(':','_') | replace('/','_') }}"
+             hx-trigger="keyup changed delay:400ms" hx-include="this"
+             hx-vals='{"show_key": "{{ r.show_key }}"}'>
+      <div id="search-work-{{ r.show_key | replace(':','_') | replace('/','_') }}"></div>
+    </details>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
 <div class="box" style="margin-top:1rem">
   <h2>Kategorie</h2>
   <p class="muted">Aktuell: {{ category_label(w.category) }}{% if mark %} · manuell: {{ 'Format' if mark == 'format' else 'serie behalten' }}{% endif %}</p>
+  <p class="muted">Kategorie-Markierung – unabhängig von der Zuordnung.</p>
   <p>
+    {% if w.category == 'format' %}
+    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=keep"
+            hx-swap="none" hx-on::after-request="location.reload()">Als {{ 'Film' if w.kind == 'film' else 'Serie' }} behalten</button>
+    {% else %}
     <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=format"
             hx-swap="none" hx-on::after-request="location.reload()">Als Format markieren</button>
-    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=keep"
-            hx-swap="none" hx-on::after-request="location.reload()">Als Serie behalten</button>
+    {% endif %}
     {% if mark %}<button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=none"
             hx-swap="none" hx-on::after-request="location.reload()">Markierung entfernen</button>{% endif %}
   </p>

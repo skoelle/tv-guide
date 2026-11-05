@@ -1,0 +1,25 @@
+{% set has_current = current_tconst and suggestions | selectattr('tconst', 'equalto', current_tconst) | list %}
+<form method="post" action="review/{{ show_key }}/confirm">
+  <input type="hidden" name="show_key" value="{{ show_key }}">
+  {% for c in suggestions %}
+  {% set checked = (c.tconst == current_tconst) if has_current else loop.first %}
+  <label class="box" style="display:block; margin:.3rem 0; padding:.5rem .7rem">
+    <input type="radio" name="tconst" value="{{ c.tconst }}" {{ 'checked' if checked }}>
+    <b>{{ c.title }}</b>
+    <span class="muted">({{ c.year or '?' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}, {{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}{% if c.genres %}, {{ c.genres }}{% endif %})</span>
+    <span class="tag {{ 'bad' if c.status == 'none' else ('ok' if c.status == 'auto' else '') }}">{{ c.conf }}</span>
+    <span class="muted">{{ c.score }}</span>
+  </label>
+  {% else %}
+  <p class="muted">Keine Kandidaten gefunden.</p>
+  {% endfor %}
+  <p>
+    <button class="btn" type="submit" hx-post="api/review/confirm" hx-include="closest form"
+            hx-target="closest .review-item" hx-swap="delete"{% if confirm_after %}
+            hx-on::after-request="if(event.detail.successful) {{ confirm_after }}"{% endif %}>✔ Bestätigen</button>
+    <button class="btn" type="submit" formaction="review/{{ show_key }}/reject" formnovalidate
+            hx-post="api/review/reject" hx-include="closest form"
+            hx-target="closest .review-item" hx-swap="delete"{% if reject_after %}
+            hx-on::after-request="if(event.detail.successful) {{ reject_after }}"{% endif %}>✘ Kein Treffer</button>
+  </p>
+</form>
