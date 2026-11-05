@@ -263,6 +263,20 @@ Anmerkungen:
 - Das Image enthält jetzt `tools/`; das Produktionsimage installiert weiterhin nur `requirements.txt`.
 - Offen (optional): Healthchecks-Ping nach erfolgreichem Lauf.
 
+### M10: Inhaltskategorien (Film/Serie/Format)
+
+- [x] Kategorie aus IMDb-Typ + Genres: `movie/tvMovie` → Film; Serien mit News/Talk-Show/Game-Show/Reality-TV/Documentary/Music/Sport/Short → Format; sonst Serie.
+- [x] Stöbern/Jetzt: Filter „Kategorie" (Film/Serie/Format), Standard Film+Serie; Formate per Chip sichtbar; korrekte Labels.
+- [x] Review zeigt nur Film/Serie (Format-Shows ausgeblendet, Zähler angepasst).
+- [x] Manuelle Markierungen (`content_marks`, Migration 6): „Als Format markieren" im Review, „Als Format markieren"/„Als Serie behalten"/„Markierung entfernen" auf der Werk-Seite.
+- [x] „Letzte Markierung rückgängig" auf der Review-Seite; automatisch als Format erkannte Werke lassen sich so zurückholen.
+- [x] Gespeicherte Suchen um `category` erweitert (Default Film+Serie).
+
+Anmerkungen:
+
+- Der Match-Status bleibt unverändert (`auto/review/...`), die Kategorie ist eine Sicht-/Filter-Dimension; Golden-Test und Prototyp-Zahlen bleiben gültig.
+- Restfälle ohne IMDb-Genres bleiben „Serie" und können weiterhin per „Kein Treffer" oder manueller Markierung behandelt werden.
+
 ## 5. Tests
 
 - Unit: Normalisierung, Titelbereinigung, Kandidatenbildung, Bewertung.

@@ -17,6 +17,8 @@ from .config import Config
 LIST_KEYS = ("type", "genre")
 VALID_TYPES = {"film", "serie"}
 VALID_STATUS = {"sicher", "unsicher"}
+VALID_CATEGORIES = {"film", "serie", "format"}
+FILTER_KEYS = {"type", "category", "decade", "group", "genre", "retro", "q"}
 
 
 def _now() -> str:
@@ -38,7 +40,7 @@ def normalize_filter(data, cfg: Config) -> dict:
     data = data or {}
     if not isinstance(data, dict):
         raise ValueError("Filter muss ein Objekt sein")
-    unknown = set(data) - {"type", "decade", "group", "genre", "retro", "q"}
+    unknown = set(data) - FILTER_KEYS
     if unknown:
         raise ValueError(f"unbekannte Filterfelder: {', '.join(sorted(unknown))}")
 
@@ -47,6 +49,12 @@ def normalize_filter(data, cfg: Config) -> dict:
         bad = set(types) - VALID_TYPES
         if bad:
             raise ValueError(f"unbekannter Typ: {', '.join(sorted(bad))}")
+
+    categories = _as_list(data.get("category"))
+    if categories:
+        bad = set(categories) - VALID_CATEGORIES
+        if bad:
+            raise ValueError(f"unbekannte Kategorie: {', '.join(sorted(bad))}")
 
     decades = None
     if data.get("decade"):
@@ -64,6 +72,7 @@ def normalize_filter(data, cfg: Config) -> dict:
 
     return {
         "type": sorted(types) if types else None,
+        "category": sorted(categories) if categories else None,
         "decade": decades,
         "group": group,
         "genre": sorted(_as_list(data.get("genre"))) if data.get("genre") else None,
@@ -77,6 +86,7 @@ def effective_filters(filter_json: dict, include_review: bool) -> dict:
     status = {"sicher", "unsicher"} if include_review else {"sicher"}
     return {
         "type": set(filter_json["type"]) if filter_json.get("type") else None,
+        "category": set(filter_json["category"]) if filter_json.get("category") else {"film", "serie"},
         "decade": set(filter_json["decade"]) if filter_json.get("decade") else None,
         "group": filter_json.get("group"),
         "genre": set(filter_json["genre"]) if filter_json.get("genre") else None,
@@ -91,6 +101,8 @@ def effective_filters(filter_json: dict, include_review: bool) -> dict:
 def filter_to_query(filter_json: dict) -> str:
     """Query-String fuer /browse, passend zur Filteransicht."""
     parts: list[str] = []
+    if filter_json.get("category") and set(filter_json["category"]) != {"film", "serie"}:
+        parts.append("category=" + ",".join(sorted(filter_json["category"])))
     if filter_json.get("type"):
         parts.append("type=" + ",".join(sorted(filter_json["type"])))
     if filter_json.get("decade"):
@@ -109,6 +121,9 @@ def filter_to_query(filter_json: dict) -> str:
 def describe(filter_json: dict, include_review: bool) -> str:
     """Kurzbeschreibung fuer die Uebersicht."""
     bits = []
+    if filter_json.get("category"):
+        names = {"film": "Film", "serie": "Serie", "format": "Format"}
+        bits.append("+".join(names.get(c, c) for c in filter_json["category"]))
     if filter_json.get("type"):
         bits.append("+".join("Film" if t == "film" else "Serie" for t in filter_json["type"]))
     if filter_json.get("decade"):

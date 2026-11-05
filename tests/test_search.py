@@ -23,13 +23,16 @@ def _confirmed(cfg):
 
 
 def test_normalize_filter_validiert(cfg):
-    assert normalize_filter({"type": "film,serie", "decade": "1980,1990", "retro": "1"}, cfg) == {
-        "type": ["film", "serie"], "decade": [1980, 1990], "group": None, "genre": None,
-        "retro": True, "q": ""}
+    assert normalize_filter({"type": "film,serie", "category": "format", "decade": "1980,1990",
+                             "retro": "1"}, cfg) == {
+        "type": ["film", "serie"], "category": ["format"], "decade": [1980, 1990],
+        "group": None, "genre": None, "retro": True, "q": ""}
     with pytest.raises(ValueError):
         normalize_filter({"unbekannt": 1}, cfg)
     with pytest.raises(ValueError):
         normalize_filter({"type": "buch"}, cfg)
+    with pytest.raises(ValueError):
+        normalize_filter({"category": "doku"}, cfg)
     with pytest.raises(ValueError):
         normalize_filter({"group": "gibts-nicht"}, cfg)
 

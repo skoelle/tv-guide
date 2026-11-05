@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge, kind_de with context %}
+{% from "_macros.html" import badge with context %}
 {% block title %}Jetzt · TV-Guide{% endblock %}
 {% block content %}
 {% set base = '/' %}
@@ -24,7 +24,7 @@
           <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a>
             {% if x.airing.sub_title %}<br><span class="muted">{{ x.airing.sub_title }}</span>{% endif %}</td>
           <td>{{ x.work.year or '–' }}</td>
-          <td>{{ kind_de(x.work.kind) }}</td>
+          <td>{{ category_label(x.work.category) }}</td>
           <td>{{ badge(x.work.status) }}</td>
         </tr>
         {% endfor %}
@@ -43,7 +43,7 @@
           <td>{{ x.airing.start_ts | ts('%H:%M') }}</td>
           <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a></td>
           <td>{{ x.work.year or '–' }}</td>
-          <td>{{ kind_de(x.work.kind) }}</td>
+          <td>{{ category_label(x.work.category) }}</td>
           <td class="muted">{{ x.work.genres_de | join(', ') }}</td>
         </tr>
         {% endfor %}

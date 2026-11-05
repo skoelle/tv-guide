@@ -17,11 +17,13 @@ from zoneinfo import ZoneInfo
 from .. import __version__
 from ..browse import (annotate_next, apply_filters, catalog_facets, evening_airings, find_work,
                       genre_de, load_catalog, parse_filters, running_airings, sort_works)
+from ..categories import label as category_label
+from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
 from ..db import Db, connect
 from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
-from ..review import apply_override, list_review, review_count, show_key_for, undo_last
+from ..review import (apply_override, list_review, mark_as_format, review_count, show_key_for, undo_last)
 from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
@@ -46,6 +48,8 @@ class SearchUpdate(BaseModel):
 def _qs(f: dict) -> str:
     """Filter als Query-String (nur Abweichungen vom Standard)."""
     parts: list[str] = []
+    if f.get("category") and f["category"] != {"film", "serie"}:
+        parts.append("category=" + ",".join(sorted(f["category"])))
     if f["type"]:
         parts.append("type=" + ",".join(sorted(f["type"])))
     if f["decade"]:
@@ -69,10 +73,11 @@ def _qs(f: dict) -> str:
 
 def _toggle(f: dict, key: str, value=None) -> dict:
     new = {**f, "page": 1, "type": None if f["type"] is None else set(f["type"]),
+           "category": None if f.get("category") is None else set(f["category"]),
            "decade": None if f["decade"] is None else set(f["decade"]),
            "status": None if f["status"] is None else set(f["status"]),
            "genre": None if f["genre"] is None else set(f["genre"])}
-    if key in ("type", "decade", "genre", "status"):
+    if key in ("type", "category", "decade", "genre", "status"):
         cur = set(new[key] or set())
         if value in cur:
             cur.discard(value)
@@ -118,6 +123,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     templates.env.filters["size"] = fmt_size
     templates.env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, cfg.timezone, fmt)
     templates.env.globals["genre_de"] = genre_de
+    templates.env.globals["category_label"] = category_label
     templates.env.globals["decade_label"] = lambda d: f"{d}er" if d >= 2000 else f"{str(d)[2:]}er"
     templates.env.globals["with_sort"] = lambda f, v: {**f, "sort": v}
     templates.env.globals["with_page"] = lambda f, p: {**f, "page": p}
@@ -130,7 +136,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             con.close()
 
     def _nav(con, active: str) -> dict:
-        review = con.execute("SELECT count(*) FROM show_match WHERE status = 'review'").fetchone()[0]
+        review = review_count(con)
         searches = con.execute("SELECT count(*) FROM saved_searches").fetchone()[0]
         return {"active": active, "review": review, "searches": searches}
 
@@ -187,7 +193,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                 groups.append({"label": label, "airings": []})
             groups[-1]["airings"].append(a)
         ctx = _base(request, con, "")
-        ctx.update({"w": w, "groups": groups})
+        ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst)})
         return templates.TemplateResponse(request, "work.html", ctx)
 
     @app.get("/api/now")
@@ -208,7 +214,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         works = sort_works(apply_filters(load_catalog(con, cfg), f, cfg), f, at)
         return {"total": len(works),
                 "works": [{k: w[k] for k in ("tconst", "title", "year", "end_year", "type", "kind",
-                                             "genres", "rating", "votes", "status", "retro")}
+                                             "category", "genres", "rating", "votes", "status", "retro")}
                           | {"count": len(w["airings"])} for w in works]}
 
     @app.get("/api/works/{tconst}")
@@ -227,8 +233,30 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         page = min(max(1, int(raw) if raw.isdigit() else 1), pages)
         shows = list_review(con, cfg, limit=per_page, offset=(page - 1) * per_page)
         ctx = _base(request, con, "review")
-        ctx.update({"shows": shows, "total": total, "page": page, "pages": pages})
+        ctx.update({"shows": shows, "total": total, "page": page, "pages": pages,
+                    "marks": recent_marks(con)})
         return templates.TemplateResponse(request, "review.html", ctx)
+
+    @app.post("/api/review/format")
+    def api_mark_format(show_key: str, con: Db = Depends(get_db)):
+        tconst = mark_as_format(con, show_key)
+        if tconst is None:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        return {"ok": True, "tconst": tconst}
+
+    @app.post("/api/marks/undo")
+    def api_marks_undo(con: Db = Depends(get_db)):
+        return {"removed": undo_last_mark(con)}
+
+    @app.post("/api/works/{tconst}/mark")
+    def api_work_mark(tconst: str, mark: str, con: Db = Depends(get_db)):
+        if mark == "none":
+            delete_mark(con, tconst)
+        elif mark in ("format", "keep"):
+            set_mark(con, tconst, mark)
+        else:
+            return JSONResponse({"ok": False, "error": "invalid mark"}, status_code=400)
+        return {"ok": True, "tconst": tconst, "mark": mark}
 
     @app.post("/review/{show_key}/confirm")
     def review_confirm(show_key: str, tconst: str = Form(...), con: Db = Depends(get_db)):
@@ -281,12 +309,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return templates.TemplateResponse(request, "searches.html", ctx)
 
     @app.post("/searches")
-    def searches_create(name: str = Form(""), type: str = Form(""), decade: str = Form(""),
-                        genre: str = Form(""), q: str = Form(""), group: str = Form(""),
-                        retro: str = Form(""), include_review: str = Form(None), notify: str = Form(None),
+    def searches_create(name: str = Form(""), category: str = Form(""), type: str = Form(""),
+                        decade: str = Form(""), genre: str = Form(""), q: str = Form(""),
+                        group: str = Form(""), retro: str = Form(""),
+                        include_review: str = Form(None), notify: str = Form(None),
                         con: Db = Depends(get_db)):
-        filt = {"type": type, "decade": decade, "genre": genre, "q": q, "group": group or None,
-                "retro": retro in ("1", "on", "true")}
+        filt = {"type": type, "category": category, "decade": decade, "genre": genre, "q": q,
+                "group": group or None, "retro": retro in ("1", "on", "true")}
         try:
             create_search(con, cfg, name, filt, include_review=include_review is not None,
                           notify=notify is not None)

@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, matches,
                             next_ts, parse_filters, running_airings, sort_works)
+from tvguide.categories import category as content_category
 
 AT = 1793538000  # 2026-11-01 13:00 UTC / 14:00 Berlin
 
@@ -13,10 +14,11 @@ def _airing(channel, start, dur=3600):
 
 
 def _w(tconst="tt1", title="Werk", year=1985, type_="movie", status="auto", genres=("Action",),
-       retro="film", airings=()):
+       retro="film", airings=(), category=None):
     kind = "film" if type_ in ("movie", "tvMovie") else "serie"
+    cat = category or content_category(type_, ",".join(genres))
     return {"tconst": tconst, "title": title, "year": year, "end_year": None, "type": type_, "kind": kind,
-            "genres": list(genres), "genres_de": [genre_de(g) for g in genres],
+            "category": cat, "genres": list(genres), "genres_de": [genre_de(g) for g in genres],
             "genres_raw": ",".join(genres), "rating": 7.0, "votes": 100, "status": status,
             "retro": retro, "airings": list(airings)}
 
@@ -24,7 +26,30 @@ def _w(tconst="tt1", title="Werk", year=1985, type_="movie", status="auto", genr
 def test_parse_filters_standard():
     f = parse_filters({})
     assert f["status"] == {"sicher", "unsicher"}
+    assert f["category"] == {"film", "serie"}
     assert f["sort"] == "termin" and f["page"] == 1 and f["retro"] is False
+
+
+def test_kategorie_filter_und_facetten(cfg):
+    f = parse_filters({})
+    film = _w(type_="movie")
+    serie = _w(type_="tvSeries", genres=("Drama",))
+    fmt = _w(type_="tvSeries", genres=("Documentary",))
+    assert film["category"] == "film" and serie["category"] == "serie" and fmt["category"] == "format"
+    assert matches(film, f, cfg) and matches(serie, f, cfg)
+    assert not matches(fmt, f, cfg)
+    assert matches(fmt, {**f, "category": {"format"}}, cfg)
+    fac = catalog_facets([film, serie, fmt], f, cfg)
+    assert fac["category"] == {"film": 1, "serie": 1, "format": 1}
+
+
+def test_keep_mark_holt_format_zurueck(cfg):
+    from tvguide.categories import category
+    fmt = _w(type_="tvSeries", genres=("Documentary",))
+    kept = _w(type_="tvSeries", genres=("Documentary",), category=category("tvSeries", "Documentary", "keep"))
+    f = parse_filters({})
+    assert not matches(fmt, f, cfg)
+    assert matches(kept, f, cfg)
 
 
 def test_parse_filters_werte():

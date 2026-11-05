@@ -10,7 +10,9 @@ from collections import Counter
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from .categories import category as content_category
 from .config import Config
+from .marks import get_marks
 from .matching import MOVIE_TYPES, retro_class
 
 GENRES_DE = {
@@ -56,7 +58,12 @@ def _signature(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]):
         return p.stat().st_mtime_ns if p.exists() else None
     sm = con.execute("SELECT max(updated_at), count(*) FROM show_match").fetchone()
     ev = con.execute("SELECT count(*) FROM event_show").fetchone()[0]
-    return (statuses, sm[0], sm[1], ev, mt(cfg.epg_db), mt(cfg.imdb_db), mt(cfg.app_db))
+    try:
+        marks = con.execute("SELECT max(id), count(*) FROM content_marks").fetchone()
+    except sqlite3.Error:
+        marks = (None, 0)
+    return (statuses, sm[0], sm[1], ev, marks[0], marks[1],
+            mt(cfg.epg_db), mt(cfg.imdb_db), mt(cfg.app_db))
 
 
 def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...] = ("auto", "confirmed", "review")) -> list[dict]:
@@ -66,6 +73,7 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
         return _CACHE["works"]
     placeholders = ",".join("?" * len(statuses))
     rows = con.execute(_CATALOG_SQL % placeholders, statuses).fetchall()
+    marks = get_marks(con)
     works: dict[str, dict] = {}
     for r in rows:
         tc = r["tconst"]
@@ -77,7 +85,9 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
                 "year": r["start_year"], "end_year": r["end_year"], "type": r["title_type"],
                 "kind": _kind(r["title_type"]), "genres": genres, "genres_de": [genre_de(g) for g in genres],
                 "genres_raw": r["genres"] or "", "rating": r["avg_rating"], "votes": r["num_votes"],
-                "status": r["status"], "airings": [],
+                "status": r["status"],
+                "category": content_category(r["title_type"], r["genres"], marks.get(tc)),
+                "airings": [],
                 "retro": retro_class({"start_year": r["start_year"], "end_year": r["end_year"],
                                       "title_type": r["title_type"], "genres": r["genres"] or ""}, cfg),
             }
@@ -109,8 +119,12 @@ def parse_filters(params) -> dict:
     status = lst("status")
     if status is None:
         status = {"sicher", "unsicher"}
+    cat = lst("category")
+    if cat is None:
+        cat = {"film", "serie"}
     return {
         "type": lst("type"),
+        "category": cat,
         "decade": {int(d) for d in lst("decade")} if params.get("decade") else None,
         "group": params.get("group") or None,
         "genre": lst("genre"),
@@ -123,6 +137,8 @@ def parse_filters(params) -> dict:
 
 
 def matches(w: dict, f: dict, cfg: Config) -> bool:
+    if f.get("category") and w.get("category", "serie") not in f["category"]:
+        return False
     if f["type"] and w["kind"] not in f["type"]:
         return False
     if f["decade"] and (w["year"] is None or (w["year"] // 10 * 10) not in f["decade"]):
@@ -174,6 +190,7 @@ def catalog_facets(works: list[dict], f: dict, cfg: Config) -> dict:
     decades = sorted({w["year"] // 10 * 10 for w in works if w["year"]})
     genres = sorted({g for w in works for g in w["genres"]})
     return {
+        "category": {v: count({"category": {v}}) for v in ("film", "serie", "format")},
         "type": {v: count({"type": {v}}) for v in ("film", "serie")},
         "decade": {d: count({"decade": {d}}) for d in decades},
         "genre": {g: count({"genre": {g}}) for g in genres},

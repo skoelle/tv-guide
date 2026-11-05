@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from . import __version__
 from .config import Config
 from .db import Db
+from .review import review_count
 
 
 def _one(con: sqlite3.Connection, sql: str, params: tuple = ()):
@@ -71,7 +72,7 @@ def collect(con: Db, cfg: Config) -> dict:
         "matches": by_status,
         "overrides": _one(con, "SELECT count(*) FROM overrides"),
         "searches": _one(con, "SELECT count(*) FROM saved_searches"),
-        "review_open": by_status.get("review", 0),
+        "review_open": review_count(con),
     }
 
     return {

@@ -8,7 +8,9 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime, timezone
 
+from .categories import category as content_category
 from .config import Config
+from .marks import FORMAT, get_marks, set_mark
 from .matching import load_shows, suggestions
 
 
@@ -16,8 +18,42 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _review_rows(con: sqlite3.Connection) -> list:
+    try:
+        rows = con.execute(
+            """SELECT s.id, s.show_key, s.show_name, count(es.channel_id) AS n,
+                      sm.tconst, t.title_type, t.genres
+               FROM show_match sm JOIN epg_shows s ON s.id = sm.show_id
+               LEFT JOIN imdb.titles t ON t.tconst = sm.tconst
+               LEFT JOIN event_show es ON es.show_id = s.id
+               WHERE sm.status = 'review'
+               GROUP BY s.id ORDER BY n DESC, s.show_name""").fetchall()
+    except sqlite3.Error:
+        # imdb.db fehlt: ohne Genres bewerten (bleibt als "serie" sichtbar)
+        rows = con.execute(
+            """SELECT s.id, s.show_key, s.show_name, count(es.channel_id) AS n,
+                      sm.tconst, NULL AS title_type, NULL AS genres
+               FROM show_match sm JOIN epg_shows s ON s.id = sm.show_id
+               LEFT JOIN event_show es ON es.show_id = s.id
+               WHERE sm.status = 'review'
+               GROUP BY s.id ORDER BY n DESC, s.show_name""").fetchall()
+    marks = get_marks(con)
+    return [r for r in rows
+            if content_category(r["title_type"], r["genres"], marks.get(r["tconst"])) != "format"]
+
+
 def review_count(con: sqlite3.Connection) -> int:
-    return con.execute("SELECT count(*) FROM show_match WHERE status = 'review'").fetchone()[0]
+    return len(_review_rows(con))
+
+
+def mark_as_format(con: sqlite3.Connection, show_key: str) -> str | None:
+    row = con.execute(
+        """SELECT sm.tconst FROM show_match sm JOIN epg_shows s ON s.id = sm.show_id
+           WHERE s.show_key = ?""", (show_key,)).fetchone()
+    if row is None or not row[0]:
+        return None
+    set_mark(con, row[0], FORMAT)
+    return row[0]
 
 
 def show_key_for(con: sqlite3.Connection, ident: str) -> str | None:
@@ -40,12 +76,7 @@ def _samples(con: sqlite3.Connection, show_id: int, limit: int = 3) -> list[dict
 
 
 def list_review(con: sqlite3.Connection, cfg: Config, limit: int = 25, offset: int = 0) -> list[dict]:
-    rows = con.execute(
-        """SELECT s.id, s.show_key, s.show_name, count(es.channel_id) AS n
-           FROM show_match sm JOIN epg_shows s ON s.id = sm.show_id
-           LEFT JOIN event_show es ON es.show_id = s.id
-           WHERE sm.status = 'review'
-           GROUP BY s.id ORDER BY n DESC, s.show_name LIMIT ? OFFSET ?""", (limit, offset)).fetchall()
+    rows = _review_rows(con)[offset:offset + limit]
     shows = load_shows(con, cfg)[0]
     out = []
     for r in rows:

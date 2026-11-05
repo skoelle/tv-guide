@@ -24,7 +24,7 @@
     <summary>
       <span class="poster">kein<br>Poster</span>
       <span class="card-main">
-        <b>{{ w.title }}</b> <span class="muted">({{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %} · {{ 'Film' if w.kind == 'film' else 'Serie' }})</span><br>
+        <b>{{ w.title }}</b> <span class="muted">({{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %} · {{ category_label(w.category) }})</span><br>
         <span class="muted">{{ w.genres_de | join(', ') }}</span> {{ badge(w.status) }}
         {% if w.next %}<br><span class="chip">{% if w.next.start_ts >= at %}ab {{ w.next.start_ts | ts('%a %d.%m. %H:%M') }}{% else %}zuletzt {{ w.next.start_ts | ts('%d.%m. %H:%M') }}{% endif %} · {{ w.next.channel }}{% if w.upcoming > 1 %} · +{{ w.upcoming - 1 }} weitere{% else %} · nur 1 Termin{% endif %}</span>{% endif %}
       </span>

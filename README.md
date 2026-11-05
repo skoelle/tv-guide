@@ -3,7 +3,7 @@
 [![build](https://github.com/skoelle/tv-guide/actions/workflows/build.yml/badge.svg)](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)
 
 Browse the TVHeadend EPG, find movies and series (80s and 90s), and keep saved searches with email notifications.
-Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M9.
+Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M10.
 
 ## Requirements
 
@@ -52,6 +52,18 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
 | `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/status` | JSON |
+
+## Content categories
+
+Every work is classified as **Film**, **Serie** or **Format**:
+
+- **Film** – IMDb type `movie` / `tvMovie`
+- **Format** – series with genres News, Talk-Show, Game-Show, Reality-TV, Documentary, Music, Sport or Short (magazines, news, quiz shows, documentaries)
+- **Serie** – everything else
+
+Browse and Now show **Film + Serie** by default; the **Format** chip reveals the rest. Review only lists Film and Serie, so magazines, game shows and news formats no longer appear there.
+
+Manual control: on a work page you can mark it as **Format** or **keep it as a series** (this pulls an automatically detected format back). The last manual mark can be undone on the Review page. Marks are stored per IMDb title in `content_marks` and take precedence over the automatic genre classification.
 
 ## Email (since M7)
 
@@ -163,10 +175,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/` and `config.toml` are listed in `.gitignore`.
 - IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
 
-## Manual acceptance M0–M9
+## Manual acceptance M0–M10
 
 - [ ] `./scripts/check_env.sh` shows no `[FAIL]` line.
-- [ ] `./run.sh initdb` reports schema version 5.
+- [ ] `./run.sh initdb` reports schema version 6.
 - [ ] `./run.sh status` shows 195 channels, 49,669 airings and 1,285,899 IMDb titles.
 - [ ] `http://xubuntu-dev:8085/status` shows the same numbers in the browser (also from the notebook).
 - [ ] `./run.sh match` reports auto 1,425 / review 631 / none 1,556 (runtime under 2 minutes).
@@ -175,6 +187,9 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] `http://xubuntu-dev:8085/` shows The A-Team, MacGyver and the Olsen Gang movies under "Stöbern" with year and airings.
 - [ ] Filters (type, decade, channel group, genre, match status, retro) and sorting work; "Läuft gerade" matches the current time.
 - [ ] Pages load well under one second (the catalog is cached per process).
+- [ ] Browse/Now hide formats by default; the "Format" chip shows them with the correct label.
+- [ ] Review only lists Film/Serie (magazines, news, quiz shows are gone).
+- [ ] On a work page, "Als Format markieren" hides it and "Als Serie behalten" brings it back; the last mark can be undone on Review.
 - [ ] Under "Review", a suggestion can be confirmed; the show then counts as "sicher" in Now/Browse and survives a refresh.
 - [ ] "Letzte Entscheidung rückgängig" restores the previous state.
 - [ ] A saved search "Serien der 80er und 90er" returns the same hits as the filter view; after "Treffer jetzt aktualisieren", "new" increases once.

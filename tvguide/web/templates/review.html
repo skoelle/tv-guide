@@ -5,20 +5,38 @@
 <p class="muted">{{ total }} offene Zuordnungen{% if pages > 1 %} · Seite {{ page }}/{{ pages }}{% endif %}.
   Entscheidungen werden zu Overrides und gelten für alle Termine der Show.</p>
 
-<form method="post" action="/review/undo" style="margin-bottom:1rem">
+<form method="post" action="review/undo" style="margin-bottom:1rem">
   <button class="btn" type="submit">↩︎ Letzte Entscheidung rückgängig</button>
 </form>
+
+{% if marks %}
+<div class="box" style="margin-bottom:1rem">
+  <h2>Manuelle Format-Markierungen</h2>
+  <table>
+    <tr><th>Titel</th><th>Markierung</th><th>Seit</th></tr>
+    {% for m in marks %}
+    <tr>
+      <td>{{ m.primary_title or m.tconst }} <span class="muted">({{ m.start_year or '?' }})</span></td>
+      <td>{{ 'Format' if m.mark == 'format' else 'behalten' }}</td>
+      <td class="muted">{{ m.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button class="btn" type="button" hx-post="api/marks/undo" hx-swap="none"
+          hx-on::after-request="location.reload()">Letzte Markierung rückgängig</button>
+</div>
+{% endif %}
 
 {% if not shows %}<p class="muted">Nichts zu prüfen. 🎉</p>{% endif %}
 
 {% for s in shows %}
-<div class="box" style="margin-bottom:1rem">
+<div class="box review-item" style="margin-bottom:1rem">
   <h2 style="margin-bottom:.2rem">{{ s.show_name }}</h2>
   <p class="muted">
     {% for a in s.samples %}{{ a.channel }}, {{ a.start_ts | ts }}–{{ a.stop_ts | ts('%H:%M') }}{% if a.sub_title %} „{{ a.sub_title }}"{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
     {% if s.events > s.samples | length %} · … {{ s.events }} Termine insgesamt{% endif %}
   </p>
-  <form method="post" action="/review/{{ s.show_key }}/confirm">
+  <form method="post" action="review/{{ s.show_key }}/confirm">
     {% for c in s.suggestions %}
     <label class="box" style="display:block; margin:.3rem 0; padding:.5rem .7rem">
       <input type="radio" name="tconst" value="{{ c.tconst }}" {{ 'checked' if loop.first }}>
@@ -32,14 +50,17 @@
     {% endfor %}
     <p>
       <button class="btn" type="submit">✔ Bestätigen</button>
-      <button class="btn" type="submit" formaction="/review/{{ s.show_key }}/reject" formnovalidate>✘ Kein Treffer</button>
+      <button class="btn" type="submit" formaction="review/{{ s.show_key }}/reject" formnovalidate>✘ Kein Treffer</button>
     </p>
   </form>
+  <button class="btn" type="button"
+          hx-post="api/review/format?show_key={{ s.show_key | urlencode }}"
+          hx-target="closest .review-item" hx-swap="delete">Als Format markieren</button>
 
   <details>
     <summary class="btn">🔎 Anderer Titel…</summary>
     <input type="search" name="q" placeholder="Titel suchen…"
-           hx-get="/review/search" hx-target="#search-{{ s.show_key | replace(':','_') | replace('/','_') }}"
+           hx-get="review/search" hx-target="#search-{{ s.show_key | replace(':','_') | replace('/','_') }}"
            hx-trigger="keyup changed delay:400ms" hx-include="this" hx-vals='{"show_key": "{{ s.show_key }}"}'>
     <div id="search-{{ s.show_key | replace(':','_') | replace('/','_') }}"></div>
   </details>
@@ -48,9 +69,9 @@
 
 {% if pages > 1 %}
 <div class="pager">
-  {% if page > 1 %}<a class="btn" href="/review?page={{ page - 1 }}">← Zurück</a>{% endif %}
+  {% if page > 1 %}<a class="btn" href="?page={{ page - 1 }}">← Zurück</a>{% endif %}
   <span class="muted">Seite {{ page }} von {{ pages }}</span>
-  {% if page < pages %}<a class="btn" href="/review?page={{ page + 1 }}">Weiter →</a>{% endif %}
+  {% if page < pages %}<a class="btn" href="?page={{ page + 1 }}">Weiter →</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

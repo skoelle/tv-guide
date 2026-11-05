@@ -4,7 +4,7 @@
 {% block content %}
 <h1>{{ w.title }}</h1>
 <p>
-  <span class="muted">{{ 'Film' if w.kind == 'film' else 'Serie' }} ·
+  <span class="muted">{{ category_label(w.category) }} ·
   {{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %}</span>
   {{ badge(w.status) }}
 </p>
@@ -15,6 +15,18 @@
     <dt>IMDb</dt><dd><a href="https://www.imdb.com/title/{{ w.tconst }}/">{{ w.tconst }}</a></dd>
     <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
   </dl>
+</div>
+<div class="box" style="margin-top:1rem">
+  <h2>Kategorie</h2>
+  <p class="muted">Aktuell: {{ category_label(w.category) }}{% if mark %} · manuell: {{ 'Format' if mark == 'format' else 'serie behalten' }}{% endif %}</p>
+  <p>
+    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=format"
+            hx-swap="none" hx-on::after-request="location.reload()">Als Format markieren</button>
+    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=keep"
+            hx-swap="none" hx-on::after-request="location.reload()">Als Serie behalten</button>
+    {% if mark %}<button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=none"
+            hx-swap="none" hx-on::after-request="location.reload()">Markierung entfernen</button>{% endif %}
+  </p>
 </div>
 {% for g in groups %}
 <h2>{{ g.label }}</h2>
@@ -29,5 +41,5 @@
   {% endfor %}
 </table>
 {% endfor %}
-<p class="muted"><a href="/browse">← zurück zum Stöbern</a></p>
+<p class="muted"><a href="../browse">← zurück zum Stöbern</a></p>
 {% endblock %}

@@ -8,7 +8,7 @@
     <td>{{ c.year or '–' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}</td>
     <td>{{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}</td>
     <td>
-      <form method="post" action="/review/{{ show_key }}/confirm">
+      <form method="post" action="review/{{ show_key }}/confirm">
         <input type="hidden" name="tconst" value="{{ c.tconst }}">
         <button class="btn" type="submit">wählen</button>
       </form>

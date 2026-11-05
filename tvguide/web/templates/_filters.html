@@ -1,7 +1,8 @@
 {% from "_macros.html" import tchip with context %}
-<div class="fgroup"><span class="small">Typ</span>
-  {{ tchip(f, base, 'type', 'film', 'Film', facets.type.get('film'), f.type and 'film' in f.type) }}
-  {{ tchip(f, base, 'type', 'serie', 'Serie', facets.type.get('serie'), f.type and 'serie' in f.type) }}
+<div class="fgroup"><span class="small">Kategorie</span>
+  {{ tchip(f, base, 'category', 'film', 'Film', facets.category.get('film'), f.category and 'film' in f.category) }}
+  {{ tchip(f, base, 'category', 'serie', 'Serie', facets.category.get('serie'), f.category and 'serie' in f.category) }}
+  {{ tchip(f, base, 'category', 'format', 'Format', facets.category.get('format'), f.category and 'format' in f.category) }}
 </div>
 <div class="fgroup"><span class="small">Dekade</span>
   {% for d in facets.decade %}

@@ -97,6 +97,15 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX idx_jobs_status ON jobs(status);
     """,
+    # Version 6: manuelle Inhaltskategorien (Format markieren / behalten)
+    """
+    CREATE TABLE content_marks (
+        id         INTEGER PRIMARY KEY,
+        tconst     TEXT NOT NULL UNIQUE,
+        mark       TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+    """,
 ]
 
 

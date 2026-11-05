@@ -1,6 +1,7 @@
 <details class="savesearch">
   <summary class="btn">💾 Als Suche speichern</summary>
   <form method="post" action="/searches">
+    <input type="hidden" name="category" value="{{ (f.category or []) | join(',') }}">
     <input type="hidden" name="type" value="{{ (f.type or []) | join(',') }}">
     <input type="hidden" name="decade" value="{{ (f.decade or []) | join(',') }}">
     <input type="hidden" name="genre" value="{{ (f.genre or []) | join(',') }}">
