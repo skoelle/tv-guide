@@ -1,378 +1,357 @@
 # SPEC: TV-Guide (Arbeitstitel `tv-guide`)
 
-Status: Entwurf v0.2, 2026-11-05
-Änderungen gegenüber v0.1: Benachrichtigung per E-Mail statt Telegram, Entwicklung auf `xubuntu-dev`, Paketname `tvguide`, Matching-Regeln und Schwellen nach den Testläufen (v2.1) präzisiert, Retro-Klassen definiert, offene Fragen aktualisiert.
+Status: v1.0 „as built“, 2026-11-05. Beschreibt den tatsächlich umgesetzten Stand
+(M0–M10). Abweichungen von früheren Entwürfen sind unten direkt eingearbeitet.
 
 ## 1. Ziel
 
-Ein privater Dienst im Heimnetz, der das TVHeadend-EPG einliest, jede Sendung einem bekannten Film oder einer Serie zuordnet (inklusive Produktionsjahr, Laufzeit der Serie, Genre, Bewertung) und das Programm durchstöberbar macht. Schwerpunkt: alte Spielfilme und alte Serien (80er und 90er), die gerade oder demnächst laufen. Dazu gespeicherte Suchen mit E-Mail-Benachrichtigung.
+Ein privater Dienst im Heimnetz, der das TVHeadend-EPG einliest, jede Sendung einem
+bekannten Film oder einer Serie zuordnet (inklusive Produktionsjahr, Laufzeit der Serie,
+Genre, Bewertung) und das Programm durchstöberbar macht. Schwerpunkt: alte Spielfilme
+und alte Serien (80er und 90er), die gerade oder demnächst laufen. Dazu gespeicherte
+Suchen mit E-Mail-Benachrichtigung.
 
 ### 1.1 Nicht-Ziele
 
 - Keine Aufnahmesteuerung (kein DVR-Zugriff, keine Timer).
-- Kein öffentlicher Zugriff, keine Mehrbenutzerverwaltung.
+- Kein öffentlicher Zugriff, keine Mehrbenutzerverwaltung. Ein Login gibt es nicht;
+  im Heimnetz steht optional ein Reverse Proxy mit Authentifizierung (z. B. Authelia) davor.
 - Kein Scraping von IMDb oder anderen Webseiten.
 - Keine kommerzielle Nutzung (IMDb-Datasets sind nur für persönliche, nicht kommerzielle Nutzung).
-- Kein Dauerbetrieb auf iMac oder Chromebook. Entwicklung und Test laufen auf `xubuntu-dev`, der Produktivbetrieb später als Docker-Container auf der Synology DS918+ oder dem Docker-Host "Debian".
+- `xubuntu-dev` ist reine Entwicklungs-/Testumgebung mit lokalem Python; dort läuft kein Container.
 
 ### 1.2 Leitprinzipien
 
-- Download und Datenaufbereitung (EPG, IMDb) sind getrennte Offline-Werkzeuge. Die App liest nur fertige SQLite-Dateien.
-- Nutzerzustand (Zuordnungen, Korrekturen, gespeicherte Suchen) liegt nie in den austauschbaren Daten-DBs.
+- Die App liest `epg.db` und `imdb.db` nur lesend und hält Nutzerzustand ausschließlich in `app.db`.
+- EPG-Import und IMDb-Build sind eigenständige Werkzeuge (nur Standardbibliothek). Sie können
+  auf der Synology laufen (per rsync angebunden) **oder** im App-Container (Scheduler/Buttons,
+  Migration M9). Die Werkzeuge selbst bleiben unverändert.
 - Lieber eine unsichere Zuordnung zur Prüfung vorlegen als stillschweigend falsch zuordnen.
-- Werkzeuge nutzen nur die Python-Standardbibliothek. Die App nutzt wenige, gut gepflegte Pakete.
+- Nicht-fiktionale Formate (Doku, Magazin, News/Talk, Quiz/Reality, Musik/Sport) werden als
+  eigene Kategorie „Format“ geführt und nicht als Serie oder im Review angezeigt.
+- Wenige, gut gepflegte Pakete; ein schlankes Produktionsimage und ein deterministischer CI-Lauf.
 
 ## 2. Architektur
 
 ```
- Synology (nahe an TVHeadend)                    xubuntu-dev (Entwicklung/Test)
- ----------------------------                    ------------------------------
- tools/epg_import.py   --> epg.db   --rsync-->   ~/Code/tv-guide/data/epg.db   (read-only für App)
- tools/imdb_build.py   --> imdb.db  --rsync-->   ~/Code/tv-guide/data/imdb.db  (read-only für App)
- TVHeadend :9981 <-- epg_import.py               tvguide (FastAPI)  --> data/app.db (Lesen/Schreiben)
-                                                 E-Mail über SMTP-Server
-```
+Zielhost (Synology oder Docker-Host "Debian")
+  Container tvguide
+    - FastAPI/uvicorn (Port 8085)
+    - In-App-Scheduler (Daemon-Thread)
+    - Jobs: tools/epg_import.py, tools/imdb_build.py (Subprozess)
+    - liest/schreibt: data/app.db, data/epg.db, data/imdb.db, data/logs/, data/outbox/
+  Volumes: config.toml (ro), channels_ignore.txt (ro), data/ (rw, lokale Disk)
 
-Später (Produktivbetrieb) zieht dieselbe Anordnung in einen Docker-Container auf der Synology oder dem Docker-Host "Debian" um.
+Optional weiterhin: Import auf der Synology -> epg.db/imdb.db -> rsync -> data/
+```
 
 Drei SQLite-Dateien mit klarer Trennung:
 
 | Datei | Geschrieben von | Inhalt | Austauschbar? |
 |---|---|---|---|
-| `epg.db` | `tools/epg_import.py` | Sender und Sendungen (Rohdaten) | Ja, wird bei jedem Import überschrieben oder fortgeschrieben |
+| `epg.db` | `tools/epg_import.py` | Sender und Sendungen (Rohdaten) | Ja, wird fortgeschrieben |
 | `imdb.db` | `tools/imdb_build.py` | Gefilterte IMDb-Titel und Namen | Ja, wird komplett neu gebaut |
-| `app.db` | App | Zuordnungen, Korrekturen, gespeicherte Suchen, Treffer | Nein, enthält Nutzerzustand, wird gesichert |
-
-Die App verbindet `epg.db` und `imdb.db` per `ATTACH DATABASE ... (mode=ro)` read-only. Die Verknüpfung zwischen Sendungen und App-Zustand läuft über den natürlichen Schlüssel `(channel_id, start_ts)`, nicht über die interne `events.id`. So bleibt der Nutzerzustand gültig, wenn `epg.db` ersetzt wird.
+| `app.db` | App | Zuordnungen, Kategorien, Vorschläge, Suchen, Treffer, Jobs | Nein, enthält Nutzerzustand |
 
 Hinweise zu SQLite:
 
-- Alle Dateien liegen auf einem lokalen Dateisystem (auf `xubuntu-dev` ext4). SQLite mit WAL gehört nicht auf SMB- oder NFS-Freigaben.
-- Beim Kopieren von `epg.db` vorher den WAL-Zustand abschließen (`PRAGMA wal_checkpoint(TRUNCATE)` oder `sqlite3 ... ".backup"`), in eine Temp-Datei kopieren und atomar per `mv` austauschen.
-- Eine schreibgeschützt geöffnete WAL-Datenbank braucht Schreibrechte auf das Verzeichnis (wegen `-shm`). Alternativ nach einem Checkpoint kopieren oder `immutable=1` verwenden.
+- Alle Dateien auf einem lokalen Dateisystem halten (kein SMB/NFS). WAL ist in `app.db` aktiv.
+- `epg.db`/`imdb.db` werden read-only per `ATTACH` eingebunden (`mode=ro`, Fallback `immutable=1`).
+- Ein rsync-Austausch von außen erfolgt atomar in eine Temp-Datei und `mv`. Im Container
+  importiert `epg_import.py` direkt in `epg.db` (SQLite-WAL erlaubt Leser während des Imports;
+  committet wird am Ende); `imdb_build.py` schreibt nach `.building` und ersetzt atomar.
 
-## 3. Werkzeuge (außerhalb der App)
+## 3. Werkzeuge (außerhalb der App, unverändert)
 
-Alle Werkzeuge bleiben eigenständige Skripte ohne Abhängigkeiten außer Python 3.9+. Sie sind implementiert und auf echten Daten getestet.
+Alle Werkzeuge sind eigenständige Skripte und benötigen nur Python 3.9+.
 
 ### 3.1 `tools/epg_import.py`
-
-- Lädt `http://docker-host-nas.fritz.box:9981/xmltv/channels` (optional Basic Auth).
-- Parst tolerant: TVHeadend schneidet Texte teils mitten in einem UTF-8-Zeichen ab. Das Skript decodiert mit Ersatzzeichen, entfernt Steuerzeichen und DOCTYPE und parst dann.
-- Upsert nach `(channel_id, start_ts)`, Änderungserkennung über `content_hash`, Spalten `first_seen`, `last_seen`, `updated_at`, `import_id`.
-- Protokolliert jeden Lauf in `imports`.
-- Optionen: `--file`, `--db`, `--user`, `--password`, `--keep-xml`, `--prune-days`.
-- Gemessen: 20,2 MB in 1,9 s, Parsen und Import in rund 14 s, 195 Sender, 49.669 Sendungen.
+- Lädt XMLTV von TVHeadend (URL/Auth konfigurierbar), parst tolerant (UTF-8-Fehler,
+  Steuerzeichen, DOCTYPE) und schreibt `epg.db`.
+- Upsert nach `(channel_id, start_ts)`, Änderungserkennung über `content_hash`,
+  Protokollierung in `imports` (inkl. `xml_sha1`).
+- Optionen: `--file`, `--db`, `--url`, `--user`, `--password`, `--keep-xml`, `--prune-days`.
 
 ### 3.2 `tools/imdb_build.py`
-
-- Lädt `title.basics`, `title.akas`, `title.ratings` von `https://datasets.imdbws.com/` und baut daraus `imdb.db`.
-- Behält die Typen `movie`, `tvMovie`, `tvSeries`, `tvMiniSeries`. Keine Einzelepisoden (optional `--with-episodes`).
-- Aus `title.akas` nur Namen für DE, AT, CH, Sprache `de` und Originaltitel.
-- Speichert pro Name eine normalisierte Form (`norm`).
-- Optionen: `--min-votes`, `--min-year`, `--types`, `--adult`, `--no-download`, `--force`.
-- Gemessen: 1.285.899 Titel, 2.781.199 Namen, 493 MB, Laufzeit rund 9 Minuten (davon rund 5 Minuten für `title.akas`).
-- Schreibt Attribution und Datenstand in die Tabelle `meta`.
-
-Tabellen: `titles` (inklusive `start_year`, `end_year`, `runtime_min`, `genres`, `avg_rating`, `num_votes`), `title_names`, `episodes`, `meta`.
+- Lädt `title.basics`, `title.akas`, `title.ratings` von `datasets.imdbws.com` und baut `imdb.db`.
+- Behält `movie`, `tvMovie`, `tvSeries`, `tvMiniSeries`; optional `--with-episodes`.
+- Speichert normalisierte Namen (`norm`) und Metadaten (`source_date`, `types`, `min_votes`,
+  `min_year`, `with_episodes`, Attribution).
+- Optionen: `--min-votes`, `--min-year`, `--types`, `--adult`, `--no-download`, `--force`,
+  `--raw-dir`, `--db`, `--with-episodes`.
 
 ### 3.3 `tools/match_test.py` (v2.1)
-
-Matching-Prototyp und späteres Regressionswerkzeug. Liest `epg.db` und `imdb.db` nur lesend und schreibt `matches.csv`, `report.txt`, `channels_report.csv` und `channels_ignore.suggested.txt`. Die Regeln aus Abschnitt 5 sind hier erprobt. Die App übernimmt die Logik in testbare Module.
+Matching-Prototyp und Regressionswerkzeug. Erzeugt `matches.csv`, `report.txt`,
+`channels_report.csv`, `channels_ignore.suggested.txt`. Die Regeln sind in die App
+übernommen; `tests/golden/matches.csv` stammt aus einem echten Lauf.
 
 ### 3.4 Normalisierung
+`tvguide/normalize.py` ist der Vertrag zwischen IMDb-Namen und EPG-Titeln (identisch zu
+den Kopien in `tools/`). Änderungen erfordern einen `imdb.db`-Neubau. Ein
+`meta.normalize_version` ist noch nicht implementiert (offener Punkt).
 
-Die Funktion `normalize()` ist der Vertrag zwischen IMDb-Namen und EPG-Titeln: Kleinschreibung, `ß` wird `ss`, `ä/ö/ü` werden `ae/oe/ue`, restliche Diakritika entfallen, `&` wird `und`, alle Nicht-Alphanumerik werden zu einem Leerzeichen, Leerzeichen zusammengefasst.
+## 4. Datenmodell `app.db`
 
-Im Repo liegt die Referenzimplementierung in `tvguide/normalize.py`. Ein Test stellt sicher, dass sie für eine feste Beispielliste dasselbe Ergebnis liefert wie die Kopien in `tools/imdb_build.py` und `tools/match_test.py`. Ändert man die Regeln, muss `imdb.db` neu gebaut werden (Version in `meta.normalize_version`).
+Migrationen liegen in `tvguide/db.py`; `schema_version` steht aktuell auf **6**.
 
-## 4. Datenmodell der App (`app.db`)
+Aus SPEC-Entwurf (Migration 1):
+- `epg_shows(id, show_key UNIQUE, show_name, first_seen)`
+- `show_match(show_id PK, tconst, status, score, method, reason, updated_at)` –
+  `status` ∈ `auto|review|confirmed|rejected|none`; `reason` enthält die Score-Signale als JSON.
+- `event_show(channel_id, start_ts, show_id, episode_hint, PK(channel_id,start_ts))`
+- `overrides(show_key PK, tconst, note, created_at)` – Vorrang vor der Automatik.
+- `saved_searches(id, name, filter_json, include_review, notify, created_at, last_run_at)`
+- `search_hits(search_id, channel_id, start_ts, found_at, notified_at, PK(...))`
 
-```sql
--- Eindeutiger Anzeigename der Show aus dem EPG, nach Bereinigung
-CREATE TABLE epg_shows (
-    id            INTEGER PRIMARY KEY,
-    show_key      TEXT NOT NULL UNIQUE,     -- normalize(bereinigter Titel)
-    show_name     TEXT NOT NULL,            -- Anzeigename
-    first_seen    TEXT NOT NULL
-);
+Spätere Migrationen (as built):
+- Migration 2: `app_meta(key, value)` – Refresh-Zustand (`epg_sha1`, `imdb_key`,
+  `last_epg_run`, `last_imdb_run`, `last_refresh`).
+- Migration 3: `override_log(...)` – Verlauf der Review-Entscheidungen für „rückgängig“.
+- Migration 4: `saved_searches.last_new` – Treffer des letzten Suchlaufs.
+- Migration 5: `jobs(id, kind, status, started_at, finished_at, message, log_path)` –
+  Hintergrundjobs (EPG/IMDb/Refresh), genau einer gleichzeitig.
+- Migration 6: `content_marks(id, tconst UNIQUE, mark, created_at)` –
+  manuelle Inhaltskategorie (`format` = als Format markieren, `keep` = als Film/Serie behalten).
 
--- Zuordnung Show -> IMDb-Titel
-CREATE TABLE show_match (
-    show_id       INTEGER PRIMARY KEY REFERENCES epg_shows(id),
-    tconst        TEXT,                     -- NULL = kein Treffer
-    status        TEXT NOT NULL,            -- auto | review | confirmed | rejected | none
-    score         REAL,                     -- offener Wert, siehe Abschnitt 5.2
-    method        TEXT,                     -- full | prefix | suffix | override
-    reason        TEXT,                     -- JSON mit Einzelbewertungen
-    updated_at    TEXT NOT NULL
-);
+Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nur in `app.db`.
 
--- Zuordnung Sendung -> Show (natürlicher Schlüssel)
-CREATE TABLE event_show (
-    channel_id    TEXT NOT NULL,
-    start_ts      INTEGER NOT NULL,
-    show_id       INTEGER NOT NULL REFERENCES epg_shows(id),
-    episode_hint  TEXT,                     -- extrahierter Episodentitel oder Marker
-    PRIMARY KEY (channel_id, start_ts)
-);
-
--- Manuelle Korrekturen, haben Vorrang vor der Automatik
-CREATE TABLE overrides (
-    show_key      TEXT PRIMARY KEY,
-    tconst        TEXT,                     -- NULL = bewusst ohne Zuordnung
-    note          TEXT,
-    created_at    TEXT NOT NULL
-);
-
-CREATE TABLE saved_searches (
-    id            INTEGER PRIMARY KEY,
-    name          TEXT NOT NULL,
-    filter_json   TEXT NOT NULL,
-    include_review INTEGER NOT NULL DEFAULT 0,
-    notify        INTEGER NOT NULL DEFAULT 0,
-    created_at    TEXT NOT NULL,
-    last_run_at   TEXT
-);
-
-CREATE TABLE search_hits (
-    search_id     INTEGER NOT NULL REFERENCES saved_searches(id),
-    channel_id    TEXT NOT NULL,
-    start_ts      INTEGER NOT NULL,
-    found_at      TEXT NOT NULL,
-    notified_at   TEXT,
-    PRIMARY KEY (search_id, channel_id, start_ts)
-);
-
-CREATE TABLE schema_version (version INTEGER NOT NULL);
-```
-
-Die App liest Sendungen aus `epg.db` und IMDb-Daten aus `imdb.db` und speichert nur Beziehungen und Zustand in `app.db`.
-
-## 5. Titelextraktion und Matching
+## 5. Titelextraktion, Matching und Kategorien
 
 ### 5.1 Beobachtungen aus dem echten EPG (Stand 2026-11)
-
 - 49.669 Sendungen, 195 Sender, Zeitraum 01.11. bis 29.11.2026.
-- `sub-title` in 66 %, `desc` in 53 %, `category` in 23 %, `rating` (nur FSK) in 6 % der Sendungen.
-- Es gibt kein Produktionsjahr, keine Credits, keine Episodennummern. Ein Jahr im `desc` ist selten (rund 4,5 %) und oft nur ein Handlungsjahr.
-- Rund 40 % der Sendungen stammen von Radiosendern. Sie werden über `channels_ignore.txt` ausgeschlossen.
-- Folgenmarker stehen im Titel: `(S03/E12)`, `(94)`, `(1318)`, `(Folge 1 von 10)`.
-- Bei Serien steht der Episodentitel oft im Titelfeld, getrennt durch Strich oder Doppelpunkt ("Pfarrer Braun: Adel vernichtet").
-- Programmflächen wie Teleshopping, Nachrichten und Sendeschluss sind keine Treffer.
+- Felder: `sub-title` 66 %, `desc` 53 %, `category` 23 %, `rating` (FSK) 6 %.
+- Kein Produktionsjahr, keine Credits, keine Episodennummern. Rund 40 % der Sendungen
+  stammen von Radiosendern (`channels_ignore.txt`).
+- Folgenmarker im Titel: `(S03/E12)`, `(94)`, `(Folge 1 von 10)`.
 
 ### 5.2 Pipeline
+1. **Senderfilter** über `channels_ignore.txt` (Namen oder `re:`).
+2. **Bereinigen** von Folgenmarkern, `(HD)`, `Teil N`, `Staffel N`, `Wiederholung`;
+   Jahr in Klammern bleibt als Hinweis.
+3. **Gruppieren** nach bereinigtem Titel (`show_key`).
+4. **Vorfilter (Skip)** aus `[skip]`: Kategorien, Titel, `skip_short`, `skip_block`.
+5. **Kandidaten** (voller Titel, Präfixe, Suffix) und exakter `title_names.norm`-Lookup.
+6. **Bewerten** (Summe gewichteter Signale, Details siehe `tvguide/matching.py`):
+   Name, Typ/Laufzeit, Serienerkennung, Laufzeitverhältnis, Stimmen, Jahr, Ambiguität.
+7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
+   sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
+8. **Overrides** gelten immer zuerst.
+9. **Kategorie** (siehe 5.3) wird aus dem besten Kandidaten abgeleitet (bzw. durch
+   `content_marks` überschrieben).
 
-1. **Senderfilter:** Sender aus `channels_ignore.txt` (Namen oder `re:`-Regex) werden nicht betrachtet.
-2. **Bereinigen:** Folgenmarker, `(HD)`, `Teil N`, `Staffel N`, `Wiederholung` entfernen. Ein Jahr in Klammern (`(1985)`) bleibt als Hinweis.
-3. **Gruppieren:** Sendungen mit gleichem bereinigtem Titel bilden eine Show. Verschiedene Folgenmarker und Untertitel zählen als verschiedene Folgen.
-4. **Vorfilter (Skip):** Kategorie News, Werbung, Sport, Gesellschaft/Politik, Bildung und Vorschulprogramm. Dazu eine Titelliste (Teleshopping, Sendeschluss und ähnliche), Sendungen mit Median unter 8 Minuten (`skip_short`) und Sendungen ohne Kategorie mit mindestens 100 Minuten und mindestens 10 Terminen (`skip_block`, typisch für Radiostrecken).
-5. **Kandidaten bilden:** Voller Titel, Präfixe an Trennern (Strich, Doppelpunkt) und als letzte Möglichkeit der Text nach dem Trenner (Suffix). Suffix-Treffer zählen nur, wenn es keinen Treffer für den vollen Titel oder einen Präfix gibt.
-6. **Kandidatensuche in `imdb.db`:** exakter Treffer auf `title_names.norm`. Eine unscharfe Suche (FTS5, Trigramm) ist für spätere Verbesserungen vorgesehen.
-7. **Bewerten** (Score, Summe gewichteter Signale, nicht gedeckelt):
-   - Name: voller Titel 1,0; Präfix 0,55 bis 0,9 je nach Anteil der Wörter, bei Serien mit mindestens zwei Wörtern im Präfix mindestens 0,85; Suffix 0,45; sehr kurze Namen (bis 4 Zeichen) minus 0,2.
-   - Typ gegen Laufzeit des Termins: Film ab 75 Minuten plus, unter 45 Minuten stark minus, bei Präfix-Treffern auf Filme minus; Serie bis 65 Minuten plus, ab 100 Minuten minus, bei Präfix plus.
-   - Serienerkennung: mindestens 4 Termine mit mindestens 2 verschiedenen Folgen spricht für Serie.
-   - Laufzeit des Films gegen Termindauer (mit Werbung bis etwa 70 % länger).
-   - Beliebtheit: bis plus 0,1 nach Stimmenzahl; unter 50 Stimmen minus 0,15; Ein-Wort-Titel unter 200 Stimmen minus 0,2.
-   - Jahr im `desc` gleich Startjahr: plus 0,1. Jahr im Titel in Klammern: plus 0,15.
-   - Nahezu gleich gute Alternative mit anderem Titel (Abstand unter 0,05): minus 0,15.
-8. **Entscheiden:** Score ab 1,0 ist `auto`, ab 0,6 `review`, darunter `none`. Beide Schwellen stehen in `config.toml`. Zur Anzeige gibt es `conf = min(1, score / 1,3)`.
-9. **Overrides** aus `overrides` gelten immer zuerst und werden nie überschrieben.
+### 5.3 Inhaltskategorien (M10)
+`tvguide/categories.py`:
 
-### 5.3 Retro-Klassen
+| Kategorie | Bedingung |
+|---|---|
+| `film` | IMDb-Typ `movie`/`tvMovie` |
+| `format` | Serie mit Genre News, Talk-Show, Game-Show, Reality-TV, Documentary, Music, Sport oder Short |
+| `serie` | alle übrigen Serien |
 
-Aus `start_year`, `end_year`, Typ und Genre (ohne News, Talk-Show, Game-Show, Reality-TV, Documentary, Music, Sport, Short) und dem Fenster `retro_from` bis `retro_to` (Standard 1980 bis 1999):
+- `content_marks` überschreibt: `format` erzwingt Format, `keep` holt ein automatisch
+  erkanntes Format als Film/Serie zurück.
+- Der Match-Status bleibt unverändert; die Kategorie ist eine Sicht-/Filter-Dimension.
+- Fiktionale Mittagsformate (z. B. Telenovelas) bleiben `serie`.
+
+### 5.4 Retro-Klassen
+Aus `start_year`, `end_year`, Typ und Genre (ohne News, Talk-Show, Game-Show, Reality-TV,
+Documentary, Music, Sport, Short) und dem Fenster `retro_from`–`retro_to`:
 
 | Klasse | Bedingung |
 |---|---|
-| `film` | Typ movie oder tvMovie, Startjahr im Fenster |
-| `serie_abgeschlossen` | Serie, Startjahr im Fenster, `end_year` bis `retro_end_max` (Standard 2009) |
-| `serie_lief_laenger` | Serie, Startjahr im Fenster, `end_year` nach `retro_end_max` |
-| `serie_laufend` | Serie, Startjahr im Fenster, kein `end_year` (laufend oder unbekannt) |
+| `film` | `movie`/`tvMovie`, Startjahr im Fenster |
+| `serie_abgeschlossen` | Serie, Startjahr im Fenster, `end_year` ≤ `retro_end_max` |
+| `serie_lief_laenger` | Serie, Startjahr im Fenster, `end_year` > `retro_end_max` |
+| `serie_laufend` | Serie, Startjahr im Fenster, kein `end_year` |
 
-Der Standardfilter "Retro" zeigt `film` und `serie_abgeschlossen`. `serie_lief_laenger` und `serie_laufend` sind per Schalter zuschaltbar.
+### 5.5 Cache und Wiederholung
+- Matching arbeitet pro Show (`epg_shows`), bestätigte/abgelehnte Treffer werden nicht neu berechnet.
+- `refresh` erkennt Änderungen inhaltlich: EPG über `imports.xml_sha1`, IMDb über
+  `meta.source_date` + Build-Parameter (`types`, `min_votes`, `min_year`, `with_episodes`).
+  Ein bloßer Rebuild mit gleichem Datenstand löst kein Re-Matching aus.
+- `load_shows` und der Werk-Katalog sind pro Prozess gecacht; die Signatur umfasst
+  `content_marks`, damit manuelle Kategorien sofort wirken.
 
-### 5.4 Cache und Wiederholung
-
-Das Matching arbeitet pro Show (`epg_shows`), nicht pro Sendung. Ein bestätigter oder abgelehnter Treffer wird nicht neu berechnet. Das Matching läuft nach jedem Import nur für neue Shows und für Shows mit Status `review` oder `none`, wenn sich `imdb.db` geändert hat.
-
-### 5.5 Ergebnisse des Prototyps (Referenz)
-
+### 5.6 Ergebnisse des Prototyps (Referenz)
 | Kennzahl | Wert |
 |---|---|
-| Betrachtete Sendungen | 28.676 (von 49.669, Rest ignorierte Sender) |
+| Betrachtete Sendungen | 28.676 (von 49.669) |
 | Eindeutige Titel | 4.298 |
 | auto / review / none | 1.425 / 631 / 1.556 Titel |
-| Lange Sendungen (ab 75 Minuten) | 564 auto, 241 review, 224 none |
-| Retro (auto und review) | 42 abgeschlossene Serien, 9 lange Serien, 56 Filme, 70 laufende Serien |
 
-Bekannte Fehlertypen: Senderformate vor dem Strich ("Schlager Gold - Bianca"), gleiche Namen mit anderer Produktion, Reihen ohne eigenen Serieneintrag (zum Beispiel "Polizeiruf 110: Abgründe" als Film), Dokureihen, die IMDb als Serie führt. Diese Fälle werden über Review und Overrides gelöst.
+Nach Kategorien (Show-Ebene, Stand 2026-11): Review 631 = Doku 165, Magazin 54, Show 62,
+Serie 230, Film 120. Review zeigt seit M10 nur Film + Serie (in den Echtdaten 350 statt 631).
 
 ## 6. Filter und gespeicherte Suchen
 
-### 6.1 Filterfelder
+### 6.1 Filterfelder (implementiert)
+`type` (film/serie), `category` (film/serie/format), `decade`, `group` (aus
+`channel_groups`), `genre`, `status` (sicher/unsicher), `retro`, `q` (Textsuche über Titel
+und Untertitel). Standard: Kategorie Film+Serie.
 
-| Feld | Quelle |
-|---|---|
-| Titel, Untertitel, Beschreibung (Volltext, Regex) | `epg.db` |
-| Sender, Sendergruppe | `epg.db`, Konfiguration |
-| Zeit: Datum, Wochentag, Uhrzeit, Länge | `epg.db` |
-| EPG-Kategorie, FSK | `epg.db` |
-| Typ (Film, Serie, Miniserie), laufend oder beendet | `imdb.db` |
-| Produktionsjahr, Dekade, Serienende | `imdb.db` |
-| Genre, Rating, Stimmenzahl | `imdb.db` |
-| Retro-Klasse | berechnet |
-| Match-Status (auto, review, confirmed) | `app.db` |
-| Wiederholung, "neu im Programm" (`first_seen`) | `epg.db` |
-
-### 6.2 Filterformat (JSON)
+### 6.2 Filter-JSON und Sicherheit
+Gespeicherte Suchen speichern ein **validiertes Filter-JSON** (Whitelist in
+`tvguide/search.py`; keine Auswertung von Nutzer-Code):
 
 ```json
-{
-  "name": "Serien der 80er und 90er",
-  "match": {
-    "type": ["tvSeries", "tvMiniSeries"],
-    "year": {"from": 1980, "to": 1999},
-    "ended_by": 2009,
-    "match_status": ["auto", "confirmed"]
-  },
-  "channels": {"include_groups": ["retro"], "exclude": []},
-  "time": {"weekdays": [1,2,3,4,5,6,7], "from": "00:00", "to": "23:59", "min_duration": 20},
-  "text": {"title_regex": null, "contains": []},
-  "exclude": {"genres": ["Reality-TV", "Talk-Show", "News"]}
-}
+{"type": ["serie"], "category": ["film", "serie"], "decade": [1980, 1999],
+ "group": "retro", "genre": ["Crime"], "retro": false, "q": ""}
 ```
 
-Der Filter wird in eine parametrisierte SQL-Abfrage übersetzt. Es gibt keine Evaluierung von Nutzer-Code. Feldnamen und Operatoren kommen aus einer festen Whitelist.
+Zusätzlich pro Suche: `include_review` (auch unsichere Treffer) und `notify`.
+Abweichung vom früheren Entwurf „SQL-Builder“: Ausgewertet wird mit derselben Engine
+wie die Filteransicht (`tvguide/browse.py`), damit Suche und Ansicht garantiert dieselben
+Treffer liefern. Fehlt `category`, gilt der Standard Film+Serie.
+
+`search_hits` wird bei `refresh` und per `./run.sh searches` fortgeschrieben. „neu“ ist
+die Anzahl der beim letzten Lauf neu hinzugekommenen Termine (`saved_searches.last_new`).
 
 ## 7. Oberfläche und API
 
-Technik: FastAPI, Jinja2-Templates, HTMX (lokal im Repo), SQLite (`sqlite3`). Kein separates Frontend-Build. Alle Seiten funktionieren auf dem Handy im Heimnetz.
+Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzbar.
 
-### 7.1 Ansichten (nach den Scribbles)
+### 7.1 Ansichten
+- **Jetzt:** „Läuft gerade“ und „Heute Abend“, Filterleiste inkl. Kategorie.
+- **Stöbern:** Karten pro Werk, Filter-Chips (Kategorie/Typ, Dekade, Sendergruppe, Genre,
+  Zuordnung, Retro), Sortierung, Paginierung; Format standardmäßig ausgeblendet.
+- **Werk-Detail:** Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
+  Buttons „Als Format markieren“, „Als Serie behalten“, „Markierung entfernen“.
+- **Review:** nur Film/Serie; Vorschläge bestätigen, „Kein Treffer“, anderer Titel,
+  „Als Format markieren“, Override-Undo und Markierungs-Undo.
+- **Suchen:** Liste, Treffer/„neu“, bearbeiten, löschen, aktualisieren.
+- **Status:** Datenstand, Synchronisierung (Buttons „EPG jetzt importieren“, „IMDb jetzt
+  neu bauen“), Job-Status/Log, Zeitplan-Info.
 
-- **Jetzt und demnächst** (Startseite): laufende und heutige Sendungen, Filterleiste mit Chips und Zählern.
-- **Stöbern:** Karten pro Werk mit nächstem Termin und weiteren Terminen. Markierung "nur 1 Termin" für Seltenes.
-- **Werk-Detail:** Titel, Jahr (bei Serien Start bis Ende), Genre, Rating, IMDb-Link, alle Ausstrahlungen im Zeitraum.
-- **Review:** Shows mit Status `review`, Bestätigen, Ablehnen oder Titel manuell wählen. Das Ergebnis geht in `overrides`.
-- **Gespeicherte Suchen:** anlegen aus dem aktuellen Filter, Treffer ansehen, Benachrichtigung ein oder aus.
-- **Status:** Datenstand von `epg.db` (letzter Import, Zeitraum) und `imdb.db` (Datenstand, Build-Datum), Anzahl offener Reviews.
+Alle neuen interaktiven Elemente (Jobs, Kategorien, Review-Aktionen) nutzen relative URLs,
+damit die App auch unter einem Sub-Pfad (Reverse Proxy) funktioniert.
 
 ### 7.2 API (Auszug)
-
-| Methode und Pfad | Zweck |
+| Methode/Pfad | Zweck |
 |---|---|
-| `GET /api/now` | laufende Sendungen |
-| `GET /api/browse` | gefilterte Sendungen mit Facetten |
-| `GET /api/works/{tconst}` | Werk mit Terminen |
-| `GET /api/review` | offene Zuordnungen |
-| `POST /api/review/{show_id}` | bestätigen, ablehnen oder neu zuordnen |
-| `GET/POST/PUT/DELETE /api/searches` | gespeicherte Suchen |
+| `GET /api/now` | laufende/heutige Sendungen |
+| `GET /api/browse` | gefilterte Werke (inkl. `category`) |
+| `GET /api/works/{tconst}` | Werk inkl. Kategorie und Terminen |
+| `POST /api/works/{tconst}/mark?mark=format\|keep\|none` | manuelle Kategorie |
+| `GET /api/review`, `POST /api/review/{show_id\|show_key}` | Review |
+| `POST /api/review/format?show_key=…` | Show als Format markieren |
+| `POST /api/marks/undo` | letzte Markierung rückgängig |
+| `GET/POST /api/searches`, `PUT/DELETE /api/searches/{id}` | gespeicherte Suchen |
 | `GET /api/searches/{id}/hits` | Treffer |
-| `GET /api/status` | Datenstand und Gesundheit |
+| `GET /api/jobs`, `POST /api/jobs/{kind=epg\|imdb}` | Jobs |
+| `GET /api/status` | Datenstand |
 
 ## 8. Benachrichtigungen per E-Mail
 
-- Nach jedem Refresh läuft jede gespeicherte Suche mit `notify=1`. Neue Treffer (noch nicht in `search_hits` mit `notified_at`) lösen eine Nachricht aus.
-- Kanal: E-Mail über SMTP (`smtplib`), hinter der Schnittstelle `Notifier`. Weitere Kanäle (zum Beispiel Telegram) lassen sich später ergänzen.
-- Eine Sammelmail pro Refresh, gegliedert nach Suche. Je Treffer: Titel, Jahr, Sender, Datum und Uhrzeit, Link zur Werk-Seite.
-- Format: `multipart/alternative` mit Text und HTML. Betreff mit Trefferzahl.
-- Konfiguration: `smtp_host`, `smtp_port`, `security` (`starttls` oder `ssl`), `username`, `from`, `to`. Das Passwort kommt aus der Umgebungsvariable `TVGUIDE_SMTP_PASSWORD`.
-- `notified_at` wird erst nach erfolgreichem Versand gesetzt. Bei Fehlern wird der Versand beim nächsten Lauf wiederholt.
-- `--dry-run` schreibt die Mail als `.eml` nach `data/outbox/`. `--test` sendet eine Testmail.
-- Standardmäßig lösen nur Treffer mit Status `auto` und `confirmed` eine Mail aus. `review` ist pro Suche zuschaltbar.
-- Optional: Healthchecks-Ping nach erfolgreichem Lauf (Healthchecks läuft bereits im Netz).
+- Nach jedem `refresh` (und via `./run.sh notify`) läuft jede Suche mit `notify=1`;
+  offene Treffer (`notified_at IS NULL`, Status auto/confirmed) ergeben **eine Sammelmail**.
+- Kanäle: `Notifier`-Schnittstelle, erste Umsetzung `EmailNotifier` (`smtplib`).
+- Format: `multipart/alternative` (Text + HTML), Betreff mit Trefferzahl, Links über
+  `[server].base_url`.
+- Konfiguration `[smtp]`: `host`, `port`, `security` (`starttls`|`ssl`), `username`,
+  `from`, `to`. Passwort nur aus `TVGUIDE_SMTP_PASSWORD`.
+- `notified_at` erst nach erfolgreichem Versand; Fehler brechen den Refresh nicht ab.
+- `./run.sh notify --dry-run` schreibt `.eml` nach `data/outbox/`, `--test` sendet eine Testmail.
+- Ein Healthchecks-Ping ist optional und noch nicht umgesetzt.
 
 ## 9. Betrieb
 
 ### 9.1 Repository-Struktur
-
 ```
 tv-guide/
-  SPEC.md
-  PLAN.md
-  README.md
-  config.toml            # nicht im Git
-  config.example.toml
-  run.sh
-  requirements.txt
-  tools/
-    epg_import.py
-    imdb_build.py
-    match_test.py
+  README.md  AGENTS.md  SPEC.md  PLAN.md
+  config.example.toml  config.toml (nicht im Git)
+  Dockerfile  .dockerignore  docker-compose.yml  docker-compose.example.yml
+  .env.example
+  .github/workflows/{test,build}.yml
+  run.sh  setup.sh  requirements.txt  requirements-dev.txt  ruff.toml
+  scripts/ (check_env, sync_data, docker_update, backup_appdb, make_favicon)
+  tools/ (epg_import, imdb_build, match_test – unverändert)
   tvguide/
-    __main__.py          # serve | refresh | match | status | notify
-    config.py  db.py  normalize.py  cleaning.py  matching.py
-    refresh.py  search.py
-    notify/              # Schnittstelle und E-Mail
-    web/                 # app.py, templates, static
-  tests/
-  data/                  # nicht im Git: epg.db, imdb.db, app.db, outbox/, imdb_raw/
+    config.py db.py normalize.py cleaning.py matching.py categories.py marks.py
+    browse.py review.py search.py refresh.py pipeline.py jobs.py scheduler.py status.py
+    notify/ (__init__, email, digest)
+    web/ (app.py, templates/, static/ inkl. htmx und Favicon)
+  tests/ (inkl. golden/)
+  data/ (nicht im Git)
 ```
 
-`data/`, `imdb_raw/`, `*.db`, `match_out/` und `config.toml` stehen in `.gitignore`. IMDb-Rohdaten und `imdb.db` gehören nicht ins Git (Lizenz, Größe).
-
 ### 9.2 Entwicklung und Deployment
+- Entwicklung/Test: `xubuntu-dev`, lokales Python (`./run.sh`, `pytest`, `ruff`); **kein Docker**.
+- Produktiv: ein Container (`python:3.12-slim`) auf Synology/Docker-Host, Volume auf lokaler Disk.
+- CI (GitHub Actions): `test.yml` (ruff + pytest), `build.yml` (Image nach
+  `ghcr.io/skoelle/tv-guide`, wöchentlich/manuell, Watchtower-Webhook `WEBHOOK_URL`/`WEBHOOK_TOKEN`).
+- `docker-compose.example.yml` zieht das GHCR-Image; `docker-compose.yml` baut lokal.
 
-- Entwicklung und Test: `xubuntu-dev`, `~/Code/tv-guide`, Python 3.12.3, SQLite 3.45.1 mit FTS5, Port 8085, Start mit `./run.sh`.
-- Datenfluss: Importwerkzeuge laufen auf der Synology. `epg.db` und `imdb.db` werden nach `xubuntu-dev/data/` kopiert (atomar, siehe Abschnitt 2).
-- Produktivbetrieb später: ein Docker-Container (`python:3.12-slim`) auf der Synology oder dem Docker-Host "Debian", Volume auf einer lokalen Disk, kein Netzwerk-Share.
-- Zeitplan: Import, dann Refresh, dann Benachrichtigung (Task Scheduler oder Cron).
-- Sicherung: `app.db` in die bestehende Backup-Strategie aufnehmen. `epg.db` und `imdb.db` sind reproduzierbar.
-- Editor in allen Anleitungen: vim.
+### 9.3 Automatischer Abgleich (M9)
+- Tools sind im Image; `./run.sh epg` und `./run.sh imdb` rufen sie per Subprozess auf und
+  refreshen danach.
+- In-App-Scheduler (Daemon-Thread): EPG stündlich, IMDb wöchentlich (Default Montag 04:30
+  Europe/Berlin), aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
+- Jobs: genau einer gleichzeitig, Logs in `data/logs/`, verwaiste Jobs werden nach Neustart
+  als `error` markiert. IMDb-Build prüft vorher ~2 GB freien Platz.
+- Buttons in `/status` starten dieselben Jobs über `POST /api/jobs/{kind}` (JSON, kein Redirect).
 
-### 9.3 Test- und Entwicklungsumgebung
+### 9.4 Umgebungsvariablen
+- `TVGUIDE_CONFIG` – Pfad zur `config.toml`.
+- `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD` – Passwörter (nie im Git).
+- `TVGUIDE_SCHEDULE_ENABLED` – Scheduler im Container aktivieren.
+- Repo-Secrets für CI: `WEBHOOK_URL`, `WEBHOOK_TOKEN`.
 
-- Kleine Beispiel-`epg.db` und `imdb.db` für Tests. Der Entwicklungsrechner führt keinen EPG-Download und keinen IMDb-Build aus.
-- Tests: Normalisierung, Titelbereinigung, Matching (Golden-CSV aus echten Läufen), Filter-zu-SQL, Refresh, E-Mail-Aufbau und Idempotenz.
-- E-Mail-Test mit `--dry-run` und einem lokalen Test-SMTP-Server (zum Beispiel Mailpit). Das Modul `smtpd` entfällt ab Python 3.12.
+### 9.5 Sicherung
+- `./scripts/backup_appdb.sh` sichert `app.db` per SQLite-Backup-API (WAL-sicher).
+- `epg.db`/`imdb.db` sind reproduzierbar; `app.db` ist der einzige zu sichernde Zustand.
+
+### 9.6 Tests
+- Unit: Normalisierung, Titelbereinigung, Matching/Bewertung, Kategorien, Filter, Jobs, Scheduler.
+- Golden: `tests/golden/matches.csv` aus einem echten `match_test.py`-Lauf; wird ohne
+  `data/` übersprungen.
+- Web/API via `fastapi.testclient`; CI läuft ohne echte Daten (`ruff` + `pytest`).
 
 ## 10. Lizenz und Datenschutz
 
-- IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, mit Quellenangabe. Die Attribution steht in `meta` und im Seitenfuß der Oberfläche.
-- Keine Weitergabe von `imdb.db`. Kein Zugriff von außerhalb des Heimnetzes.
-- SMTP-Zugangsdaten nur per Umgebungsvariable, nie im Git.
-- TMDB wird zunächst nicht verwendet. Falls später Poster ergänzt werden, vorher die TMDB-Bedingungen prüfen (Caching und Attribution).
+- IMDb-Daten nur persönliche, nicht kommerzielle Nutzung; Attribution in `imdb.meta` und im Seitenfuß.
+- Keine Weitergabe von `imdb.db`; kein Zugriff von außerhalb des Heimnetzes.
+- SMTP-/TVH-Zugangsdaten nur per Umgebungsvariable, nie im Git.
+- TMDB/Poster weiterhin nicht verwendet.
 
-## 11. Phasenplan
+## 11. Phasenplan (umgesetzt)
 
-| Phase | Inhalt | Ergebnis |
+| Phase | Inhalt | Status |
 |---|---|---|
-| 0 | Werkzeuge `epg_import.py`, `imdb_build.py`, `match_test.py` | `epg.db`, `imdb.db`, Matching-Prototyp (erledigt) |
-| 1 | Gerüst, Matching-Modul, Refresh (M0 bis M3) | Zuordnungen in `app.db` |
-| 2 | Web: Jetzt, Stöbern, Werk-Detail, Review (M4, M5) | nutzbarer Stöberer |
-| 3 | Gespeicherte Suchen (M6) | wiederkehrende Suchen |
-| 4 | E-Mail-Benachrichtigung (M7) | Mail bei neuen Treffern |
-| 5 | Betrieb (M8), optional Credits (Regie, Darsteller), TMDB-Poster | Docker, Zeitplan, Komfort |
-
-### 11.1 Messbare Ziele
-
-- Die App reproduziert die Prototyp-Zahlen aus 5.5 auf etwa 1 Prozent genau.
-- Weniger als 3 % falsche Zuordnungen in einer Stichprobe von 100 Titeln mit Status `auto`.
-- Refresh eines Monatsimports in unter 2 Minuten.
-- Seitenaufbau von Jetzt und Stöbern unter 1 Sekunde.
+| 0 | Werkzeuge `epg_import.py`, `imdb_build.py`, `match_test.py` | erledigt |
+| M0 | Umgebung, Repo, `.gitignore`, venv, FTS5 | erledigt |
+| M1 | Grundgerüst, Config, DB/ATTACH, Statusseite | erledigt |
+| M2 | Matching-Modul, Skip-Konfiguration, Golden-Tests | erledigt |
+| M3 | Refresh mit Änderungserkennung, `sync_data.sh` | erledigt |
+| M4 | Web: Jetzt, Stöbern, Werk-Detail, HTMX | erledigt |
+| M5 | Review inkl. Overrides und Rückgängig | erledigt |
+| M6 | Gespeicherte Suchen und `search_hits` | erledigt |
+| M7 | E-Mail-Benachrichtigung | erledigt |
+| M8 | Docker, Compose, Backup, GHCR/CI | erledigt |
+| M9 | Automatischer EPG-/IMDb-Abgleich (Scheduler, Jobs, Buttons) | erledigt |
+| M10 | Inhaltskategorien Film/Serie/Format inkl. manueller Markierungen | erledigt |
 
 ## 12. Offene Fragen
 
-1. Welcher SMTP-Zugang wird für M7 genutzt (Anbieter, Port, App-Passwort, Absender)?
-2. Welche Sender gehören zur Gruppe "Retro"? (Vorschlag: TELE 5, Kabel Eins, RTLNITRO, Pro7 MAXX, SAT.1 Gold, ONE, RTLZWEI.)
-3. Sollen `serie_laufend` und `serie_lief_laenger` im Standardfilter ausgeblendet bleiben? (Vorschlag: ja.)
-4. Wohin zieht der Produktivbetrieb: Synology oder Docker-Host "Debian"?
-5. Sollen Darsteller und Regie als Filter dazukommen (benötigt zusätzliche IMDb-Dateien, `title.principals` und `name.basics`)?
+1. SMTP-Zugang für den echten Versand (Anbieter, Port, App-Passwort, Absender) – technisch fertig, nur Konfiguration offen.
+2. Produktivziel final: Synology oder Docker-Host „Debian“ (beide unterstützt).
+3. Darsteller/Regie als Filter (bräuchte `title.principals` + `name.basics`).
+4. Optional: `normalize_version` in `imdb.meta` + Neuaufbau, Healthchecks-Ping, TMDB-Poster.
 
-Entschieden: Benachrichtigung per E-Mail, Entwicklung auf `xubuntu-dev`, Standard für Suchen nur `auto` und `confirmed`, Start als Python-Programm.
+Entschieden: E-Mail statt Telegram, Entwicklung auf `xubuntu-dev` ohne Container,
+Standard-Suchen nur `auto`/`confirmed`, Kategorien Film/Serie/Format mit Format
+standardmäßig ausgeblendet, Review nur Film/Serie.
 
 ## 13. Risiken
 
 | Risiko | Gegenmaßnahme |
 |---|---|
-| Mehrdeutige Titel (zum Beispiel "Stargate") | Typ und Laufzeit bewerten, Review-Liste, Overrides |
-| Titel- und Episoden-Mischung im EPG | Bereinigung, Präfix-Extraktion, Show-Ebene statt Event-Ebene |
-| Radiosender verschmutzen das Matching | `channels_ignore.txt`, `skip_block`, Senderbericht |
-| EPG ohne Jahr, dünne Beschreibungen | Anreicherung über IMDb, Score sichtbar machen |
-| IMDb-Format oder Bedingungen ändern sich | `meta` mit Datenstand, Build-Skript isoliert |
-| SQLite-Dateien beim Kopieren inkonsistent | atomarer Austausch, Checkpoint oder `.backup`, nur lokale Dateisysteme |
-| Falsche Treffer lösen unnötige Mails aus | Mails nur für `auto` und `confirmed`, Sammelmail, Dry-Run |
-| Mails landen im Spam oder gehen verloren | Testmail, Wiederholung bei Fehler, Sammelmail statt Einzelmails |
-| Disk auf `xubuntu-dev` knapp (82 % belegt, 8,9 GB frei) | `imdb_raw/` nicht mitkopieren, nur die fertigen DBs |
+| Mehrdeutige Titel | Typ/Laufzeit bewerten, Review, Overrides |
+| Nicht-fiktionale Formate verwässern Serien/Review | Kategorie „Format“ (Genres) + manuelle Markierungen |
+| Restfälle ohne IMDb-Genres | „Kein Treffer“ oder manuell als Format markieren |
+| Radiosender im Matching | `channels_ignore.txt`, `skip_block`, Senderbericht |
+| Falsche Treffer lösen Mails aus | Mails nur für `auto`/`confirmed`, Sammelmail, Dry-Run |
+| SQLite in Netzlaufwerken | nur lokale Dateisysteme, WAL-sichere Backups |
+| IMDb-Build: Netz/Platz/9 min | Disk-Preflight, wöchentlich, Log in `data/logs/` |
+| Container-Restart während Job | Job als `error` markiert, nächster Lauf holt es nach |
+| Watchtower-Update während Build | seltener Fall; DB bleibt durch atomare Builds konsistent |

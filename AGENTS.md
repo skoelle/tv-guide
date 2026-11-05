@@ -5,7 +5,8 @@ Guidance for AI agents and contributors working in this repository.
 ## Project
 
 Private TV guide: reads a TVHeadend EPG, matches shows against IMDb data, and
-offers a FastAPI web UI with saved searches and email notifications.
+offers a FastAPI web UI with saved searches and email notifications. Works are
+categorised as Film, Serie or Format (non-fiction formats are hidden from Review).
 
 Layout:
 
@@ -56,6 +57,8 @@ weekly (`TVGUIDE_SCHEDULE_ENABLED=true`); the same work can be triggered from th
 - Docker and the GHCR image are used on the target host (Synology/Docker host) only.
 - CI (GitHub Actions) runs `ruff` + `pytest`, builds `ghcr.io/skoelle/tv-guide`, and calls a
   Watchtower webhook (`WEBHOOK_URL`/`WEBHOOK_TOKEN`) to roll out the new image.
+- Runtime env vars: `TVGUIDE_CONFIG`, `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD`,
+  `TVGUIDE_SCHEDULE_ENABLED` (see `.env.example`). Never commit real values.
 
 ## Tests
 

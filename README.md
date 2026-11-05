@@ -38,6 +38,7 @@ vim config.toml             # check paths and port
 | `./run.sh initdb` | Create and migrate `app.db` |
 | `./run.sh config` | Show the loaded configuration |
 | `.venv/bin/python -m pytest -q` | Tests |
+| `ruff check .` | Lint (configuration in `ruff.toml`) |
 
 Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFIG` to select a different configuration.
 
@@ -51,7 +52,8 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `/review` | Review open matches: confirm, reject, pick another title, undo |
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
-| `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/status` | JSON |
+| `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/jobs`, `/api/status` | JSON |
+| `/partials/jobs` | HTMX fragment with the sync job status |
 
 ## Content categories
 
@@ -116,7 +118,7 @@ docker compose logs -f tvguide          # logs
 docker compose ps                       # status including healthcheck
 ```
 
-Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. `app.db` (overrides, searches, hits) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD` and `TVGUIDE_TVH_PASSWORD` come from `.env` (not committed); the bundled compose files set `TVGUIDE_SCHEDULE_ENABLED=true`. `restart: unless-stopped` restarts the container automatically after a host reboot.
+Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. `app.db` (overrides, searches, hits) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD` and `TVGUIDE_TVH_PASSWORD` come from `.env` (copy from `.env.example`, not committed); the bundled compose files set `TVGUIDE_SCHEDULE_ENABLED=true`. `restart: unless-stopped` restarts the container automatically after a host reboot.
 
 ### Pulling the image from GHCR (built in GitHub)
 
@@ -172,8 +174,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 ## Notes
 
 - Keep SQLite files on local filesystems only (no SMB/NFS).
-- `*.db`, `data/` and `config.toml` are listed in `.gitignore`.
+- `.gitignore` excludes `data/`, `backup/`, `*.db`, `config.toml`, `channels_ignore.txt`, `.env`, `tmp/` and Synology `@eaDir/`.
+- `cp .env.example .env` and fill in the passwords for Docker deployments; `.env` is git-ignored.
 - IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
+- The retro TV favicon lives in `tvguide/web/static/`; regenerate the raster files (PNG/ICO) with `python3 scripts/make_favicon.py` (dev-only, needs Pillow).
 
 ## Manual acceptance M0–M10
 

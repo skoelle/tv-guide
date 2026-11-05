@@ -46,7 +46,7 @@
       <dt>Datei</dt><dd>{{ s.app.file.path }}<br><span class="muted">Schema-Version {{ s.app.schema_version }}</span></dd>
       <dt>Shows</dt><dd>{{ s.app.shows | num }}</dd>
       <dt>Zuordnungen</dt>
-      <dd>{% if s.app.matches %}{% for k, v in s.app.matches.items() | sort %}{{ k }}: {{ v | num }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">noch keine (Matching folgt in M2)</span>{% endif %}</dd>
+      <dd>{% if s.app.matches %}{% for k, v in s.app.matches.items() | sort %}{{ k }}: {{ v | num }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">noch keine Zuordnungen</span>{% endif %}</dd>
       <dt>Offene Reviews</dt><dd>{{ s.app.review_open | num }}</dd>
       <dt>Overrides</dt><dd>{{ s.app.overrides | num }}</dd>
       <dt>Gespeicherte Suchen</dt><dd>{{ s.app.searches | num }}</dd>
