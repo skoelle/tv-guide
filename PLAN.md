@@ -102,20 +102,20 @@ Jeder Meilenstein ist einzeln lauffähig und hat ein klares Abnahmekriterium.
 
 - [x] Python 3.12.3 vorhanden.
 - [x] Port 8085 frei.
-- [ ] Prüfen, ob `data/` lokal liegt: `findmnt -T ~/Code/tv-guide/data` und `df -hT ~/Code/tv-guide/data`. Bei `cifs` oder `nfs`: SQLite-Dateien (vor allem `app.db`) lokal ablegen, nicht auf dem Netzlaufwerk. `epg.db` und `imdb.db` dürfen als Kopie lokal liegen.
-- [ ] Rechte aufräumen: `chmod 644 data/*.db` (777 ist unnötig). `epg.db-wal` und `epg.db-shm` sind Reste des Matching-Laufs und können nach `PRAGMA wal_checkpoint(TRUNCATE)` bleiben oder gelöscht werden, solange kein Prozess die DB offen hat.
-- [ ] Virtuelle Umgebung: `python3 -m venv .venv`, `.venv/bin/pip install fastapi uvicorn jinja2 python-multipart pytest`. Falls `venv` fehlt: `sudo apt install python3-venv`.
-- [ ] FTS5 prüfen: `python3 -c "import sqlite3;c=sqlite3.connect(':memory:');c.execute('create virtual table t using fts5(x)')"`.
-- [ ] Repo anlegen, Skripte nach `tools/`, `SPEC.md` und `PLAN.md` ablegen, `git init`, `.gitignore` setzen.
+- [x] Prüfen, ob `data/` lokal liegt (`findmnt`/`df`): lokales `ext4`.
+- [x] Rechte aufräumen (`644`, kein 777 mehr); `epg.db-wal`/`-shm` nach Checkpoint entfernt.
+- [x] Virtuelle Umgebung `.venv` mit `fastapi`, `uvicorn`, `jinja2`, `python-multipart`, `pytest`.
+- [x] FTS5 verfügbar (SQLite 3.45.1).
+- [x] Repo angelegt, `tools/`, `SPEC.md`, `PLAN.md`, `.gitignore`, Remote `origin` (GitHub).
 
 Abnahme: Ein leeres FastAPI-Programm antwortet im Browser vom Notebook aus auf `http://xubuntu-dev:8085/` (oder mit der IP-Adresse).
 
 ### M1: Grundgerüst und Daten verbinden
 
-- [ ] `config.py` liest `config.toml` (Pfade zu den drei DBs, Port, Schwellen).
-- [ ] `db.py` öffnet `app.db` und hängt `epg.db` und `imdb.db` mit `mode=ro` an. Migrationen für `app.db` (Tabellen aus SPEC 4) mit einer `schema_version`-Tabelle.
-- [ ] `python -m tvguide status` zeigt: Anzahl Sender und Sendungen, Zeitraum, letzter Import, IMDb-Datenstand, Anzahl Shows und Matches.
-- [ ] Route `GET /status` zeigt dasselbe als Seite.
+- [x] `config.py` liest `config.toml` (Pfade zu den drei DBs, Port, Schwellen).
+- [x] `db.py` öffnet `app.db` und hängt `epg.db` und `imdb.db` mit `mode=ro` an. Migrationen für `app.db` mit einer `schema_version`-Tabelle.
+- [x] `python -m tvguide status` zeigt Sender, Sendungen, Zeitraum, letzten Import, IMDb-Datenstand, Shows und Matches.
+- [x] Route `GET /status` zeigt dasselbe als Seite.
 
 Abnahme: `status` gibt die bekannten Zahlen aus (195 Sender, 49.669 Sendungen, 1.285.899 IMDb-Titel).
 
