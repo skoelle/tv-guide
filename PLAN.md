@@ -234,10 +234,17 @@ Abnahme: Eine neue Sendung passend zur Suche löst genau eine E-Mail aus. Ein er
 
 ### M8: Betrieb
 
-- [ ] `Dockerfile` und `docker-compose.yml` (Volume auf lokale Disk, Port, Restart-Policy). Zielplattform nach Wahl: Synology oder Docker-Host "Debian". `xubuntu-dev` bleibt Entwicklung.
-- [ ] Zeitplan: Refresh und Benachrichtigung nach dem Import (Task Scheduler der Synology oder Cron im Container).
-- [ ] `app.db` in die bestehende Backup-Strategie aufnehmen.
-- [ ] README mit Start, Update, Wiederherstellung.
+- [x] `Dockerfile` und `docker-compose.yml` (Volume auf lokale Disk, Port, Restart-Policy). `xubuntu-dev` bleibt Entwicklung.
+- [x] Zeitplan: Refresh und Benachrichtigung nach dem Import (`scripts/docker_update.sh` per Cron / Synology Task Scheduler).
+- [x] `app.db` in die Backup-Strategie aufnehmen (`scripts/backup_appdb.sh`, WAL-sicheres SQLite-Backup).
+- [x] README mit Start, Update, Wiederherstellung.
+
+Anmerkungen:
+
+- `Dockerfile` basiert auf `python:3.12-slim`, enthält einen Healthcheck auf `/healthz`; `config.toml` und `data/` werden als Volumes eingebunden.
+- `docker-compose.yml`: `restart: unless-stopped`, Port `8085`, `TVGUIDE_SMTP_PASSWORD` aus `.env`.
+- `scripts/docker_update.sh` = atomarer rsync + `refresh` im Container; `scripts/backup_appdb.sh` sichert `app.db` konsistent.
+- Image `tvguide:test` gebaut und im Container geprüft (`/healthz` ok, `/status` Schema-Version 4).
 
 Abnahme: Neustart des Zielsystems startet die App automatisch. Zustand (Overrides, Suchen) bleibt erhalten.
 

@@ -5,6 +5,7 @@ __pycache__/
 data/
 imdb_raw/
 match_out/
+backup/
 *.db
 *.db-shm
 *.db-wal

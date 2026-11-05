@@ -1,0 +1,14 @@
+services:
+  tvguide:
+    build: .
+    image: tvguide:latest
+    container_name: tvguide
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./data:/app/data
+    environment:
+      - TZ=Europe/Berlin
+      - TVGUIDE_SMTP_PASSWORD=${TVGUIDE_SMTP_PASSWORD:-}

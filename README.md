@@ -1,7 +1,7 @@
 # TV-Guide
 
 EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
-Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M7.
+Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M8.
 
 ## Voraussetzungen
 
@@ -59,6 +59,44 @@ Review-Entscheidungen landen in `overrides` (haben Vorrang vor der Automatik) un
 
 Filter werden über Query-Parameter gesteuert (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=…`). Die Seite arbeitet mit HTMX lokal (`static/htmx.min.js`) und funktioniert auch ohne JavaScript als normales Formular. `?at=<unixtime>` friert den Zeitpunkt für Tests ein.
 
+## Betrieb mit Docker (ab M8)
+
+Voraussetzungen: Docker + Compose, eine vorhandene `config.toml` und `data/` mit `epg.db`/`imdb.db`.
+
+```bash
+cp config.example.toml config.toml      # einmalig, Pfade/Port/SMTP anpassen
+docker compose up -d --build            # bauen und starten (Port 8085)
+docker compose logs -f tvguide          # Logs
+docker compose ps                       # Status inkl. Healthcheck
+```
+
+Volumes: `./config.toml` (read-only) nach `/app/config.toml`, `./data` nach `/app/data`. `app.db` (Overrides, Suchen, Treffer) liegt im Volume und überlebt Neustarts und Updates. `TVGUIDE_SMTP_PASSWORD` kommt aus `.env` (nicht im Git); `restart: unless-stopped` startet den Container nach einem Neustart des Hosts automatisch.
+
+**Aktualisieren** (Import auf der Synology, dann Daten holen und refreshen):
+
+```bash
+TVGUIDE_SYNC_HOST=stefan@synology ./scripts/docker_update.sh epg.db
+```
+
+Das holt die Datei atomar nach `data/`, führt im Container `refresh` aus (Match + Suchen + Mail) und lässt `app.db` unangetastet.
+
+**Zeitplan** (Cron auf dem Docker-Host oder Synology Task Scheduler):
+
+```cron
+15 6 * * * cd /pfad/tv-guide && ./scripts/docker_update.sh epg.db >> data/update.log 2>&1
+```
+
+**Sicherung und Wiederherstellung** (`app.db` ist der einzige nicht reproduzierbare Zustand):
+
+```bash
+./scripts/backup_appdb.sh                       # -> backup/app_<stamp>.db (WAL-sicher)
+docker compose stop
+cp backup/app_<stamp>.db data/app.db            # vorher data/app.db-wal und -shm entfernen
+docker compose start
+```
+
+`epg.db` und `imdb.db` sind reproduzierbar und müssen nicht gesichert werden. `backup/`, `data/` und `config.toml` stehen in `.gitignore`.
+
 ## Datenfluss
 
 ```
@@ -77,7 +115,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/`, `config.toml` stehen in `.gitignore`.
 - IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, Quellenangabe steht im Seitenfuß.
 
-## Manuelle Abnahme M0 bis M7
+## Manuelle Abnahme M0 bis M8
 
 - [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
 - [ ] `./run.sh initdb` meldet Schema-Version 4.
@@ -93,4 +131,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] „Letzte Entscheidung rückgängig" stellt den vorherigen Zustand wieder her.
 - [ ] Eine gespeicherte Suche „Serien der 80er und 90er" liefert dieselben Treffer wie die Filteransicht; nach „Treffer jetzt aktualisieren" steigt „neu" einmalig.
 - [ ] `./run.sh notify --dry-run` schreibt eine `.eml` nach `data/outbox/`; mit gesetztem SMTP löst ein neuer Treffer genau eine Mail aus, ein erneuter Refresh keine weitere.
+- [ ] `docker compose up -d --build` startet den Dienst; `/healthz` liefert `{"ok": true}` und `/status` ist erreichbar.
+- [ ] Ein Neustart des Containers/Hosts behält Overrides und Suchen (`app.db` im Volume).
+- [ ] `./scripts/backup_appdb.sh` erzeugt ein Backup; nach Austausch von `data/app.db` ist der Zustand wiederhergestellt.
 - [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).
