@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge with context %}
+{% from "_macros.html" import badge, imdb_link with context %}
 {% block title %}Jetzt · TV-Guide{% endblock %}
 {% block content %}
 {% set base = '/' %}
@@ -21,7 +21,7 @@
         <tr>
           <td>{{ x.airing.channel }}</td>
           <td>{{ x.airing.start_ts | ts('%H:%M') }}–{{ x.airing.stop_ts | ts('%H:%M') }}</td>
-          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a>
+          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a> {{ imdb_link(x.work.tconst) }}
             {% if x.airing.sub_title %}<br><span class="muted">{{ x.airing.sub_title }}</span>{% endif %}</td>
           <td>{{ x.work.year or '–' }}</td>
           <td>{{ category_label(x.work.category) }}</td>
@@ -41,7 +41,7 @@
         <tr>
           <td>{{ x.airing.channel }}</td>
           <td>{{ x.airing.start_ts | ts('%H:%M') }}</td>
-          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a></td>
+          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a> {{ imdb_link(x.work.tconst) }}</td>
           <td>{{ x.work.year or '–' }}</td>
           <td>{{ category_label(x.work.category) }}</td>
           <td class="muted">{{ x.work.genres_de | join(', ') }}</td>

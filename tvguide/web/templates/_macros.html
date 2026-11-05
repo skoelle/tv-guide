@@ -8,4 +8,11 @@
 <span class="tag {{ 'bad' if status == 'review' else 'ok' }}">{{ 'unsicher' if status == 'review' else 'sicher' }}</span>
 {%- endmacro %}
 
+{% macro imdb_link(tconst, label='IMDb') -%}
+{%- if tconst -%}
+<a class="imdb-link" href="https://www.imdb.com/title/{{ tconst }}/" target="_blank"
+   rel="noopener noreferrer" title="IMDb-Eintrag in neuem Fenster öffnen">{{ label }} ↗</a>
+{%- else -%}–{%- endif -%}
+{%- endmacro %}
+
 {% macro kind_de(kind) -%}{{ 'Film' if kind == 'film' else 'Serie' }}{%- endmacro %}

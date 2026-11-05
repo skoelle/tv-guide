@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import imdb_link with context %}
 {% block title %}{{ s.name }} · TV-Guide{% endblock %}
 {% block content %}
 <h1>{{ s.name }}</h1>
@@ -14,7 +15,7 @@
   <tr>
     <td>{{ h.start_ts | ts() }}–{{ h.stop_ts | ts('%H:%M') }}</td>
     <td>{{ h.channel }}</td>
-    <td>{{ h.sub_title or h.title }}</td>
+    <td>{{ h.sub_title or h.title }} {{ imdb_link(h.tconst) }}</td>
     <td>{% if h.found_at == s.last_run_at %}<span class="tag ok">neu</span>{% endif %}</td>
   </tr>
   {% endfor %}

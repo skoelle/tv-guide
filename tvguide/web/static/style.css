@@ -27,6 +27,7 @@ dd { margin: 0; word-break: break-word; }
 .btn { display: inline-block; padding: .35rem .9rem; border-radius: 8px; background: #1f2a37; color: #fff; text-decoration: none; }
 .btn.soon { opacity: .5; cursor: default; }
 a { color: #1f5fa8; }
+.imdb-link { font-size: .85em; white-space: nowrap; }
 
 .layout { display: grid; grid-template-columns: 240px 1fr; gap: 1rem; align-items: start; }
 .filters { position: sticky; top: 1rem; }

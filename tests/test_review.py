@@ -58,9 +58,13 @@ def test_work_page_zeigt_review_box(cfg):
     assert 'hx-post="api/review/confirm"' in html
     assert 'hx-post="api/review/reject"' in html
     assert "review/search?scope=work" in html
+    assert 'href="https://www.imdb.com/title/tt0086659/"' in html
+    assert 'target="_blank"' in html
     partial = client.get("/review/search", params={"q": "the", "show_key": "sendung 0",
                                                    "scope": "work"}).text
     assert "location.reload()" in partial
+    assert 'href="https://www.imdb.com/title/tt0086659/"' in partial
+    assert 'target="_blank"' in partial
 
 
 def test_work_page_kategorie_buttons(cfg):

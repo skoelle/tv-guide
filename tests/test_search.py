@@ -10,8 +10,8 @@ from tvguide.db import connect  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import apply_override  # noqa: E402
 from tvguide.search import (create_search, delete_search, effective_filters,  # noqa: E402
-                            get_search, list_searches, matched_works, normalize_filter, run_searches,
-                            update_search)
+                            get_search, hits_for, list_searches, matched_works, normalize_filter,
+                            run_searches, update_search)
 from tvguide.web.app import create_app  # noqa: E402
 
 
@@ -63,6 +63,7 @@ def test_run_searches_schreibt_treffer(cfg):
     con = _confirmed(cfg)
     sid = create_search(con, cfg, "Alles", {})
     assert run_searches(con, cfg)[0] == {"id": sid, "name": "Alles", "hits": 1, "new": 1}
+    assert hits_for(con, sid)[0]["tconst"] == "tt0086659"
     assert run_searches(con, cfg)[0]["new"] == 0  # beim zweiten Lauf nichts Neues
     con.close()
 

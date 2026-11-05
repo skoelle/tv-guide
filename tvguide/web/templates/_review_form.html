@@ -1,3 +1,4 @@
+{% from "_macros.html" import imdb_link with context %}
 {% set has_current = current_tconst and suggestions | selectattr('tconst', 'equalto', current_tconst) | list %}
 <form method="post" action="review/{{ show_key }}/confirm">
   <input type="hidden" name="show_key" value="{{ show_key }}">
@@ -9,6 +10,7 @@
     <span class="muted">({{ c.year or '?' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}, {{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}{% if c.genres %}, {{ c.genres }}{% endif %})</span>
     <span class="tag {{ 'bad' if c.status == 'none' else ('ok' if c.status == 'auto' else '') }}">{{ c.conf }}</span>
     <span class="muted">{{ c.score }}</span>
+    {{ imdb_link(c.tconst) }}
   </label>
   {% else %}
   <p class="muted">Keine Kandidaten gefunden.</p>

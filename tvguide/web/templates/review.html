@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import imdb_link with context %}
 {% block title %}Review · TV-Guide{% endblock %}
 {% block content %}
 <h1>Review</h1>
@@ -17,7 +18,7 @@
     <tr><th>Titel</th><th>Markierung</th><th>Seit</th></tr>
     {% for m in marks %}
     <tr>
-      <td>{{ m.primary_title or m.tconst }} <span class="muted">({{ m.start_year or '?' }})</span></td>
+      <td>{{ m.primary_title or m.tconst }} {{ imdb_link(m.tconst) }} <span class="muted">({{ m.start_year or '?' }})</span></td>
       <td>{{ 'Format' if m.mark == 'format' else 'behalten' }}</td>
       <td class="muted">{{ m.created_at }}</td>
     </tr>

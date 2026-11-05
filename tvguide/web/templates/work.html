@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge with context %}
+{% from "_macros.html" import badge, imdb_link with context %}
 {% block title %}{{ w.title }} · TV-Guide{% endblock %}
 {% block content %}
 <h1>{{ w.title }}</h1>
@@ -12,7 +12,7 @@
   <dl>
     <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
     <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
-    <dt>IMDb</dt><dd><a href="https://www.imdb.com/title/{{ w.tconst }}/">{{ w.tconst }}</a></dd>
+    <dt>IMDb</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
     <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
   </dl>
 </div>

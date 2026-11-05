@@ -1,10 +1,11 @@
+{% from "_macros.html" import imdb_link with context %}
 {% if q %}
 {% if results %}
 <table>
   <tr><th>Titel</th><th>Jahr</th><th>Typ</th><th></th></tr>
   {% for c in results %}
   <tr>
-    <td>{{ c.title }}{% if c.genres %}<br><span class="muted">{{ c.genres }}</span>{% endif %}</td>
+    <td>{{ c.title }} {{ imdb_link(c.tconst) }}{% if c.genres %}<br><span class="muted">{{ c.genres }}</span>{% endif %}</td>
     <td>{{ c.year or '–' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}</td>
     <td>{{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}</td>
     <td>

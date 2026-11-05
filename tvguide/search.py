@@ -212,10 +212,13 @@ def get_search(con: sqlite3.Connection, search_id: int) -> dict | None:
 def hits_for(con: sqlite3.Connection, search_id: int, limit: int = 200) -> list[dict]:
     rows = con.execute(
         """SELECT sh.channel_id, sh.start_ts, sh.found_at, sh.notified_at,
-                  COALESCE(c.name, sh.channel_id) AS channel, e.stop_ts, e.title, e.sub_title
+                  COALESCE(c.name, sh.channel_id) AS channel, e.stop_ts, e.title, e.sub_title,
+                  sm.tconst
            FROM search_hits sh
            LEFT JOIN epg.events e ON e.channel_id = sh.channel_id AND e.start_ts = sh.start_ts
            LEFT JOIN epg.channels c ON c.id = sh.channel_id
+           LEFT JOIN event_show es ON es.channel_id = sh.channel_id AND es.start_ts = sh.start_ts
+           LEFT JOIN show_match sm ON sm.show_id = es.show_id
            WHERE sh.search_id=? ORDER BY sh.start_ts LIMIT ?""", (search_id, limit)).fetchall()
     return [dict(r) for r in rows]
 
