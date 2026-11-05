@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Status · TV-Guide{% endblock %}
+{% block content %}
+<h1>Status</h1>
+
+{% if s.problems %}
+<div class="box bad">
+  <strong>Probleme</strong>
+  <ul>{% for p in s.problems %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<div class="grid">
+  <section class="box">
+    <h2>EPG <span class="tag {{ 'ok' if s.epg.state in ('ok','immutable') else 'bad' }}">{{ s.epg.state }}</span></h2>
+    <dl>
+      <dt>Datei</dt><dd>{{ s.epg.file.path }}{% if s.epg.file.exists %}<br><span class="muted">{{ s.epg.file.size | size }}, geändert {{ s.epg.file.mtime | ts }}</span>{% endif %}</dd>
+      {% if s.epg.events is not none %}
+      <dt>Sender</dt><dd>{{ s.epg.channels | num }}</dd>
+      <dt>Sendungen</dt><dd>{{ s.epg.events | num }}</dd>
+      <dt>Zeitraum</dt><dd>{{ s.epg.first_start | ts }} bis {{ s.epg.last_stop | ts }}</dd>
+      {% if s.epg.last_import %}
+      <dt>Letzter Import</dt><dd>{{ s.epg.last_import.finished_at }}<br><span class="muted">{{ s.epg.last_import.events_new | num }} neu, {{ s.epg.last_import.events_changed | num }} geändert</span></dd>
+      {% endif %}
+      {% endif %}
+    </dl>
+  </section>
+
+  <section class="box">
+    <h2>IMDb <span class="tag {{ 'ok' if s.imdb.state in ('ok','immutable') else 'bad' }}">{{ s.imdb.state }}</span></h2>
+    <dl>
+      <dt>Datei</dt><dd>{{ s.imdb.file.path }}{% if s.imdb.file.exists %}<br><span class="muted">{{ s.imdb.file.size | size }}, geändert {{ s.imdb.file.mtime | ts }}</span>{% endif %}</dd>
+      {% if s.imdb.titles is not none %}
+      <dt>Titel</dt><dd>{{ s.imdb.titles | num }}</dd>
+      <dt>Namen</dt><dd>{{ s.imdb.names | num }}</dd>
+      {% if s.imdb.meta %}
+      <dt>Datenstand</dt><dd>{{ s.imdb.meta.get('source_date', '-') }}<br><span class="muted">gebaut {{ s.imdb.meta.get('built_at', '-') }}</span></dd>
+      {% endif %}
+      {% endif %}
+    </dl>
+  </section>
+
+  <section class="box">
+    <h2>App</h2>
+    <dl>
+      <dt>Datei</dt><dd>{{ s.app.file.path }}<br><span class="muted">Schema-Version {{ s.app.schema_version }}</span></dd>
+      <dt>Shows</dt><dd>{{ s.app.shows | num }}</dd>
+      <dt>Zuordnungen</dt>
+      <dd>{% if s.app.matches %}{% for k, v in s.app.matches.items() | sort %}{{ k }}: {{ v | num }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">noch keine (Matching folgt in M2)</span>{% endif %}</dd>
+      <dt>Offene Reviews</dt><dd>{{ s.app.review_open | num }}</dd>
+      <dt>Overrides</dt><dd>{{ s.app.overrides | num }}</dd>
+      <dt>Gespeicherte Suchen</dt><dd>{{ s.app.searches | num }}</dd>
+    </dl>
+  </section>
+</div>
+
+<p class="muted">Konfiguration: {{ s.config_file or 'Standardwerte' }} · Zeitzone {{ s.timezone }} · <a href="/api/status">JSON</a></p>
+{% endblock %}

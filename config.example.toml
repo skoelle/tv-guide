@@ -1,0 +1,35 @@
+# Kopie als config.toml speichern und anpassen: vim config.toml
+# Relative Pfade gelten ab dem Ordner, in dem diese Datei liegt.
+
+[paths]
+epg_db  = "data/epg.db"      # von tools/epg_import.py, wird nur gelesen
+imdb_db = "data/imdb.db"     # von tools/imdb_build.py, wird nur gelesen
+app_db  = "data/app.db"      # gehoert der App (Zuordnungen, Suchen, Overrides)
+ignore_channels_file = "channels_ignore.txt"
+
+[server]
+host = "0.0.0.0"
+port = 8085
+timezone = "Europe/Berlin"
+
+[matching]
+auto_threshold = 1.0         # Score ab hier: auto
+review_threshold = 0.6       # Score ab hier: review
+
+[retro]
+from_year = 1980
+to_year = 1999
+end_max = 2009               # Serie gilt als abgeschlossen, wenn Ende bis dahin
+
+# Sendergruppen fuer Filter (exakte Sendernamen aus dem EPG)
+[channel_groups]
+retro = ["TELE 5", "Kabel Eins", "RTLNITRO", "Pro7 MAXX", "SAT.1 Gold", "ONE", "RTLZWEI"]
+
+# Ab M7 (E-Mail). Das Passwort kommt aus der Umgebungsvariable TVGUIDE_SMTP_PASSWORD.
+[smtp]
+host = ""
+port = 587
+security = "starttls"        # starttls | ssl
+username = ""
+from = ""
+to = []

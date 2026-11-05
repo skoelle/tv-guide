@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+imdb_raw/
+match_out/
+*.db
+*.db-shm
+*.db-wal
+config.toml
+channels_ignore.txt
+.env
+@eaDir/
