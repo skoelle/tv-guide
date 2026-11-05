@@ -172,10 +172,18 @@ Abnahme: Auf `http://xubuntu-dev:8085/` sind Das A-Team, MacGyver und die Olsenb
 
 ### M5: Review
 
-- [ ] Liste der Shows mit Status `review`, sortiert nach Anzahl Sendungen.
-- [ ] Aktionen: Vorschlag bestätigen, anderen Kandidaten wählen (Suche in `imdb.db`), "kein Treffer".
-- [ ] Jede Entscheidung schreibt in `overrides` und aktualisiert `show_match`.
-- [ ] Rückgängig machen (letzte 20 Entscheidungen).
+- [x] Liste der Shows mit Status `review`, sortiert nach Anzahl Sendungen.
+- [x] Aktionen: Vorschlag bestätigen, anderen Kandidaten wählen (Prefix-Suche in `imdb.db`), "kein Treffer".
+- [x] Jede Entscheidung schreibt in `overrides` und aktualisiert `show_match`.
+- [x] Rückgängig machen der letzten Entscheidung (`override_log`, Migration 3).
+
+Anmerkungen:
+
+- `tvguide/review.py`: Liste, `apply_override`, `undo_last`, `show_key_for` (akzeptiert show_key oder numerische show_id).
+- Kandidaten kommen aus `matching.suggestions` (derselbe Score wie im Matching); die Suche läuft über einen Index-Prefixbereich auf `title_names.norm`.
+- `load_shows` und der Werk-Katalog sind pro Prozess gecacht; die Review-Seite ist dadurch nach dem ersten Aufruf im zweistelligen Millisekundenbereich.
+- `override_log` speichert den vorherigen Override- und `show_match`-Zustand, damit "rückgängig" exakt wiederherstellt.
+- API: `GET /api/review`, `POST /api/review/{show_id|show_key}`.
 
 Abnahme: Nach Bestätigung erscheint die Show sofort in Jetzt und Stöbern mit dem gewählten Werk und bleibt nach einem Refresh erhalten.
 

@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Form, Request
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from zoneinfo import ZoneInfo
@@ -17,6 +17,8 @@ from ..browse import (annotate_next, apply_filters, catalog_facets, evening_airi
                       genre_de, load_catalog, parse_filters, running_airings, sort_works)
 from ..config import Config, load_config
 from ..db import Db, connect
+from ..matching import search_titles
+from ..review import apply_override, list_review, review_count, show_key_for, undo_last
 from ..status import collect, fmt_num, fmt_size, fmt_ts
 
 HERE = Path(__file__).parent
@@ -175,6 +177,62 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if w is None:
             return JSONResponse({"error": "not found"}, status_code=404)
         return w
+
+    @app.get("/review")
+    def review_page(request: Request, con: Db = Depends(get_db)):
+        per_page = 25
+        total = review_count(con)
+        pages = max(1, (total + per_page - 1) // per_page)
+        raw = request.query_params.get("page", "1")
+        page = min(max(1, int(raw) if raw.isdigit() else 1), pages)
+        shows = list_review(con, cfg, limit=per_page, offset=(page - 1) * per_page)
+        ctx = _base(request, con, "review")
+        ctx.update({"shows": shows, "total": total, "page": page, "pages": pages})
+        return templates.TemplateResponse(request, "review.html", ctx)
+
+    @app.post("/review/{show_key}/confirm")
+    def review_confirm(show_key: str, tconst: str = Form(...), con: Db = Depends(get_db)):
+        key = show_key_for(con, show_key)
+        if key and tconst.strip():
+            apply_override(con, key, tconst.strip())
+        return RedirectResponse("/review", status_code=303)
+
+    @app.post("/review/{show_key}/reject")
+    def review_reject(show_key: str, con: Db = Depends(get_db)):
+        key = show_key_for(con, show_key)
+        if key:
+            apply_override(con, key, None)
+        return RedirectResponse("/review", status_code=303)
+
+    @app.post("/review/undo")
+    def review_undo(con: Db = Depends(get_db)):
+        undo_last(con)
+        return RedirectResponse("/review", status_code=303)
+
+    @app.get("/review/search")
+    def review_search(request: Request, con: Db = Depends(get_db), q: str = "", show_key: str = ""):
+        results = search_titles(con, q, 20) if q.strip() else []
+        ctx = {"request": request, "results": results, "show_key": show_key, "q": q}
+        return templates.TemplateResponse(request, "_review_search.html", ctx)
+
+    @app.get("/api/review")
+    def api_review(request: Request, con: Db = Depends(get_db)):
+        per_page = 50
+        raw = request.query_params.get("page", "1")
+        page = max(1, int(raw) if raw.isdigit() else 1)
+        return {"total": review_count(con),
+                "shows": list_review(con, cfg, limit=per_page, offset=(page - 1) * per_page)}
+
+    @app.post("/api/review/{ident}")
+    async def api_review_post(ident: str, request: Request, con: Db = Depends(get_db)):
+        key = show_key_for(con, ident)
+        if key is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        body = await request.json()
+        tconst = None if body.get("reject") else (body.get("tconst") or None)
+        apply_override(con, key, tconst, note=body.get("note"))
+        return {"ok": True, "show_key": key, "tconst": tconst,
+                "status": "confirmed" if tconst else "rejected"}
 
     @app.get("/status")
     def status_page(request: Request, con: Db = Depends(get_db)):

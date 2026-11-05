@@ -1,0 +1,20 @@
+{% if q %}
+{% if results %}
+<table>
+  <tr><th>Titel</th><th>Jahr</th><th>Typ</th><th></th></tr>
+  {% for c in results %}
+  <tr>
+    <td>{{ c.title }}{% if c.genres %}<br><span class="muted">{{ c.genres }}</span>{% endif %}</td>
+    <td>{{ c.year or '–' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}</td>
+    <td>{{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}</td>
+    <td>
+      <form method="post" action="/review/{{ show_key }}/confirm">
+        <input type="hidden" name="tconst" value="{{ c.tconst }}">
+        <button class="btn" type="submit">wählen</button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">Keine Treffer für „{{ q }}".</p>{% endif %}
+{% endif %}

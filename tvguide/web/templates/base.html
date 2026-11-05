@@ -14,7 +14,7 @@
   <nav>
     <a href="/" class="{{ 'on' if n.get('active') == 'jetzt' }}">Jetzt</a>
     <a href="/browse" class="{{ 'on' if n.get('active') == 'stoebern' }}">Stöbern</a>
-    <span class="soon" title="kommt in M5">Review{% if n.get('review') is not none %} ({{ n.get('review') }}){% endif %}</span>
+    <a href="/review" class="{{ 'on' if n.get('active') == 'review' }}">Review{% if n.get('review') is not none %} ({{ n.get('review') }}){% endif %}</a>
     <span class="soon" title="kommt in M6">Suchen{% if n.get('searches') is not none %} ({{ n.get('searches') }}){% endif %}</span>
     <a href="/status" class="{{ 'on' if n.get('active') == 'status' }}">Status</a>
   </nav>

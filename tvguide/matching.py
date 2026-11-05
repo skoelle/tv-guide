@@ -45,8 +45,18 @@ def read_ignore(path: str | Path | None) -> tuple[set[str], list[re.Pattern]]:
     return exact, regs
 
 
+_SHOWS_CACHE: dict = {}
+
+
 def load_shows(con: sqlite3.Connection, cfg: Config) -> tuple[dict, Counter, int, int]:
-    """Gruppiert EPG-Sendungen zu Shows. Gibt (shows, chan_total, ignoriert, gesamt) zurueck."""
+    """Gruppiert EPG-Sendungen zu Shows. Gibt (shows, chan_total, ignoriert, gesamt) zurueck.
+
+    Das Ergebnis wird pro Prozess gecacht (Schluessel: Pfad und mtime der epg.db)."""
+    def _mt(p):
+        return p.stat().st_mtime_ns if p.exists() else None
+    cache_key = (str(cfg.epg_db), _mt(cfg.epg_db), _mt(cfg.ignore_channels_file))
+    if _SHOWS_CACHE.get("key") == cache_key:
+        return _SHOWS_CACHE["val"]
     exact, regs = read_ignore(cfg.ignore_channels_file)
     rows = con.execute(
         """SELECT e.title, e.sub_title, e.description, e.categories, e.start_ts, e.stop_ts,
@@ -85,7 +95,10 @@ def load_shows(con: sqlite3.Connection, cfg: Config) -> tuple[dict, Counter, int
         if s["next"] is None or r["start_ts"] < s["next"]:
             s["next"] = r["start_ts"]
         s["events"].append((r["channel_id"], r["start_ts"], r["sub_title"]))
-    return shows, chan_total, ignored, len(rows)
+    result = (shows, chan_total, ignored, len(rows))
+    _SHOWS_CACHE["key"] = cache_key
+    _SHOWS_CACHE["val"] = result
+    return result
 
 
 def skip_reason(s: dict, cfg: Config) -> str | None:
@@ -178,7 +191,9 @@ def score(cand_norm: str, kind: str, full_norm: str, row, dur: int, n_events: in
     return name + adj, signals
 
 
-def match_show(con: sqlite3.Connection, s: dict, cfg: Config) -> dict:
+def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple]:
+    """Alle Kandidaten eines Shows, nach Score absteigend. Tupel:
+    (score, row, text, kind, signals, year_title_bonus)."""
     title = s["title"]
     full_norm = normalize(title)
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
@@ -195,7 +210,45 @@ def match_show(con: sqlite3.Connection, s: dict, cfg: Config) -> dict:
                 scored[key] = (sc, row, text, kind, signals, bonus)
     if any(v[3] != "suffix" for v in scored.values()):
         scored = {k: v for k, v in scored.items() if v[3] != "suffix"}
-    ranked = sorted(scored.values(), key=lambda x: -x[0])
+    return sorted(scored.values(), key=lambda x: -x[0])
+
+
+def suggestions(con: sqlite3.Connection, s: dict, cfg: Config, limit: int = 5) -> list[dict]:
+    """Top-Kandidaten mit Status und Konfidenz, fuer die Review-Ansicht."""
+    out = []
+    for sc, row, text, kind, _signals, _bonus in rank_candidates(con, s, cfg)[:limit]:
+        status = "auto" if sc >= cfg.auto_threshold else "review" if sc >= cfg.review_threshold else "none"
+        out.append({
+            "tconst": row["tconst"], "title": row["primary_title"], "year": row["start_year"],
+            "end_year": row["end_year"], "type": row["title_type"], "genres": row["genres"],
+            "votes": row["num_votes"], "score": round(sc, 3), "conf": round(conf(sc), 2),
+            "kind": kind, "status": status,
+        })
+    return out
+
+
+def search_titles(con: sqlite3.Connection, query: str, limit: int = 20) -> list[dict]:
+    """Sucht IMDb-Titel fuer 'anderer Titel waehlen'.
+
+    Prefix-Bereich auf `title_names.norm` (nutzt den Index) statt teurem LIKE '%...%'.
+    """
+    q = normalize(query)
+    if not q:
+        return []
+    rows = con.execute(
+        """SELECT t.tconst, t.title_type, t.primary_title, t.start_year, t.end_year,
+                  t.genres, t.num_votes, min(n.norm) AS matched
+           FROM imdb.title_names n JOIN imdb.titles t ON t.tconst = n.tconst
+           WHERE n.norm >= ? AND n.norm < ?
+           GROUP BY t.tconst ORDER BY t.num_votes DESC LIMIT ?""", (q, q + "\uffff", limit)).fetchall()
+    return [{"tconst": r["tconst"], "title": r["primary_title"], "year": r["start_year"],
+             "end_year": r["end_year"], "type": r["title_type"], "genres": r["genres"],
+             "votes": r["num_votes"]} for r in rows]
+
+
+def match_show(con: sqlite3.Connection, s: dict, cfg: Config) -> dict:
+    ranked = rank_candidates(con, s, cfg)
+    dur = int(statistics.median(s["durs"])) if s["durs"] else 0
     if not ranked:
         return dict(status="none", score=0.0, best=None, alt=None, cand="", kind="", dur=dur,
                     reason={"candidate": None, "kind": None, "signals": {}, "year_title_bonus": 0.0,

@@ -64,6 +64,22 @@ MIGRATIONS: list[str] = [
         value  TEXT
     );
     """,
+    # Version 3: Verlauf der Review-Entscheidungen (Rueckgaengig)
+    """
+    CREATE TABLE override_log (
+        id                   INTEGER PRIMARY KEY,
+        show_key             TEXT NOT NULL,
+        created_at           TEXT NOT NULL,
+        prev_override_exists INTEGER NOT NULL,
+        prev_override_tconst TEXT,
+        prev_status          TEXT,
+        prev_tconst          TEXT,
+        prev_score           REAL,
+        prev_method          TEXT,
+        prev_reason          TEXT,
+        new_tconst           TEXT
+    );
+    """,
 ]
 
 
