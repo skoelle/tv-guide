@@ -2,154 +2,154 @@
 
 [![build](https://github.com/skoelle/tv-guide/actions/workflows/build.yml/badge.svg)](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)
 
-EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
-Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M8.
+Browse the TVHeadend EPG, find movies and series (80s and 90s), and keep saved searches with email notifications.
+Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M8.
 
-## Voraussetzungen
+## Requirements
 
-- Python 3.11 oder neuer (getestet mit 3.12.3), `python3-venv`
-- `data/epg.db` und `data/imdb.db` (von `tools/epg_import.py` und `tools/imdb_build.py`)
-- `tools/` mit den drei Skripten liegt bereits im Repo und bleibt unverändert
+- Python 3.11 or newer (tested with 3.12.3), `python3-venv`
+- `data/epg.db` and `data/imdb.db` (built by `tools/epg_import.py` and `tools/imdb_build.py`)
+- `tools/` with the three scripts is already in the repo and stays unchanged
 
-## Erste Schritte
+## Quick start
 
 ```bash
-./setup.sh                  # .venv anlegen, Abhängigkeiten installieren, config.toml erzeugen
-vim config.toml             # Pfade und Port prüfen
-./scripts/check_env.sh      # Umgebung prüfen (M0)
-./run.sh initdb             # app.db anlegen
-./run.sh status             # Datenstand im Terminal
-./run.sh                    # Webserver starten, dann http://xubuntu-dev:8085/status öffnen
+./setup.sh                  # create .venv, install dependencies, create config.toml
+vim config.toml             # check paths and port
+./scripts/check_env.sh      # verify the environment (M0)
+./run.sh initdb             # create app.db
+./run.sh status             # show data status in the terminal
+./run.sh                    # start the web server, then open http://xubuntu-dev:8085/status
 ```
 
-## Befehle
+## Commands
 
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `./run.sh` oder `./run.sh serve` | Webserver (Port aus `config.toml`) |
-| `./run.sh status [--json]` | Datenstand von EPG, IMDb und App |
-| `./run.sh match` | EPG-Shows gegen IMDb matchen und in `app.db` schreiben |
-| `./run.sh refresh [--force]` | geänderte `epg.db` erkennen und nur dann matchen |
-| `./run.sh searches` | gespeicherte Suchen auswerten (`search_hits`) |
-| `./run.sh notify [--dry-run] [--test]` | Benachrichtigung über neue Treffer versenden |
-| `scripts/sync_data.sh epg.db` | `epg.db` atomar von der Synology holen |
-| `./run.sh initdb` | `app.db` anlegen und migrieren |
-| `./run.sh config` | geladene Konfiguration anzeigen |
+| `./run.sh` or `./run.sh serve` | Web server (port from `config.toml`) |
+| `./run.sh status [--json]` | Status of EPG, IMDb and app data |
+| `./run.sh match` | Match EPG shows against IMDb and write to `app.db` |
+| `./run.sh refresh [--force]` | Detect a changed `epg.db` and only then re-match |
+| `./run.sh searches` | Evaluate saved searches (`search_hits`) |
+| `./run.sh notify [--dry-run] [--test]` | Send notifications for new hits |
+| `scripts/sync_data.sh epg.db` | Fetch `epg.db` from the Synology atomically |
+| `./run.sh initdb` | Create and migrate `app.db` |
+| `./run.sh config` | Show the loaded configuration |
 | `.venv/bin/python -m pytest -q` | Tests |
 
-Mit `--config /pfad/config.toml` (vor oder nach dem Befehl) oder `TVGUIDE_CONFIG` lässt sich eine andere Konfiguration wählen.
+Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFIG` to select a different configuration.
 
-## Web-Ansichten
+## Web views
 
-| Pfad | Inhalt |
+| Path | Content |
 |---|---|
-| `/` | Jetzt: „Läuft gerade" und „Heute Abend" mit Filterleiste |
-| `/browse` | Stöbern: Karten pro Werk, Filter-Chips, Sortierung, Paginierung |
-| `/work/{tconst}` | Werk-Detail mit allen Terminen |
-| `/review` | Offene Zuordnungen prüfen, bestätigen, ablehnen, anderer Titel, rückgängig |
-| `/searches` | Gespeicherte Suchen: Treffer, „neu", bearbeiten, löschen, aktualisieren |
-| `/status` | Datenstand |
+| `/` | Now: "running now" and "tonight" with a filter bar |
+| `/browse` | Browse: cards per work, filter chips, sorting, pagination |
+| `/work/{tconst}` | Work detail with all airings |
+| `/review` | Review open matches: confirm, reject, pick another title, undo |
+| `/searches` | Saved searches: hits, "new", edit, delete, refresh |
+| `/status` | Data status |
 | `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/status` | JSON |
 
-## E-Mail (ab M7)
+## Email (since M7)
 
-Nach jedem `refresh` (und über `./run.sh notify`) verschickt der TV-Guide **eine Sammelmail** für alle offenen Treffer von Suchen mit „benachrichtigen". In der `[smtp]`-Sektion in `config.toml` stehen `host`, `port`, `security` (`starttls`|`ssl`), `username`, `from`, `to`; das Passwort kommt ausschließlich aus der Umgebungsvariable `TVGUIDE_SMTP_PASSWORD`. Links in der Mail nutzen `[server].base_url`. `notified_at` wird erst nach erfolgreichem Versand gesetzt – bei fehlendem SMTP oder Fehlern wird beim nächsten Lauf nachgeholt. `./run.sh notify --dry-run` schreibt die Mail nach `data/outbox/`, `--test` sendet eine Testmail.
+After every `refresh` (and via `./run.sh notify`) TV-Guide sends **one digest email** for all open hits of searches with notifications enabled. The `[smtp]` section in `config.toml` holds `host`, `port`, `security` (`starttls`|`ssl`), `username`, `from`, `to`; the password comes exclusively from the `TVGUIDE_SMTP_PASSWORD` environment variable. Links in the email use `[server].base_url`. `notified_at` is only set after a successful send – if SMTP is missing or sending fails, the next run retries. `./run.sh notify --dry-run` writes the email to `data/outbox/`, `--test` sends a test message.
 
-Gespeicherte Suchen speichern ein **validiertes Filter-JSON** (Whitelist: `type`, `decade`, `group`, `genre`, `retro`, `q`, plus `include_review`/`notify`). Ausgewertet wird mit derselben Engine wie die Filteransicht, deshalb liefern Suche und Ansicht dieselben Treffer. `search_hits` wird bei `refresh` und über `./run.sh searches` fortgeschrieben; „neu" ist die Anzahl der beim letzten Lauf neu hinzugekommenen Termine.
+Saved searches store a **validated filter JSON** (whitelist: `type`, `decade`, `group`, `genre`, `retro`, `q`, plus `include_review`/`notify`). They are evaluated with the same engine as the filter view, so a search and the view always return the same hits. `search_hits` is updated on `refresh` and via `./run.sh searches`; "new" is the number of airings added during the last run.
 
-Review-Entscheidungen landen in `overrides` (haben Vorrang vor der Automatik) und werden in `override_log` protokolliert, damit die letzte Entscheidung rückgängig gemacht werden kann.
+Review decisions are stored in `overrides` (they take precedence over the automatic matching) and logged in `override_log` so the last decision can be undone.
 
-Filter werden über Query-Parameter gesteuert (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=…`). Die Seite arbeitet mit HTMX lokal (`static/htmx.min.js`) und funktioniert auch ohne JavaScript als normales Formular. `?at=<unixtime>` friert den Zeitpunkt für Tests ein.
+Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=...`). The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
 
-## Betrieb mit Docker (ab M8)
+## Docker operation (since M8)
 
-> **Entwicklung ≠ Betrieb:** Auf `xubuntu-dev` läuft **kein Container**. Dort werden ausschließlich lokale Python-Tests ausgeführt (`./run.sh`, `.venv/bin/python -m pytest -q`). Docker und das GHCR-Image kommen nur auf dem Zielhost (Synology/Docker-Host) zum Einsatz.
+> **Development ≠ operation:** `xubuntu-dev` runs **no container**. It is used for local Python tests only (`./run.sh`, `.venv/bin/python -m pytest -q`). Docker and the GHCR image are only used on the target host (Synology/Docker host).
 
-Voraussetzungen: Docker + Compose, eine vorhandene `config.toml` und `data/` mit `epg.db`/`imdb.db`.
+Requirements: Docker + Compose, an existing `config.toml`, and `data/` with `epg.db`/`imdb.db`.
 
 ```bash
-cp config.example.toml config.toml      # einmalig, Pfade/Port/SMTP anpassen
-docker compose up -d --build            # bauen und starten (Port 8085)
-docker compose logs -f tvguide          # Logs
-docker compose ps                       # Status inkl. Healthcheck
+cp config.example.toml config.toml      # once; adjust paths/port/SMTP
+docker compose up -d --build            # build and start (port 8085)
+docker compose logs -f tvguide          # logs
+docker compose ps                       # status including healthcheck
 ```
 
-Volumes: `./config.toml` (read-only) nach `/app/config.toml`, `./channels_ignore.txt` (read-only) nach `/app/channels_ignore.txt` und `./data` nach `/app/data`. Die Ignore-Liste muss neben `config.toml` liegen (Pfad wird relativ zur Konfiguration aufgelöst); ohne sie werden Radio-/Shopping-Sender nicht gefiltert. `app.db` (Overrides, Suchen, Treffer) liegt im Volume und überlebt Neustarts und Updates. `TVGUIDE_SMTP_PASSWORD` kommt aus `.env` (nicht im Git); `restart: unless-stopped` startet den Container nach einem Neustart des Hosts automatisch.
+Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. `app.db` (overrides, searches, hits) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD` comes from `.env` (not committed); `restart: unless-stopped` restarts the container automatically after a host reboot.
 
-### Image von GHCR ziehen (Build in GitHub)
+### Pulling the image from GHCR (built in GitHub)
 
-GitHub Actions baut bei jedem Push auf `main` (und wöchentlich) das Image und legt es als `ghcr.io/skoelle/tv-guide:latest` ab ([build-Workflow](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)). Damit musst du lokal nichts bauen:
+GitHub Actions builds the image on every push to `main` (and weekly) and publishes it as `ghcr.io/skoelle/tv-guide:latest` ([build workflow](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)). You do not need to build anything locally:
 
 ```bash
-cp docker-compose.example.yml docker-compose.yml   # Pfade in den Volumes anpassen
+cp docker-compose.example.yml docker-compose.yml   # adjust paths in the volumes
 docker compose pull
 docker compose up -d
 ```
 
-Das Image enthält nur den Code; `config.toml`, `channels_ignore.txt` und `data/` werden als Volumes eingebunden. Ist das GHCR-Paket noch privat, in GitHub unter *Packages* auf **public** stellen (oder einmalig `docker login ghcr.io` ausführen).
+The image contains only the code; `config.toml`, `channels_ignore.txt` and `data/` are mounted as volumes. If the GHCR package is still private, set it to **public** under *Packages* in GitHub (or run `docker login ghcr.io` once).
 
-Für automatisches Nachziehen ist im Beispiel ein Watchtower-Label gesetzt. Setzt du im Repo die Secrets `WEBHOOK_URL` (und optional `WEBHOOK_TOKEN`), ruft der Build nach dem Push deinen Watchtower-Webhook auf.
+The example compose file sets a Watchtower label for automatic updates. If you configure the `WEBHOOK_URL` (and optionally `WEBHOOK_TOKEN`) repo secrets, the build calls your Watchtower webhook after pushing.
 
-**Aktualisieren** (Import auf der Synology, dann Daten holen und refreshen):
+**Updating** (import on the Synology, then fetch data and refresh):
 
 ```bash
 TVGUIDE_SYNC_HOST=stefan@synology ./scripts/docker_update.sh epg.db
 ```
 
-Das holt die Datei atomar nach `data/`, führt im Container `refresh` aus (Match + Suchen + Mail) und lässt `app.db` unangetastet.
+This fetches the file atomically into `data/`, runs `refresh` inside the container (match + searches + email), and leaves `app.db` untouched.
 
-**Zeitplan** (Cron auf dem Docker-Host oder Synology Task Scheduler):
+**Schedule** (cron on the Docker host or Synology Task Scheduler):
 
 ```cron
-15 6 * * * cd /pfad/tv-guide && ./scripts/docker_update.sh epg.db >> data/update.log 2>&1
+15 6 * * * cd /path/tv-guide && ./scripts/docker_update.sh epg.db >> data/update.log 2>&1
 ```
 
-**Sicherung und Wiederherstellung** (`app.db` ist der einzige nicht reproduzierbare Zustand):
+**Backup and restore** (`app.db` is the only non-reproducible state):
 
 ```bash
-./scripts/backup_appdb.sh                       # -> backup/app_<stamp>.db (WAL-sicher)
+./scripts/backup_appdb.sh                       # -> backup/app_<stamp>.db (WAL-safe)
 docker compose stop
-cp backup/app_<stamp>.db data/app.db            # vorher data/app.db-wal und -shm entfernen
+cp backup/app_<stamp>.db data/app.db            # remove data/app.db-wal and -shm first
 docker compose start
 ```
 
-`epg.db` und `imdb.db` sind reproduzierbar und müssen nicht gesichert werden. `backup/`, `data/` und `config.toml` stehen in `.gitignore`.
+`epg.db` and `imdb.db` are reproducible and do not need to be backed up. `backup/`, `data/` and `config.toml` are listed in `.gitignore`.
 
-## Datenfluss
+## Data flow
 
 ```
-Synology:  epg_import.py -> epg.db        imdb_build.py -> imdb.db
-              |  rsync (atomar kopieren)       |
+Synology:   epg_import.py -> epg.db        imdb_build.py -> imdb.db
+               |  rsync (atomic copy)          |
 xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
                           \               /
-                           tvguide  ->  data/app.db (Zuordnungen, Overrides, Suchen)
+                           tvguide  ->  data/app.db (matches, overrides, searches)
 ```
 
-`epg.db` und `imdb.db` werden nie von der App verändert. Der Nutzerzustand liegt nur in `app.db`.
+`epg.db` and `imdb.db` are never modified by the app. User state lives only in `app.db`.
 
-## Hinweise
+## Notes
 
-- SQLite-Dateien nur auf lokalen Dateisystemen ablegen (kein SMB/NFS).
-- `*.db`, `data/`, `config.toml` stehen in `.gitignore`.
-- IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, Quellenangabe steht im Seitenfuß.
+- Keep SQLite files on local filesystems only (no SMB/NFS).
+- `*.db`, `data/` and `config.toml` are listed in `.gitignore`.
+- IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
 
-## Manuelle Abnahme M0 bis M8
+## Manual acceptance M0–M8
 
-- [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
-- [ ] `./run.sh initdb` meldet Schema-Version 4.
-- [ ] `./run.sh status` zeigt 195 Sender, 49.669 Sendungen und 1.285.899 IMDb-Titel.
-- [ ] `http://xubuntu-dev:8085/status` zeigt dieselben Zahlen im Browser (auch vom Notebook aus).
-- [ ] `./run.sh match` meldet auto 1.425 / review 631 / none 1.556 (Laufzeit unter 2 Minuten).
-- [ ] Danach zeigt `./run.sh status` dieselben Zuordnungen und `Shows` in `app.db`.
-- [ ] `./run.sh refresh` meldet beim ersten Mal neue Zuordnungen, beim zweiten Mal „unverändert".
-- [ ] `http://xubuntu-dev:8085/` zeigt unter „Stöbern" Das A-Team, MacGyver und die Olsenbande-Filme mit Jahr und Terminen.
-- [ ] Filter (Typ, Dekade, Sendergruppe, Genre, Zuordnung, Retro) und Sortierung wirken; „Läuft gerade" stimmt mit der Uhrzeit überein.
-- [ ] Seiten laden spürbar unter einer Sekunde (Katalog wird pro Prozess gecacht).
-- [ ] Unter „Review" lässt sich ein Vorschlag bestätigen; die Show gilt danach als „sicher" in Jetzt/Stöbern und bleibt nach einem Refresh erhalten.
-- [ ] „Letzte Entscheidung rückgängig" stellt den vorherigen Zustand wieder her.
-- [ ] Eine gespeicherte Suche „Serien der 80er und 90er" liefert dieselben Treffer wie die Filteransicht; nach „Treffer jetzt aktualisieren" steigt „neu" einmalig.
-- [ ] `./run.sh notify --dry-run` schreibt eine `.eml` nach `data/outbox/`; mit gesetztem SMTP löst ein neuer Treffer genau eine Mail aus, ein erneuter Refresh keine weitere.
-- [ ] `docker compose up -d --build` startet den Dienst; `/healthz` liefert `{"ok": true}` und `/status` ist erreichbar.
-- [ ] Ein Neustart des Containers/Hosts behält Overrides und Suchen (`app.db` im Volume).
-- [ ] `./scripts/backup_appdb.sh` erzeugt ein Backup; nach Austausch von `data/app.db` ist der Zustand wiederhergestellt.
-- [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).
+- [ ] `./scripts/check_env.sh` shows no `[FAIL]` line.
+- [ ] `./run.sh initdb` reports schema version 4.
+- [ ] `./run.sh status` shows 195 channels, 49,669 airings and 1,285,899 IMDb titles.
+- [ ] `http://xubuntu-dev:8085/status` shows the same numbers in the browser (also from the notebook).
+- [ ] `./run.sh match` reports auto 1,425 / review 631 / none 1,556 (runtime under 2 minutes).
+- [ ] Afterwards `./run.sh status` shows the same matches and `Shows` in `app.db`.
+- [ ] `./run.sh refresh` reports new matches the first time and "unchanged" the second time.
+- [ ] `http://xubuntu-dev:8085/` shows The A-Team, MacGyver and the Olsen Gang movies under "Stöbern" with year and airings.
+- [ ] Filters (type, decade, channel group, genre, match status, retro) and sorting work; "Läuft gerade" matches the current time.
+- [ ] Pages load well under one second (the catalog is cached per process).
+- [ ] Under "Review", a suggestion can be confirmed; the show then counts as "sicher" in Now/Browse and survives a refresh.
+- [ ] "Letzte Entscheidung rückgängig" restores the previous state.
+- [ ] A saved search "Serien der 80er und 90er" returns the same hits as the filter view; after "Treffer jetzt aktualisieren", "new" increases once.
+- [ ] `./run.sh notify --dry-run` writes a `.eml` to `data/outbox/`; with SMTP configured, a new hit triggers exactly one email and a second refresh none.
+- [ ] `docker compose up -d --build` starts the service; `/healthz` returns `{"ok": true}` and `/status` is reachable.
+- [ ] Restarting the container/host preserves overrides and searches (`app.db` in the volume).
+- [ ] `./scripts/backup_appdb.sh` creates a backup; after replacing `data/app.db` the state is restored.
+- [ ] `.venv/bin/python -m pytest -q` passes (including the golden test against `tests/golden/matches.csv`).

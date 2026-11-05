@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Retro TV">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f4ebd3"/>
+      <stop offset="1" stop-color="#d7c299"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="screen">
+      <rect x="10" y="24" width="34" height="24" rx="4"/>
+    </clipPath>
+    <pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="4" height="1.1" fill="#000000" opacity="0.16"/>
+    </pattern>
+  </defs>
+
+  <g stroke="#232526" stroke-width="2.5" stroke-linecap="round" fill="none">
+    <line x1="24" y1="18" x2="15" y2="5"/>
+    <line x1="40" y1="18" x2="49" y2="5"/>
+  </g>
+  <circle cx="15" cy="5" r="1.7" fill="#232526"/>
+  <circle cx="49" cy="5" r="1.7" fill="#232526"/>
+
+  <rect x="4" y="18" width="56" height="38" rx="8" fill="url(#body)" stroke="#232526" stroke-width="2.5"/>
+
+  <g clip-path="url(#screen)">
+    <rect x="10" y="24" width="4.86" height="24" fill="#ececec"/>
+    <rect x="14.86" y="24" width="4.86" height="24" fill="#e8d21a"/>
+    <rect x="19.72" y="24" width="4.86" height="24" fill="#25d0c8"/>
+    <rect x="24.58" y="24" width="4.86" height="24" fill="#2fb64a"/>
+    <rect x="29.44" y="24" width="4.86" height="24" fill="#c93bd0"/>
+    <rect x="34.30" y="24" width="4.86" height="24" fill="#d43a34"/>
+    <rect x="39.16" y="24" width="4.84" height="24" fill="#2f5bd4"/>
+    <rect x="10" y="24" width="34" height="24" fill="url(#scan)"/>
+    <rect x="10" y="24" width="34" height="24" fill="url(#shine)"/>
+  </g>
+  <rect x="10" y="24" width="34" height="24" rx="4" fill="none" stroke="#232526" stroke-width="1.5"/>
+
+  <circle cx="52" cy="30" r="3.1" fill="#232526"/>
+  <circle cx="52" cy="30" r="1.1" fill="#e8dcc0"/>
+  <rect x="49" y="38" width="6" height="4.5" rx="1" fill="#232526"/>
+
+  <rect x="16" y="56" width="6" height="3" rx="1" fill="#232526"/>
+  <rect x="42" y="56" width="6" height="3" rx="1" fill="#232526"/>
+</svg>
