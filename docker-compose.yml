@@ -8,6 +8,7 @@ services:
       - "8085:8085"
     volumes:
       - ./config.toml:/app/config.toml:ro
+      - ./channels_ignore.txt:/app/channels_ignore.txt:ro
       - ./data:/app/data
     environment:
       - TZ=Europe/Berlin

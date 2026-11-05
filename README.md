@@ -72,7 +72,7 @@ docker compose logs -f tvguide          # Logs
 docker compose ps                       # Status inkl. Healthcheck
 ```
 
-Volumes: `./config.toml` (read-only) nach `/app/config.toml`, `./data` nach `/app/data`. `app.db` (Overrides, Suchen, Treffer) liegt im Volume und überlebt Neustarts und Updates. `TVGUIDE_SMTP_PASSWORD` kommt aus `.env` (nicht im Git); `restart: unless-stopped` startet den Container nach einem Neustart des Hosts automatisch.
+Volumes: `./config.toml` (read-only) nach `/app/config.toml`, `./channels_ignore.txt` (read-only) nach `/app/channels_ignore.txt` und `./data` nach `/app/data`. Die Ignore-Liste muss neben `config.toml` liegen (Pfad wird relativ zur Konfiguration aufgelöst); ohne sie werden Radio-/Shopping-Sender nicht gefiltert. `app.db` (Overrides, Suchen, Treffer) liegt im Volume und überlebt Neustarts und Updates. `TVGUIDE_SMTP_PASSWORD` kommt aus `.env` (nicht im Git); `restart: unless-stopped` startet den Container nach einem Neustart des Hosts automatisch.
 
 ### Image von GHCR ziehen (Build in GitHub)
 
@@ -84,7 +84,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Das Image enthält nur den Code; `config.toml` und `data/` werden als Volumes eingebunden. Ist das GHCR-Paket noch privat, in GitHub unter *Packages* auf **public** stellen (oder einmalig `docker login ghcr.io` ausführen).
+Das Image enthält nur den Code; `config.toml`, `channels_ignore.txt` und `data/` werden als Volumes eingebunden. Ist das GHCR-Paket noch privat, in GitHub unter *Packages* auf **public** stellen (oder einmalig `docker login ghcr.io` ausführen).
 
 Für automatisches Nachziehen ist im Beispiel ein Watchtower-Label gesetzt. Setzt du im Repo die Secrets `WEBHOOK_URL` (und optional `WEBHOOK_TOKEN`), ruft der Build nach dem Push deinen Watchtower-Webhook auf.
 

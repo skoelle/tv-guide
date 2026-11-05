@@ -16,6 +16,7 @@ services:
       - "8085:8085"
     volumes:
       - /srv/docker/tv-guide/config.toml:/app/config.toml:ro
+      - /srv/docker/tv-guide/channels_ignore.txt:/app/channels_ignore.txt:ro
       - /srv/docker/tv-guide/data:/app/data
     environment:
       TZ: Europe/Berlin
