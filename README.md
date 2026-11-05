@@ -63,6 +63,8 @@ Filter werden über Query-Parameter gesteuert (`?type=film&decade=1980,1990&genr
 
 ## Betrieb mit Docker (ab M8)
 
+> **Entwicklung ≠ Betrieb:** Auf `xubuntu-dev` läuft **kein Container**. Dort werden ausschließlich lokale Python-Tests ausgeführt (`./run.sh`, `.venv/bin/python -m pytest -q`). Docker und das GHCR-Image kommen nur auf dem Zielhost (Synology/Docker-Host) zum Einsatz.
+
 Voraussetzungen: Docker + Compose, eine vorhandene `config.toml` und `data/` mit `epg.db`/`imdb.db`.
 
 ```bash

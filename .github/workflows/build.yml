@@ -26,21 +26,21 @@ jobs:
       WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
       WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=raw,value=latest
             type=sha
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
@@ -55,13 +55,19 @@ jobs:
         if: env.WEBHOOK_URL != ''
         run: |
           set -euo pipefail
+          auth=()
+          if [ -n "${WEBHOOK_TOKEN:-}" ]; then
+            auth=(-H "Authorization: Bearer $WEBHOOK_TOKEN")
+          fi
           http_code=$(curl -sS -o webhook-response.json -w "%{http_code}" \
             --connect-timeout 15 --max-time 600 \
-            -X POST "$WEBHOOK_URL" \
-            -H "Authorization: Bearer $WEBHOOK_TOKEN")
+            -X POST "$WEBHOOK_URL" "${auth[@]}")
           echo "webhook: HTTP $http_code"
           cat webhook-response.json 2>/dev/null; echo
-          if [ "$http_code" != "200" ]; then
-            echo "::error::webhook failed (HTTP $http_code)"
+          updated=$(jq -r '.summary.updated // 0' webhook-response.json 2>/dev/null || echo 0)
+          failed=$(jq -r '.summary.failed // 0' webhook-response.json 2>/dev/null || echo 0)
+          echo "updated=$updated failed=$failed"
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ] || [ "$updated" -le 0 ] || [ "$failed" -gt 0 ]; then
+            echo "::error::webhook did not deploy the image (HTTP $http_code, updated=$updated, failed=$failed)"
             exit 1
           fi
