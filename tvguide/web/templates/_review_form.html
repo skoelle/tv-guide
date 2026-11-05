@@ -1,6 +1,6 @@
 {% from "_macros.html" import imdb_link with context %}
 {% set has_current = current_tconst and suggestions | selectattr('tconst', 'equalto', current_tconst) | list %}
-<form method="post" action="review/{{ show_key }}/confirm">
+<form method="post" action="/review/{{ show_key }}/confirm">
   <input type="hidden" name="show_key" value="{{ show_key }}">
   {% for c in suggestions %}
   {% set checked = (c.tconst == current_tconst) if has_current else loop.first %}
@@ -16,11 +16,11 @@
   <p class="muted">Keine Kandidaten gefunden.</p>
   {% endfor %}
   <p>
-    <button class="btn" type="submit" hx-post="api/review/confirm" hx-include="closest form"
+    <button class="btn" type="submit" hx-post="/api/review/confirm" hx-include="closest form"
             hx-target="closest .review-item" hx-swap="delete"{% if confirm_after %}
             hx-on::after-request="if(event.detail.successful) {{ confirm_after }}"{% endif %}>✔ Bestätigen</button>
-    <button class="btn" type="submit" formaction="review/{{ show_key }}/reject" formnovalidate
-            hx-post="api/review/reject" hx-include="closest form"
+    <button class="btn" type="submit" formaction="/review/{{ show_key }}/reject" formnovalidate
+            hx-post="/api/review/reject" hx-include="closest form"
             hx-target="closest .review-item" hx-swap="delete"{% if reject_after %}
             hx-on::after-request="if(event.detail.successful) {{ reject_after }}"{% endif %}>✘ Kein Treffer</button>
   </p>

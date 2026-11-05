@@ -1,4 +1,6 @@
 """Web-Tests brauchen fastapi und httpx (nach ./setup.sh vorhanden)."""
+import re
+
 import pytest
 
 pytest.importorskip("fastapi")
@@ -8,6 +10,13 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from tvguide.db import connect  # noqa: E402
 from tvguide.web.app import create_app  # noqa: E402
+
+_URL_RE = re.compile(r'\b(?:href|src|action|formaction|hx-(?:get|post|put|delete|patch))="([^"]*)"')
+
+
+def _relative_urls(html: str) -> list[str]:
+    return [u for u in _URL_RE.findall(html)
+            if u and not u.startswith(("/", "http://", "https://", "#", "?"))]
 
 
 @pytest.fixture
@@ -37,6 +46,12 @@ def test_api_status(client):
     data = r.json()
     assert data["epg"]["events"] == 3
     assert data["imdb"]["titles"] == 1
+
+
+def test_urls_sind_root_absolut(client):
+    for path in ("/", "/browse", "/review", "/searches", "/status"):
+        html = client.get(path).text
+        assert _relative_urls(html) == [], path
 
 
 def test_index_zeigt_jetzt(client):
@@ -72,8 +87,8 @@ def test_status_zeigt_sync_buttons(client):
     r = client.get("/status")
     assert "EPG jetzt importieren" in r.text
     assert "IMDb jetzt neu bauen" in r.text
-    assert 'hx-post="api/jobs/epg"' in r.text
-    assert 'hx-post="api/jobs/imdb"' in r.text
+    assert 'hx-post="/api/jobs/epg"' in r.text
+    assert 'hx-post="/api/jobs/imdb"' in r.text
 
 
 def test_jobs_api_und_partial(client):

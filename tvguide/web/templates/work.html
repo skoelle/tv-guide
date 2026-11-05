@@ -25,13 +25,13 @@
   <div class="review-item" style="margin-top:1rem">
     {% if review_shows | length > 1 %}<h3>{{ r.show_name }}</h3>{% endif %}
     {% with show_key=r.show_key, suggestions=r.suggestions, current_tconst=w.tconst,
-            confirm_after="location.reload()", reject_after="location.href='../browse'" %}
+            confirm_after="location.reload()", reject_after="location.href='/browse'" %}
     {% include "_review_form.html" %}
     {% endwith %}
     <details>
       <summary class="btn">🔎 Anderer Titel…</summary>
       <input type="search" name="q" placeholder="Titel suchen…"
-             hx-get="review/search?scope=work"
+             hx-get="/review/search?scope=work"
              hx-target="#search-work-{{ r.show_key | replace(':','_') | replace('/','_') }}"
              hx-trigger="keyup changed delay:400ms" hx-include="this"
              hx-vals='{"show_key": "{{ r.show_key }}"}'>
@@ -47,13 +47,13 @@
   <p class="muted">Kategorie-Markierung – unabhängig von der Zuordnung.</p>
   <p>
     {% if w.category == 'format' %}
-    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=keep"
+    <button class="btn" type="button" hx-post="/api/works/{{ w.tconst }}/mark?mark=keep"
             hx-swap="none" hx-on::after-request="location.reload()">Als {{ 'Film' if w.kind == 'film' else 'Serie' }} behalten</button>
     {% else %}
-    <button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=format"
+    <button class="btn" type="button" hx-post="/api/works/{{ w.tconst }}/mark?mark=format"
             hx-swap="none" hx-on::after-request="location.reload()">Als Format markieren</button>
     {% endif %}
-    {% if mark %}<button class="btn" type="button" hx-post="../api/works/{{ w.tconst }}/mark?mark=none"
+    {% if mark %}<button class="btn" type="button" hx-post="/api/works/{{ w.tconst }}/mark?mark=none"
             hx-swap="none" hx-on::after-request="location.reload()">Markierung entfernen</button>{% endif %}
   </p>
 </div>
@@ -70,5 +70,5 @@
   {% endfor %}
 </table>
 {% endfor %}
-<p class="muted"><a href="../browse">← zurück zum Stöbern</a></p>
+<p class="muted"><a href="/browse">← zurück zum Stöbern</a></p>
 {% endblock %}

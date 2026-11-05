@@ -1,8 +1,8 @@
-<div id="jobs" hx-get="partials/jobs" hx-trigger="every 3s" hx-target="this" hx-swap="outerHTML">
+<div id="jobs" hx-get="/partials/jobs" hx-trigger="every 3s" hx-target="this" hx-swap="outerHTML">
   <div class="sync-actions">
-    <button class="btn" type="button" hx-post="api/jobs/epg" hx-swap="none"
+    <button class="btn" type="button" hx-post="/api/jobs/epg" hx-swap="none"
             {% if job_running %}disabled{% endif %}>EPG jetzt importieren</button>
-    <button class="btn" type="button" hx-post="api/jobs/imdb" hx-swap="none"
+    <button class="btn" type="button" hx-post="/api/jobs/imdb" hx-swap="none"
             {% if job_running %}disabled{% endif %}>IMDb jetzt neu bauen</button>
     {% if job_running %}<span class="tag ok">läuft …</span>{% endif %}
   </div>

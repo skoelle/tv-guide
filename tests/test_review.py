@@ -1,3 +1,4 @@
+import re
 import sqlite3
 
 import pytest
@@ -13,6 +14,13 @@ from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import (apply_override, list_review, mark_as_format, review_count,  # noqa: E402
                             review_entries_for_tconst, show_key_for, undo_last)
 from tvguide.web.app import create_app  # noqa: E402
+
+_URL_RE = re.compile(r'\b(?:href|src|action|formaction|hx-(?:get|post|put|delete|patch))="([^"]*)"')
+
+
+def _relative_urls(html: str) -> list[str]:
+    return [u for u in _URL_RE.findall(html)
+            if u and not u.startswith(("/", "http://", "https://", "#", "?"))]
 
 
 def _review_show(cfg, key="sendung 0", tconst=None):
@@ -55,14 +63,21 @@ def test_work_page_zeigt_review_box(cfg):
     client = TestClient(create_app(cfg))
     html = client.get("/work/tt0086659").text
     assert "Zuordnung prüfen" in html
-    assert 'hx-post="api/review/confirm"' in html
-    assert 'hx-post="api/review/reject"' in html
-    assert "review/search?scope=work" in html
+    assert 'hx-post="/api/review/confirm"' in html
+    assert 'hx-post="/api/review/reject"' in html
+    assert 'action="/review/sendung 0/confirm"' in html
+    assert 'formaction="/review/sendung 0/reject"' in html
+    assert 'hx-get="/review/search?scope=work"' in html
+    assert 'href="/browse"' in html
+    assert _relative_urls(html) == []
     assert 'href="https://www.imdb.com/title/tt0086659/"' in html
     assert 'target="_blank"' in html
     partial = client.get("/review/search", params={"q": "the", "show_key": "sendung 0",
                                                    "scope": "work"}).text
     assert "location.reload()" in partial
+    assert 'hx-post="/api/review/confirm"' in partial
+    assert 'action="/review/sendung 0/confirm"' in partial
+    assert _relative_urls(partial) == []
     assert 'href="https://www.imdb.com/title/tt0086659/"' in partial
     assert 'target="_blank"' in partial
 
@@ -211,11 +226,12 @@ def test_api_review_undo(cfg):
 def test_review_html_nutzt_htmx(cfg):
     _review_show(cfg).close()
     html = TestClient(create_app(cfg)).get("/review").text
-    assert 'hx-post="api/review/confirm"' in html
-    assert 'hx-post="api/review/reject"' in html
-    assert 'hx-post="api/review/undo"' in html
+    assert 'hx-post="/api/review/confirm"' in html
+    assert 'hx-post="/api/review/reject"' in html
+    assert 'hx-post="/api/review/undo"' in html
     assert 'name="show_key" value="sendung 0"' in html
     assert 'id="review-list"' in html
+    assert _relative_urls(html) == []
 
 
 def _add_imdb_title(cfg, tconst, title_type, title, genres):

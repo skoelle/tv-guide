@@ -225,8 +225,9 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
 - **Status:** Datenstand, Synchronisierung (Buttons „EPG jetzt importieren“, „IMDb jetzt
   neu bauen“), Job-Status/Log, Zeitplan-Info.
 
-Alle neuen interaktiven Elemente (Jobs, Kategorien, Review-Aktionen) nutzen relative URLs,
-damit die App auch unter einem Sub-Pfad (Reverse Proxy) funktioniert.
+Alle interaktiven Elemente (Jobs, Kategorien, Review-Aktionen) nutzen root-absolute URLs
+(`/api/...`, `/review/...`). Die App wird am Root-Pfad betrieben; ein Sub-Pfad unter einem
+Reverse Proxy wird nicht unterstützt.
 
 ### 7.2 API (Auszug)
 | Methode/Pfad | Zweck |

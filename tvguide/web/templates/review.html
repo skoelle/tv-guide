@@ -6,8 +6,8 @@
 <p class="muted">{{ total }} offene Zuordnungen{% if pages > 1 %} · Seite {{ page }}/{{ pages }}{% endif %}.
   Entscheidungen werden zu Overrides und gelten für alle Termine der Show.</p>
 
-<form method="post" action="review/undo" style="margin-bottom:1rem">
-  <button class="btn" type="submit" hx-post="api/review/undo" hx-swap="none"
+<form method="post" action="/review/undo" style="margin-bottom:1rem">
+  <button class="btn" type="submit" hx-post="/api/review/undo" hx-swap="none"
           hx-on::after-request="if(event.detail.successful) htmx.trigger(document.body, 'review-refresh')">↩︎ Letzte Entscheidung rückgängig</button>
 </form>
 
@@ -24,13 +24,13 @@
     </tr>
     {% endfor %}
   </table>
-  <button class="btn" type="button" hx-post="api/marks/undo" hx-swap="none"
+  <button class="btn" type="button" hx-post="/api/marks/undo" hx-swap="none"
           hx-on::after-request="location.reload()">Letzte Markierung rückgängig</button>
 </div>
 {% endif %}
 
 <div id="review-list"
-     hx-get="review{% if page > 1 %}?page={{ page }}{% endif %}"
+     hx-get="/review{% if page > 1 %}?page={{ page }}{% endif %}"
      hx-trigger="review-refresh from:body"
      hx-target="#review-list" hx-select="#review-list" hx-swap="outerHTML">
 {% if not shows %}<p class="muted">Nichts zu prüfen. 🎉</p>{% endif %}
@@ -47,13 +47,13 @@
   {% include "_review_form.html" %}
   {% endwith %}
   <button class="btn" type="button"
-          hx-post="api/review/format?show_key={{ s.show_key | urlencode }}"
+          hx-post="/api/review/format?show_key={{ s.show_key | urlencode }}"
           hx-target="closest .review-item" hx-swap="delete">Als Format markieren</button>
 
   <details>
     <summary class="btn">🔎 Anderer Titel…</summary>
     <input type="search" name="q" placeholder="Titel suchen…"
-           hx-get="review/search" hx-target="#search-{{ s.show_key | replace(':','_') | replace('/','_') }}"
+           hx-get="/review/search" hx-target="#search-{{ s.show_key | replace(':','_') | replace('/','_') }}"
            hx-trigger="keyup changed delay:400ms" hx-include="this" hx-vals='{"show_key": "{{ s.show_key }}"}'>
     <div id="search-{{ s.show_key | replace(':','_') | replace('/','_') }}"></div>
   </details>
@@ -62,9 +62,9 @@
 
 {% if pages > 1 %}
 <div class="pager">
-  {% if page > 1 %}<a class="btn" href="?page={{ page - 1 }}">← Zurück</a>{% endif %}
+  {% if page > 1 %}<a class="btn" href="/review?page={{ page - 1 }}">← Zurück</a>{% endif %}
   <span class="muted">Seite {{ page }} von {{ pages }}</span>
-  {% if page < pages %}<a class="btn" href="?page={{ page + 1 }}">Weiter →</a>{% endif %}
+  {% if page < pages %}<a class="btn" href="/review?page={{ page + 1 }}">Weiter →</a>{% endif %}
 </div>
 {% endif %}
 </div>
