@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge with context %}
+{% block title %}{{ w.title }} · TV-Guide{% endblock %}
+{% block content %}
+<h1>{{ w.title }}</h1>
+<p>
+  <span class="muted">{{ 'Film' if w.kind == 'film' else 'Serie' }} ·
+  {{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %}</span>
+  {{ badge(w.status) }}
+</p>
+<div class="box">
+  <dl>
+    <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
+    <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
+    <dt>IMDb</dt><dd><a href="https://www.imdb.com/title/{{ w.tconst }}/">{{ w.tconst }}</a></dd>
+    <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
+  </dl>
+</div>
+{% for g in groups %}
+<h2>{{ g.label }}</h2>
+<table>
+  <tr><th>Zeit</th><th>Sender</th><th>Titel</th></tr>
+  {% for a in g.airings %}
+  <tr>
+    <td>{{ a.start_ts | ts('%H:%M') }}–{{ a.stop_ts | ts('%H:%M') }}</td>
+    <td>{{ a.channel }}</td>
+    <td>{{ a.sub_title or a.title }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endfor %}
+<p class="muted"><a href="/browse">← zurück zum Stöbern</a></p>
+{% endblock %}

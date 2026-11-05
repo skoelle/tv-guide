@@ -1,0 +1,11 @@
+{% macro tchip(f, base, key, value, label, count=None, selected=False, klass='') -%}
+{%- set href = base ~ '?' ~ qs(toggle(f, key, value)) -%}
+<a class="chip {{ 'on' if selected }} {{ klass }}" href="{{ href }}"
+   hx-get="{{ href }}" hx-target="#page" hx-select="#page" hx-push-url="true">{{ label }}{% if count is not none %} <span class="cnt">{{ count }}</span>{% endif %}</a>
+{%- endmacro %}
+
+{% macro badge(status) -%}
+<span class="tag {{ 'bad' if status == 'review' else 'ok' }}">{{ 'unsicher' if status == 'review' else 'sicher' }}</span>
+{%- endmacro %}
+
+{% macro kind_de(kind) -%}{{ 'Film' if kind == 'film' else 'Serie' }}{%- endmacro %}

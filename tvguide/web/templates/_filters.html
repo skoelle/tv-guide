@@ -1,0 +1,29 @@
+{% from "_macros.html" import tchip with context %}
+<div class="fgroup"><span class="small">Typ</span>
+  {{ tchip(f, base, 'type', 'film', 'Film', facets.type.get('film'), f.type and 'film' in f.type) }}
+  {{ tchip(f, base, 'type', 'serie', 'Serie', facets.type.get('serie'), f.type and 'serie' in f.type) }}
+</div>
+<div class="fgroup"><span class="small">Dekade</span>
+  {% for d in facets.decade %}
+  {{ tchip(f, base, 'decade', d, decade_label(d), facets.decade[d], f.decade and d in f.decade) }}
+  {% endfor %}
+</div>
+<div class="fgroup"><span class="small">Sendergruppe</span>
+  {{ tchip(f, base, 'group', none, 'Alle', none, not f.group) }}
+  {% for g, c in facets.group.items() %}
+  {{ tchip(f, base, 'group', g, g | capitalize, c, f.group == g) }}
+  {% endfor %}
+</div>
+<div class="fgroup"><span class="small">Genre</span>
+  {% for g, c in facets.genre.items() %}
+  {{ tchip(f, base, 'genre', g, genre_de(g), c, f.genre and g in f.genre) }}
+  {% endfor %}
+</div>
+<div class="fgroup"><span class="small">Zuordnung</span>
+  {{ tchip(f, base, 'status', 'sicher', 'sicher', facets.status.get('sicher'), 'sicher' in (f.status or [])) }}
+  {{ tchip(f, base, 'status', 'unsicher', 'unsicher', facets.status.get('unsicher'), 'unsicher' in (f.status or []), 'warn') }}
+</div>
+<div class="fgroup">
+  {{ tchip(f, base, 'retro', none, 'Retro', none, f.retro) }}
+  <span class="small">Filme + abgeschlossene Serien 1980–1999</span>
+</div>

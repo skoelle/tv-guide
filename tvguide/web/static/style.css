@@ -7,6 +7,8 @@ nav a, nav .soon { padding: .2rem .7rem; border-radius: 999px; color: #cfd8e3; t
 nav a.on { background: #fff; color: #1f2a37; }
 nav a:hover { background: #324255; color: #fff; }
 nav .soon { opacity: .45; cursor: default; }
+.search { margin-left: auto; }
+.search input { border: 0; border-radius: 999px; padding: .35rem .9rem; min-width: 220px; }
 main { max-width: 1100px; margin: 1rem auto; padding: 0 1rem; }
 footer { max-width: 1100px; margin: 2rem auto 1rem; padding: 0 1rem; font-size: .85rem; color: #666; }
 h1 { margin: .5rem 0 1rem; }
@@ -22,4 +24,35 @@ dd { margin: 0; word-break: break-word; }
 .tag.ok { background: #d8f0dc; color: #1b6b2d; }
 .tag.bad { background: #f7d6d2; color: #9b2c1f; }
 .btn { display: inline-block; padding: .35rem .9rem; border-radius: 8px; background: #1f2a37; color: #fff; text-decoration: none; }
+.btn.soon { opacity: .5; cursor: default; }
 a { color: #1f5fa8; }
+
+.layout { display: grid; grid-template-columns: 240px 1fr; gap: 1rem; align-items: start; }
+.filters { position: sticky; top: 1rem; }
+.results > .box { margin-bottom: 1rem; }
+
+.chip { display: inline-block; border: 1px solid #c7c7c0; border-radius: 999px; padding: .1rem .6rem; margin: 1px; background: #fff; font-size: .85rem; text-decoration: none; color: #222; cursor: pointer; }
+.chip.on { background: #9fd8a4; border-color: #6fae76; }
+.chip.warn.on { background: #ffd49a; border-color: #d3a45a; }
+.chip .cnt { color: #777; font-size: .75rem; }
+.fgroup { margin-bottom: .6rem; }
+.fgroup .small { display: block; color: #666; font-size: .78rem; margin-bottom: .2rem; }
+.filterbar .fgroup { display: inline-block; margin-right: 1rem; vertical-align: top; }
+
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid #e2e2dc; padding: .4rem .5rem; text-align: left; font-size: .92rem; }
+th { color: #666; font-weight: 600; }
+
+.cards { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.card { padding: .7rem .8rem; }
+.card summary { display: flex; gap: .7rem; cursor: pointer; list-style: none; }
+.card summary::-webkit-details-marker { display: none; }
+.card-main { flex: 1; }
+.poster { width: 56px; height: 80px; border: 1px dashed #aaa; border-radius: 4px; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: .65rem; flex: none; }
+.card table { margin-top: .6rem; }
+
+@media (max-width: 720px) {
+  .layout { grid-template-columns: 1fr; }
+  .filters { position: static; }
+  .card summary { flex-direction: row; }
+}

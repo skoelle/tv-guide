@@ -1,7 +1,7 @@
 # TV-Guide
 
 EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
-Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M2.
+Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M4.
 
 ## Voraussetzungen
 
@@ -35,6 +35,18 @@ vim config.toml             # Pfade und Port prüfen
 
 Mit `--config /pfad/config.toml` (vor oder nach dem Befehl) oder `TVGUIDE_CONFIG` lässt sich eine andere Konfiguration wählen.
 
+## Web-Ansichten
+
+| Pfad | Inhalt |
+|---|---|
+| `/` | Jetzt: „Läuft gerade" und „Heute Abend" mit Filterleiste |
+| `/browse` | Stöbern: Karten pro Werk, Filter-Chips, Sortierung, Paginierung |
+| `/work/{tconst}` | Werk-Detail mit allen Terminen |
+| `/status` | Datenstand |
+| `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/status` | JSON |
+
+Filter werden über Query-Parameter gesteuert (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=…`). Die Seite arbeitet mit HTMX lokal (`static/htmx.min.js`) und funktioniert auch ohne JavaScript als normales Formular. `?at=<unixtime>` friert den Zeitpunkt für Tests ein.
+
 ## Datenfluss
 
 ```
@@ -53,7 +65,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/`, `config.toml` stehen in `.gitignore`.
 - IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, Quellenangabe steht im Seitenfuß.
 
-## Manuelle Abnahme M0 bis M2
+## Manuelle Abnahme M0 bis M4
 
 - [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
 - [ ] `./run.sh initdb` meldet Schema-Version 2.
@@ -62,4 +74,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] `./run.sh match` meldet auto 1.425 / review 631 / none 1.556 (Laufzeit unter 2 Minuten).
 - [ ] Danach zeigt `./run.sh status` dieselben Zuordnungen und `Shows` in `app.db`.
 - [ ] `./run.sh refresh` meldet beim ersten Mal neue Zuordnungen, beim zweiten Mal „unverändert".
+- [ ] `http://xubuntu-dev:8085/` zeigt unter „Stöbern" Das A-Team, MacGyver und die Olsenbande-Filme mit Jahr und Terminen.
+- [ ] Filter (Typ, Dekade, Sendergruppe, Genre, Zuordnung, Retro) und Sortierung wirken; „Läuft gerade" stimmt mit der Uhrzeit überein.
+- [ ] Seiten laden spürbar unter einer Sekunde (Katalog wird pro Prozess gecacht).
 - [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).

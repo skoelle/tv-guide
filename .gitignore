@@ -11,4 +11,5 @@ match_out/
 config.toml
 channels_ignore.txt
 .env
+tmp/
 @eaDir/

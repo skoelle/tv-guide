@@ -153,13 +153,20 @@ Abnahme: Ein zweiter `epg_import.py`-Lauf mit unveränderten Daten führt zu "0 
 
 ### M4: Web: Jetzt und Stöbern
 
-- [ ] Basislayout, Navigation (Jetzt, Stöbern, Suchen, Review, Status), schlichtes CSS, lokale HTMX-Datei.
-- [ ] **Jetzt** (Scribble 1): Tabelle "Läuft gerade" und "Heute Abend", Filterleiste mit Chips und Zählern (Typ, Dekade, Sendergruppe, Genre, Zuordnung).
-- [ ] **Stöbern** (Scribble 2): Karten pro Werk mit nächstem Termin und weiteren Terminen, Sortierung, Chips.
-- [ ] **Werk-Detail**: Titel, Jahr (bei Serien Start-Ende), Genre, Rating, IMDb-Link, alle Termine im Zeitraum.
-- [ ] Retro-Standardfilter: Typ Film oder abgeschlossene Serie, 1980 bis 1999, ohne Genres News, Talk, Game-Show, Reality, Doku, Musik, Sport. Laufende Serien sind per Chip zuschaltbar.
-- [ ] Sendergruppen (zum Beispiel "Retro": TELE 5, Kabel Eins, RTLNITRO, Pro7 MAXX, SAT.1 Gold, ONE, RTLZWEI) in `config.toml`.
-- [ ] Footer mit IMDb-Quellenangabe.
+- [x] Basislayout, Navigation (Jetzt, Stöbern, Suchen, Review, Status), schlichtes CSS, lokale HTMX-Datei.
+- [x] **Jetzt** (Scribble 1): Tabelle "Läuft gerade" und "Heute Abend", Filterleiste mit Chips und Zählern (Typ, Dekade, Sendergruppe, Genre, Zuordnung).
+- [x] **Stöbern** (Scribble 2): Karten pro Werk mit nächstem Termin und weiteren Terminen, Sortierung, Chips, Paginierung.
+- [x] **Werk-Detail**: Titel, Jahr (bei Serien Start-Ende), Genre, Rating, IMDb-Link, alle Termine im Zeitraum.
+- [x] Retro-Filter (Film oder abgeschlossene Serie, 1980 bis 1999, ohne Genres News, Talk, Game-Show, Reality, Doku, Musik, Sport) als Chip; Standard sind laut Absprache alle zugeordneten Werke.
+- [x] Sendergruppen (zum Beispiel "Retro": TELE 5, Kabel Eins, RTLNITRO, Pro7 MAXX, SAT.1 Gold, ONE, RTLZWEI) in `config.toml`.
+- [x] Footer mit IMDb-Quellenangabe.
+
+Anmerkungen:
+
+- `tvguide/browse.py` baut den Werk-Katalog (Aggregation pro `tconst`), Filter, Facetten und Sortierung; der Katalog wird pro Prozess gecacht (Signatur aus `epg.db`/`imdb.db`-mtime und `app.db`-Inhalt).
+- Genres werden über eine EN→DE-Tabelle angezeigt; Poster sind Platzhalter.
+- Review-Treffer erscheinen als „unsicher" und sind per Chip abwählbar.
+- Ansichten sind unter `/?at=` reproduzierbar; `/api/now`, `/api/browse`, `/api/works/{tconst}` liefern JSON.
 
 Abnahme: Auf `http://xubuntu-dev:8085/` sind Das A-Team, MacGyver und die Olsenbande-Filme sichtbar, mit richtigem Jahr und Terminen. Seite lädt unter 1 Sekunde.
 

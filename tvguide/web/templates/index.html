@@ -1,7 +1,57 @@
 {% extends "base.html" %}
+{% from "_macros.html" import badge, kind_de with context %}
 {% block title %}Jetzt · TV-Guide{% endblock %}
 {% block content %}
+{% set base = '/' %}
+<div id="page">
 <h1>Jetzt</h1>
-<p class="muted">Die Ansicht "Jetzt und demnächst" kommt in Meilenstein M4. Aktuell läuft das Gerüst (M1).</p>
-<p><a class="btn" href="/status">Zum Datenstand</a></p>
+<div class="layout">
+  <aside class="box filters">
+    <h2>Filter</h2>
+    {% include "_filters.html" %}
+    <p><span class="btn soon" title="kommt in M6">💾 Als Suche speichern</span></p>
+  </aside>
+  <div class="results">
+    <section class="box">
+      <h2>Läuft gerade <span class="muted">(Stand {{ at | ts('%H:%M') }})</span></h2>
+      {% if running %}
+      <table>
+        <tr><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Zuordnung</th></tr>
+        {% for x in running %}
+        <tr>
+          <td>{{ x.airing.channel }}</td>
+          <td>{{ x.airing.start_ts | ts('%H:%M') }}–{{ x.airing.stop_ts | ts('%H:%M') }}</td>
+          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a>
+            {% if x.airing.sub_title %}<br><span class="muted">{{ x.airing.sub_title }}</span>{% endif %}</td>
+          <td>{{ x.work.year or '–' }}</td>
+          <td>{{ kind_de(x.work.kind) }}</td>
+          <td>{{ badge(x.work.status) }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="muted">Gerade läuft nichts Passendes.</p>{% endif %}
+    </section>
+
+    <section class="box">
+      <h2>Heute Abend <span class="muted">ab 20:00</span></h2>
+      {% if evening %}
+      <table>
+        <tr><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Genre</th></tr>
+        {% for x in evening %}
+        <tr>
+          <td>{{ x.airing.channel }}</td>
+          <td>{{ x.airing.start_ts | ts('%H:%M') }}</td>
+          <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a></td>
+          <td>{{ x.work.year or '–' }}</td>
+          <td>{{ kind_de(x.work.kind) }}</td>
+          <td class="muted">{{ x.work.genres_de | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="muted">Heute Abend nichts Passendes.</p>{% endif %}
+    </section>
+    <p class="muted">Klick auf einen Titel öffnet die Werk-Seite. Handy: Filter klappen oben ein.</p>
+  </div>
+</div>
+</div>
 {% endblock %}
