@@ -1,28 +1,38 @@
-# TV-Guide
+# 📺 TV-Guide
 
 [![build](https://github.com/skoelle/tv-guide/actions/workflows/build.yml/badge.svg)](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)
 
-Browse the TVHeadend EPG, find movies and series (80s and 90s), and keep saved searches with email notifications.
-Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M10.
+Browse the TVHeadend EPG, discover movies and series from the 80s and 90s 🍿📼, and keep saved searches with email notifications 📧.
+Details: `SPEC.md` (what) and `PLAN.md` (how).
 
-## Requirements
+## ✨ Features
 
-- Python 3.11 or newer (tested with 3.12.3), `python3-venv`
-- `data/epg.db` and `data/imdb.db` (built by `tools/epg_import.py` and `tools/imdb_build.py`)
-- `tools/` with the three scripts is already in the repo and stays unchanged
+- 🔍 **Browse** the TVHeadend EPG with "running now", "tonight", and powerful filters
+- 🎯 **Match** shows against IMDb data, with a review queue for uncertain matches
+- 🎬 **Film, Serie, Format** — fiction stays visible, non-fiction formats are hidden by default
+- 🔎 **Saved searches** with validated filters and hit tracking
+- 📧 **Email digest** for new hits, retried automatically on failure
+- ⏰ **Automatic sync** for EPG (hourly) and IMDb (weekly)
+- 🐳 **Docker-ready** with GHCR image, scheduler, backup, and restore scripts
 
-## Quick start
+## 📦 Requirements
+
+- 🐍 Python 3.11 or newer (tested with 3.12.3), `python3-venv`
+- 🗄️ `data/epg.db` and `data/imdb.db` (built by `tools/epg_import.py` and `tools/imdb_build.py`)
+- 🧰 `tools/` with the three scripts is already in the repo and stays unchanged
+
+## 🚀 Quick start
 
 ```bash
 ./setup.sh                  # create .venv, install dependencies, create config.toml
 vim config.toml             # check paths and port
-./scripts/check_env.sh      # verify the environment (M0)
+./scripts/check_env.sh      # verify the environment
 ./run.sh initdb             # create app.db
 ./run.sh status             # show data status in the terminal
 ./run.sh                    # start the web server, then open http://xubuntu-dev:8085/status
 ```
 
-## Commands
+## 🛠️ Commands
 
 | Command | Effect |
 |---|---|
@@ -42,7 +52,7 @@ vim config.toml             # check paths and port
 
 Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFIG` to select a different configuration.
 
-## Web views
+## 🖥️ Web views
 
 | Path | Content |
 |---|---|
@@ -56,13 +66,13 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review actions for HTMX (JSON, no redirect) |
 | `/partials/jobs` | HTMX fragment with the sync job status |
 
-## Content categories
+## 🎬 Content categories
 
 Every work is classified as **Film**, **Serie** or **Format**:
 
-- **Film** – IMDb type `movie` / `tvMovie`
-- **Format** – series with genres News, Talk-Show, Game-Show, Reality-TV, Documentary, Music, Sport or Short (magazines, news, quiz shows, documentaries)
-- **Serie** – everything else
+- 🎬 **Film** – IMDb type `movie` / `tvMovie`
+- 📋 **Format** – series with genres News, Talk-Show, Game-Show, Reality-TV, Documentary, Music, Sport or Short (magazines, news, quiz shows, documentaries)
+- 📺 **Serie** – everything else
 
 Browse and Now show **Film + Serie** by default; the **Format** chip reveals the rest. Review only lists Film and Serie, so magazines, game shows and news formats no longer appear there.
 
@@ -70,7 +80,7 @@ Manual control: a work classified as **Format** can be kept as a **film/series**
 
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
-## Email (since M7)
+## 📧 Email notifications
 
 After every `refresh` (and via `./run.sh notify`) TV-Guide sends **one digest email** for all open hits of searches with notifications enabled. The `[smtp]` section in `config.toml` holds `host`, `port`, `security` (`starttls`|`ssl`), `username`, `from`, `to`; the password comes exclusively from the `TVGUIDE_SMTP_PASSWORD` environment variable. Links in the email use `[server].base_url`. `notified_at` is only set after a successful send – if SMTP is missing or sending fails, the next run retries. `./run.sh notify --dry-run` writes the email to `data/outbox/`, `--test` sends a test message.
 
@@ -80,7 +90,7 @@ Review decisions are stored in `overrides` (they take precedence over the automa
 
 Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=...`). The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
 
-## Automatic sync (scheduler + buttons)
+## ⏰ Automatic sync (scheduler + buttons)
 
 The container can keep EPG and IMDb up to date by itself:
 
@@ -108,7 +118,7 @@ imdb_time = "04:30"
 
 The IMDb build needs network access to `datasets.imdbws.com` and about 2 GB of free disk (`imdb_raw` + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.
 
-## Docker operation (since M8)
+## 🐳 Docker operation
 
 > **Development ≠ operation:** `xubuntu-dev` runs **no container**. It is used for local Python tests only (`./run.sh`, `.venv/bin/python -m pytest -q`). Docker and the GHCR image are only used on the target host (Synology/Docker host).
 
@@ -162,7 +172,7 @@ docker compose start
 
 `epg.db` and `imdb.db` are reproducible and do not need to be backed up. `backup/`, `data/` and `config.toml` are listed in `.gitignore`.
 
-## Data flow
+## 🔄 Data flow
 
 ```
 Synology:   epg_import.py -> epg.db        imdb_build.py -> imdb.db
@@ -174,37 +184,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 
 `epg.db` and `imdb.db` are never modified by the app. User state lives only in `app.db`.
 
-## Notes
+## 📝 Notes
 
-- Keep SQLite files on local filesystems only (no SMB/NFS).
-- `.gitignore` excludes `data/`, `backup/`, `*.db`, `config.toml`, `channels_ignore.txt`, `.env`, `tmp/` and Synology `@eaDir/`.
-- `cp .env.example .env` and fill in the passwords for Docker deployments; `.env` is git-ignored.
-- IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
-- The retro TV favicon lives in `tvguide/web/static/`; regenerate the raster files (PNG/ICO) with `python3 scripts/make_favicon.py` (dev-only, needs Pillow).
-
-## Manual acceptance M0–M10
-
-- [ ] `./scripts/check_env.sh` shows no `[FAIL]` line.
-- [ ] `./run.sh initdb` reports schema version 6.
-- [ ] `./run.sh status` shows 195 channels, 49,669 airings and 1,285,899 IMDb titles.
-- [ ] `http://xubuntu-dev:8085/status` shows the same numbers in the browser (also from the notebook).
-- [ ] `./run.sh match` reports auto 1,425 / review 631 / none 1,556 (runtime under 2 minutes).
-- [ ] Afterwards `./run.sh status` shows the same matches and `Shows` in `app.db`.
-- [ ] `./run.sh refresh` reports new matches the first time and "unchanged" the second time.
-- [ ] `http://xubuntu-dev:8085/` shows The A-Team, MacGyver and the Olsen Gang movies under "Stöbern" with year and airings.
-- [ ] Filters (type, decade, channel group, genre, match status, retro) and sorting work; "Läuft gerade" matches the current time.
-- [ ] Pages load well under one second (the catalog is cached per process).
-- [ ] Browse/Now hide formats by default; the "Format" chip shows them with the correct label.
-- [ ] Review only lists Film/Serie (magazines, news, quiz shows are gone).
-- [ ] On a work page, "Als Format markieren" hides it and "Als Serie behalten" brings it back; the last mark can be undone on Review.
-- [ ] Under "Review", a suggestion can be confirmed; the show then counts as "sicher" in Now/Browse and survives a refresh.
-- [ ] "Letzte Entscheidung rückgängig" restores the previous state.
-- [ ] A saved search "Serien der 80er und 90er" returns the same hits as the filter view; after "Treffer jetzt aktualisieren", "new" increases once.
-- [ ] `./run.sh notify --dry-run` writes a `.eml` to `data/outbox/`; with SMTP configured, a new hit triggers exactly one email and a second refresh none.
-- [ ] In `/status`, "EPG jetzt importieren" imports the EPG and re-matches only when it changed; the job log is shown.
-- [ ] "IMDb jetzt neu bauen" builds the database and re-matches only if the dataset/params changed.
-- [ ] With `TVGUIDE_SCHEDULE_ENABLED=true`, EPG runs hourly and IMDb weekly; interrupted jobs are marked `error` after a restart.
-- [ ] `docker compose up -d --build` starts the service; `/healthz` returns `{"ok": true}` and `/status` is reachable.
-- [ ] Restarting the container/host preserves overrides and searches (`app.db` in the volume).
-- [ ] `./scripts/backup_appdb.sh` creates a backup; after replacing `data/app.db` the state is restored.
-- [ ] `.venv/bin/python -m pytest -q` passes (including the golden test against `tests/golden/matches.csv`).
+- 💾 Keep SQLite files on local filesystems only (no SMB/NFS).
+- 🙈 `.gitignore` excludes `data/`, `backup/`, `*.db`, `config.toml`, `channels_ignore.txt`, `.env`, `tmp/` and Synology `@eaDir/`.
+- 🔐 `cp .env.example .env` and fill in the passwords for Docker deployments; `.env` is git-ignored.
+- ⚖️ IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
+- 🎨 The retro TV favicon lives in `tvguide/web/static/`; regenerate the raster files (PNG/ICO) with `python3 scripts/make_favicon.py` (dev-only, needs Pillow).
