@@ -35,7 +35,7 @@ Suchen mit E-Mail-Benachrichtigung.
 
 ```
 Zielhost (Synology oder Docker-Host "Debian")
-  Container tvguide
+  Container tv-guide
     - FastAPI/uvicorn (Port 8085)
     - In-App-Scheduler (Daemon-Thread)
     - Jobs: tools/epg_import.py, tools/imdb_build.py (Subprozess)

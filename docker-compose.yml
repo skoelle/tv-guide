@@ -2,7 +2,7 @@ services:
   tvguide:
     build: .
     image: tvguide:latest
-    container_name: tvguide
+    container_name: tv-guide
     restart: unless-stopped
     ports:
       - "8085:8085"

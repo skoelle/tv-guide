@@ -324,9 +324,13 @@ def _load_overrides(con: sqlite3.Connection) -> dict[str, str | None]:
 
 
 def persist(con: sqlite3.Connection, results: list[tuple[dict, dict]], overrides: dict[str, str | None]) -> None:
-    """Schreibt epg_shows, show_match und event_show. Skips werden nicht gespeichert."""
+    """Schreibt epg_shows, show_match und event_show. Skips werden nicht gespeichert.
+
+    Nicht mehr vorhandene Shows (z. B. durch neu ignorierte Sender) werden entfernt.
+    """
     now = _now()
     con.execute("DELETE FROM event_show")
+    kept: list[int] = []
     for s, res in results:
         status = res["status"]
         if status.startswith("skip"):
@@ -336,6 +340,7 @@ def persist(con: sqlite3.Connection, results: list[tuple[dict, dict]], overrides
                ON CONFLICT(show_key) DO UPDATE SET show_name = excluded.show_name""",
             (s["key"], s["title"], now))
         show_id = con.execute("SELECT id FROM epg_shows WHERE show_key = ?", (s["key"],)).fetchone()[0]
+        kept.append(show_id)
         con.executemany(
             "INSERT OR IGNORE INTO event_show (channel_id, start_ts, show_id, episode_hint) VALUES (?,?,?,?)",
             [(ch, ts, show_id, hint) for ch, ts, hint in s["events"]])
@@ -360,6 +365,12 @@ def persist(con: sqlite3.Connection, results: list[tuple[dict, dict]], overrides
                  score=excluded.score, method=excluded.method, reason=excluded.reason,
                  updated_at=excluded.updated_at""",
             (show_id, tconst, final_status, sc, method, reason, now))
+
+    con.execute("CREATE TEMP TABLE IF NOT EXISTS _kept_show (id INTEGER PRIMARY KEY)")
+    con.execute("DELETE FROM _kept_show")
+    con.executemany("INSERT INTO _kept_show (id) VALUES (?)", [(show_id,) for show_id in kept])
+    con.execute("DELETE FROM show_match WHERE show_id NOT IN (SELECT id FROM _kept_show)")
+    con.execute("DELETE FROM epg_shows WHERE id NOT IN (SELECT id FROM _kept_show)")
     con.commit()
 
 

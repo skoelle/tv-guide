@@ -67,6 +67,16 @@ def test_run_searches_schreibt_treffer(cfg):
     con.close()
 
 
+def test_run_searches_entfernt_veraltete_treffer(cfg):
+    con = _confirmed(cfg)
+    sid = create_search(con, cfg, "Alles", {})
+    assert run_searches(con, cfg)[0]["hits"] == 1
+    cfg.ignore_channels_file.write_text("Kabel Eins\n", encoding="utf-8")
+    run_match(con, cfg)
+    assert run_searches(con, cfg)[0] == {"id": sid, "name": "Alles", "hits": 0, "new": 0}
+    con.close()
+
+
 def test_treffer_gleich_filteransicht(cfg):
     con = _confirmed(cfg)
     fj = normalize_filter({"genre": "Action"}, cfg)

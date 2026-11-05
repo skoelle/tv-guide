@@ -1,10 +1,12 @@
-"""Refresh: erkennt geaenderte EPG-/IMDb-Daten und laesst das Matching laufen.
+"""Refresh: erkennt geaenderte EPG-/IMDb-Daten bzw. Ignorierliste und matcht neu.
 
-Der Zustand liegt in `app_meta` (EPG-XML-SHA1 + IMDb-Datenstand/Parameter).
-Dadurch ist ein unveraenderter Lauf billig: ohne Aenderung wird nicht neu gematcht.
+Der Zustand liegt in `app_meta` (EPG-XML-SHA1, IMDb-Datenstand/Parameter und
+SHA1 der Ignorierliste). Dadurch ist ein unveraenderter Lauf billig: ohne
+Aenderung wird nicht neu gematcht.
 """
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from datetime import datetime, timezone
 
@@ -40,10 +42,11 @@ _IMDB_KEYS = ("source_date", "types", "min_votes", "min_year", "with_episodes")
 
 
 def signature(con: sqlite3.Connection, cfg: Config) -> dict[str, str]:
-    """Inhaltliche Erkennungsmerkmale von EPG und IMDb.
+    """Inhaltliche Erkennungsmerkmale von EPG, IMDb und Ignorierliste.
 
     EPG: SHA1 des zuletzt importierten XMLTV. IMDb: Datenstand und Build-Parameter.
-    Ein Re-Match passiert nur, wenn sich einer der Werte wirklich aendert.
+    Ignorierliste: SHA1 der Datei. Ein Re-Match passiert nur, wenn sich einer der
+    Werte wirklich aendert.
     """
     epg_sha1 = _scalar(
         con, "SELECT xml_sha1 FROM epg.imports WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")
@@ -53,7 +56,11 @@ def signature(con: sqlite3.Connection, cfg: Config) -> dict[str, str]:
     except sqlite3.Error:
         meta = {}
     imdb_key = "|".join(str(meta.get(k, "")) for k in _IMDB_KEYS)
-    return {"epg_sha1": str(epg_sha1 or ""), "imdb_key": imdb_key}
+    try:
+        ignore_sha1 = hashlib.sha1(cfg.ignore_channels_file.read_bytes()).hexdigest()
+    except OSError:
+        ignore_sha1 = ""
+    return {"epg_sha1": str(epg_sha1 or ""), "imdb_key": imdb_key, "ignore_sha1": ignore_sha1}
 
 
 def _summary(con: sqlite3.Connection) -> dict:

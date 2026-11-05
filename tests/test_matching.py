@@ -76,6 +76,18 @@ def test_run_match_persists_and_is_idempotent(cfg):
     con.close()
 
 
+def test_run_match_entfernt_ignorierte_shows(cfg):
+    con = connect(cfg)
+    run_match(con, cfg)
+    assert con.execute("SELECT count(*) FROM epg_shows").fetchone()[0] == 3
+    cfg.ignore_channels_file.write_text("Kabel Eins\n", encoding="utf-8")
+    run_match(con, cfg)
+    assert con.execute("SELECT count(*) FROM epg_shows").fetchone()[0] == 0
+    assert con.execute("SELECT count(*) FROM show_match").fetchone()[0] == 0
+    assert con.execute("SELECT count(*) FROM event_show").fetchone()[0] == 0
+    con.close()
+
+
 def test_override_has_precedence(cfg):
     con = connect(cfg)
     con.execute("INSERT INTO overrides (show_key, tconst, note, created_at) VALUES (?,?,?,?)",

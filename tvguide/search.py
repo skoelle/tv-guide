@@ -221,18 +221,34 @@ def hits_for(con: sqlite3.Connection, search_id: int, limit: int = 200) -> list[
 
 
 def run_searches(con: sqlite3.Connection, cfg: Config) -> list[dict]:
-    """Schreibt fuer jede gespeicherte Suche die Treffer in `search_hits` fort."""
+    """Schreibt fuer jede gespeicherte Suche die Treffer in `search_hits` fort.
+
+    Nicht mehr passende Treffer (z. B. von neu ignorierten Sendern) werden entfernt.
+    """
     rows = con.execute("SELECT * FROM saved_searches ORDER BY id").fetchall()
+    con.execute(
+        "CREATE TEMP TABLE IF NOT EXISTS _current_hits ("
+        "search_id INTEGER NOT NULL, channel_id TEXT NOT NULL, start_ts INTEGER NOT NULL, "
+        "PRIMARY KEY (search_id, channel_id, start_ts))")
+    con.execute("DELETE FROM _current_hits")
     stats = []
     for r in rows:
         works = matched_works(con, cfg, _row_filter(r), bool(r["include_review"]))
         pairs = {(a["channel_id"], a["start_ts"]) for w in works for a in w["airings"]}
         now = _now()
+        con.executemany(
+            "INSERT OR IGNORE INTO _current_hits (search_id, channel_id, start_ts) VALUES (?,?,?)",
+            [(r["id"], ch, ts) for ch, ts in pairs])
         before = con.total_changes
         con.executemany(
             "INSERT OR IGNORE INTO search_hits (search_id, channel_id, start_ts, found_at) VALUES (?,?,?,?)",
             [(r["id"], ch, ts, now) for ch, ts in pairs])
         new = con.total_changes - before
+        con.execute(
+            "DELETE FROM search_hits WHERE search_id = ? AND NOT EXISTS ("
+            "SELECT 1 FROM _current_hits c WHERE c.search_id = search_hits.search_id "
+            "AND c.channel_id = search_hits.channel_id AND c.start_ts = search_hits.start_ts)",
+            (r["id"],))
         total = con.execute("SELECT count(*) FROM search_hits WHERE search_id=?", (r["id"],)).fetchone()[0]
         con.execute("UPDATE saved_searches SET last_run_at=?, last_new=? WHERE id=?", (now, new, r["id"]))
         stats.append({"id": r["id"], "name": r["name"], "hits": total, "new": new})

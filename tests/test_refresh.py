@@ -53,6 +53,33 @@ def test_refresh_erkennt_neuen_imdb_stand(cfg):
     con.close()
 
 
+def test_refresh_erkennt_neue_ignorierliste(cfg):
+    cfg.ignore_channels_file.write_text("Kabel Eins\n", encoding="utf-8")
+    con = connect(cfg)
+    refresh(con, cfg)
+    con.close()
+    cfg.ignore_channels_file.write_text("Kabel Eins\nTELE 5\n", encoding="utf-8")
+    con = connect(cfg)
+    assert refresh(con, cfg)["changed"] is True
+    con.close()
+
+
+def test_epg_unveraendert_refresht_trotzdem(cfg, monkeypatch):
+    from tvguide import pipeline
+
+    cfg.ignore_channels_file.write_text("Kabel Eins\n", encoding="utf-8")
+    con = connect(cfg)
+    refresh(con, cfg)
+    con.close()
+
+    cfg.ignore_channels_file.write_text("TELE 5\n", encoding="utf-8")
+    monkeypatch.setattr(pipeline, "_latest_epg_sha1", lambda path: "same")
+    monkeypatch.setattr(pipeline, "_run_stream", lambda cmd, log, display=None: None)
+    message = pipeline.run_epg_job(cfg, log=lambda line: None)
+    assert message.startswith("EPG unchanged; refresh:")
+    assert "none 3" in message
+
+
 def test_refresh_force(cfg):
     con = connect(cfg)
     refresh(con, cfg)

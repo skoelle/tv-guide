@@ -66,7 +66,11 @@ def _refresh(cfg: Config, log) -> str:
 
 
 def run_epg_job(cfg: Config, log=print) -> str:
-    """Importiert das TVHeadend-XMLTV in `epg.db` und refresht bei Aenderung."""
+    """Importiert das TVHeadend-XMLTV in `epg.db` und prueft danach den Refresh.
+
+    Auch bei unveraendertem EPG wird refresht, damit Aenderungen an der
+    Ignorierliste oder anderen Eingaben erkannt werden.
+    """
     epg = cfg.epg_db
     old_sha = _latest_epg_sha1(epg)
     cmd = [sys.executable, str(ROOT / "tools" / "epg_import.py"), "--db", str(epg), "--url", cfg.epg_url]
@@ -88,7 +92,7 @@ def run_epg_job(cfg: Config, log=print) -> str:
         raise RuntimeError("EPG import produced no data")
     if new_sha == old_sha:
         log("EPG unchanged")
-        return "EPG unchanged"
+        return "EPG unchanged; " + _refresh(cfg, log)
     log(f"EPG changed ({str(new_sha)[:8]}), refreshing")
     return "EPG imported; " + _refresh(cfg, log)
 
