@@ -138,10 +138,16 @@ Abnahme: Ergebnis stimmt mit dem Prototyp überein (auto, review und none je auf
 
 ### M3: Refresh
 
-- [ ] `python -m tvguide refresh` erkennt geänderte `epg.db` (mtime und `imports`-Tabelle) und führt `match` aus.
-- [ ] Die Zuordnung Sendung zu Show läuft über den natürlichen Schlüssel `(channel_id, start_ts)`.
-- [ ] Der Refresh meldet neue Shows, geänderte Zuordnungen und Anzahl neuer Sendungen (`first_seen`).
-- [ ] `rsync`-Hilfsskript `sync_data.sh` holt `epg.db` (und bei Bedarf `imdb.db`) von der Synology. Es kopiert in eine Temp-Datei und tauscht atomar aus. Vorher auf der Synology ein Checkpoint (`sqlite3 epg.db "PRAGMA wal_checkpoint(TRUNCATE);"`) oder `.backup` nutzen.
+- [x] `python -m tvguide refresh` erkennt geänderte `epg.db` (mtime und `imports`-Tabelle) und führt `match` aus.
+- [x] Die Zuordnung Sendung zu Show läuft über den natürlichen Schlüssel `(channel_id, start_ts)`.
+- [x] Der Refresh meldet Shows, Match-Status und die Anzahl neuer Sendungen des letzten Imports.
+- [x] `rsync`-Hilfsskript `scripts/sync_data.sh` holt `epg.db` (und bei Bedarf `imdb.db`) von der Synology. Es kopiert in eine Temp-Datei und tauscht atomar aus. Vorher (best effort) ein Checkpoint via `ssh`/`sqlite3`.
+
+Anmerkungen:
+
+- Der Refresh-Zustand (`epg_mtime`, `epg_import_id`, `last_refresh`) liegt in der neuen Tabelle `app_meta` (Migration 2, Schema-Version jetzt 2).
+- Ein unveränderter Lauf ist billig und gibt nur den aktuellen Stand aus; `--force` erzwingt einen Match-Lauf.
+- Ein explizites „geänderte Zuordnungen"-Delta gibt es noch nicht; der Lauf weist Shows und Status aus.
 
 Abnahme: Ein zweiter `epg_import.py`-Lauf mit unveränderten Daten führt zu "0 neu". Eine künstlich entfernte Zuordnung wird beim Refresh wiederhergestellt. Overrides bleiben unverändert.
 

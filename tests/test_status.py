@@ -1,4 +1,4 @@
-from tvguide.db import connect
+from tvguide.db import MIGRATIONS, connect
 from tvguide.status import collect, fmt_num, fmt_size, fmt_ts, render_text
 
 
@@ -12,7 +12,7 @@ def test_collect_numbers(cfg):
     assert s["imdb"]["titles"] == 1
     assert s["imdb"]["names"] == 2
     assert s["imdb"]["meta"]["source_date"] == "2026-11-05"
-    assert s["app"]["schema_version"] == 1
+    assert s["app"]["schema_version"] == len(MIGRATIONS)
     assert s["app"]["shows"] == 0
     assert s["problems"] == []
 

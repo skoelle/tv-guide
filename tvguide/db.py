@@ -57,6 +57,13 @@ MIGRATIONS: list[str] = [
         PRIMARY KEY (search_id, channel_id, start_ts)
     );
     """,
+    # Version 2: interner Zustand der App (Refresh-Erkennung usw.)
+    """
+    CREATE TABLE app_meta (
+        key    TEXT PRIMARY KEY,
+        value  TEXT
+    );
+    """,
 ]
 
 

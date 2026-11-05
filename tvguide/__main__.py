@@ -8,6 +8,7 @@ import sys
 from .config import load_config
 from .db import connect
 from .matching import run_match
+from .refresh import refresh
 from .status import collect, render_text
 
 
@@ -61,6 +62,26 @@ def cmd_match(args, cfg) -> int:
     return 0
 
 
+def cmd_refresh(args, cfg) -> int:
+    con = connect(cfg)
+    try:
+        def progress(done: int, total: int) -> None:
+            print(f"  {done}/{total} Shows", file=sys.stderr)
+        stats = refresh(con, cfg, force=args.force, progress=progress)
+    finally:
+        con.close()
+    if not stats["changed"]:
+        print("epg.db unveraendert, kein neuer Match-Lauf.")
+        print(f"  Shows: {stats['shows']}, Events: {stats['events']}")
+        if stats["by_status"]:
+            print("  Zuordnungen: " + ", ".join(f"{k} {v}" for k, v in sorted(stats["by_status"].items())))
+        return 0
+    by = stats["by_status"]
+    print(f"Refresh fertig in {stats['seconds']:.1f}s ({stats['new_events']} neue Sendungen im letzten Import)")
+    print(f"  Shows:  {stats['shows']} (auto {by.get('auto', 0)}, review {by.get('review', 0)}, none {by.get('none', 0)})")
+    return 0
+
+
 def cmd_serve(args, cfg) -> int:
     try:
         import uvicorn
@@ -95,6 +116,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("match", parents=[common], help="EPG-Shows gegen IMDb matchen")
     p.set_defaults(func=cmd_match)
+
+    p = sub.add_parser("refresh", parents=[common], help="geaenderte epg.db erkennen und matchen")
+    p.add_argument("--force", action="store_true", help="Match auch ohne erkannte Aenderung ausfuehren")
+    p.set_defaults(func=cmd_refresh)
 
     p = sub.add_parser("serve", parents=[common], help="Webserver starten")
     p.add_argument("--host")

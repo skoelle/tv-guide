@@ -27,6 +27,8 @@ vim config.toml             # Pfade und Port prüfen
 | `./run.sh` oder `./run.sh serve` | Webserver (Port aus `config.toml`) |
 | `./run.sh status [--json]` | Datenstand von EPG, IMDb und App |
 | `./run.sh match` | EPG-Shows gegen IMDb matchen und in `app.db` schreiben |
+| `./run.sh refresh [--force]` | geänderte `epg.db` erkennen und nur dann matchen |
+| `scripts/sync_data.sh epg.db` | `epg.db` atomar von der Synology holen |
 | `./run.sh initdb` | `app.db` anlegen und migrieren |
 | `./run.sh config` | geladene Konfiguration anzeigen |
 | `.venv/bin/python -m pytest -q` | Tests |
@@ -54,9 +56,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 ## Manuelle Abnahme M0 bis M2
 
 - [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
-- [ ] `./run.sh initdb` meldet Schema-Version 1.
+- [ ] `./run.sh initdb` meldet Schema-Version 2.
 - [ ] `./run.sh status` zeigt 195 Sender, 49.669 Sendungen und 1.285.899 IMDb-Titel.
 - [ ] `http://xubuntu-dev:8085/status` zeigt dieselben Zahlen im Browser (auch vom Notebook aus).
 - [ ] `./run.sh match` meldet auto 1.425 / review 631 / none 1.556 (Laufzeit unter 2 Minuten).
 - [ ] Danach zeigt `./run.sh status` dieselben Zuordnungen und `Shows` in `app.db`.
+- [ ] `./run.sh refresh` meldet beim ersten Mal neue Zuordnungen, beim zweiten Mal „unverändert".
 - [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).
