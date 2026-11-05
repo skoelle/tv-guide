@@ -1,0 +1,17 @@
+<details class="savesearch">
+  <summary class="btn">💾 Als Suche speichern</summary>
+  <form method="post" action="/searches">
+    <input type="hidden" name="type" value="{{ (f.type or []) | join(',') }}">
+    <input type="hidden" name="decade" value="{{ (f.decade or []) | join(',') }}">
+    <input type="hidden" name="genre" value="{{ (f.genre or []) | join(',') }}">
+    <input type="hidden" name="group" value="{{ f.group or '' }}">
+    <input type="hidden" name="retro" value="{{ '1' if f.retro else '' }}">
+    <input type="hidden" name="q" value="{{ f.q }}">
+    <p><input type="search" name="name" placeholder="Name der Suche" required></p>
+    <p>
+      <label><input type="checkbox" name="include_review" {{ 'checked' if 'unsicher' in (f.status or []) }}> auch unsichere Treffer</label>
+      <label><input type="checkbox" name="notify"> per Mail benachrichtigen</label>
+    </p>
+    <p><button class="btn" type="submit">Speichern</button></p>
+  </form>
+</details>

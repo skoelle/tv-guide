@@ -80,6 +80,10 @@ MIGRATIONS: list[str] = [
         new_tconst           TEXT
     );
     """,
+    # Version 4: Trefferzahl des letzten Suchlaufs
+    """
+    ALTER TABLE saved_searches ADD COLUMN last_new INTEGER NOT NULL DEFAULT 0;
+    """,
 ]
 
 

@@ -189,12 +189,19 @@ Abnahme: Nach Bestätigung erscheint die Show sofort in Jetzt und Stöbern mit d
 
 ### M6: Gespeicherte Suchen
 
-- [ ] Filter-JSON nach SPEC 6.2 und ein SQL-Builder mit Whitelist (nur bekannte Felder und Operatoren, ausschließlich Parameter, keine String-Konkatenation).
-- [ ] "Als Suche speichern" in Jetzt und Stöbern übernimmt die aktuellen Filter.
-- [ ] Seite "Suchen": Liste, Trefferzahl, "neu seit letztem Lauf", Bearbeiten, Löschen.
-- [ ] `search_hits` wird bei jedem Refresh fortgeschrieben (neue Treffer, `found_at`).
-- [ ] Schalter "Review-Treffer einbeziehen" pro Suche (Standard aus).
-- [ ] Schalter "Benachrichtigen" pro Suche (wirkt erst ab M7).
+- [x] Filter-JSON mit Whietelist-Validierung (nur bekannte Felder und Werte, keine Auswertung von Nutzer-Code).
+- [x] "Als Suche speichern" in Jetzt und Stöbern übernimmt die aktuellen Filter.
+- [x] Seite "Suchen": Liste, Trefferzahl, "neu seit letztem Lauf", Bearbeiten, Löschen.
+- [x] `search_hits` wird bei jedem Refresh fortgeschrieben (neue Treffer, `found_at`).
+- [x] Schalter "Review-Treffer einbeziehen" pro Suche (Standard aus).
+- [x] Schalter "Benachrichtigen" pro Suche (wirkt erst ab M7).
+
+Anmerkungen:
+
+- Abweichung von SPEC 6.2: kein SQL-Builder, sondern ein validiertes Filter-JSON, das mit derselben Engine wie die Filteransicht (`browse`) ausgewertet wird. Grund: Der Werk-Katalog wird pro `tconst` in Python aggregiert (Retro-Klasse, Genre-Ausschluss); ein zweiter SQL-Pfad würde garantiert auseinanderlaufen. Die Sicherheitseigenschaft (Whitelist, kein Nutzer-Code) bleibt erhalten.
+- `tvguide/search.py`: `normalize_filter`, `effective_filters`, CRUD, `run_searches`, `hits_for`; Migration 4 ergänzt `saved_searches.last_new`.
+- `run_searches` wird vom Refresh und von `./run.sh searches` aufgerufen.
+- API: `GET/POST /api/searches`, `PUT/DELETE /api/searches/{id}`, `GET /api/searches/{id}/hits`.
 
 Abnahme: Eine gespeicherte Suche "Serien der 80er und 90er" liefert dieselben Treffer wie die Filteransicht. Nach einem Import mit neuen Sendungen erscheinen nur die neuen als "neu".
 

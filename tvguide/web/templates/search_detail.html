@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ s.name }} · TV-Guide{% endblock %}
+{% block content %}
+<h1>{{ s.name }}</h1>
+<p class="muted">{{ s.summary }}
+  {% if s.last_run_at %}· letzter Lauf {{ s.last_run_at }}{% endif %}</p>
+<p><a class="btn" href="/browse?{{ s.query }}">Filter öffnen</a>
+   <a class="btn" href="/searches">← alle Suchen</a></p>
+
+{% if hits %}
+<table>
+  <tr><th>Termin</th><th>Sender</th><th>Titel</th><th></th></tr>
+  {% for h in hits %}
+  <tr>
+    <td>{{ h.start_ts | ts() }}–{{ h.stop_ts | ts('%H:%M') }}</td>
+    <td>{{ h.channel }}</td>
+    <td>{{ h.sub_title or h.title }}</td>
+    <td>{% if h.found_at == s.last_run_at %}<span class="tag ok">neu</span>{% endif %}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">Noch keine Treffer. „Treffer jetzt aktualisieren" auf der Übersicht ausführen.</p>{% endif %}
+{% endblock %}

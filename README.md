@@ -1,7 +1,7 @@
 # TV-Guide
 
 EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
-Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M5.
+Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M6.
 
 ## Voraussetzungen
 
@@ -28,6 +28,7 @@ vim config.toml             # Pfade und Port prüfen
 | `./run.sh status [--json]` | Datenstand von EPG, IMDb und App |
 | `./run.sh match` | EPG-Shows gegen IMDb matchen und in `app.db` schreiben |
 | `./run.sh refresh [--force]` | geänderte `epg.db` erkennen und nur dann matchen |
+| `./run.sh searches` | gespeicherte Suchen auswerten (`search_hits`) |
 | `scripts/sync_data.sh epg.db` | `epg.db` atomar von der Synology holen |
 | `./run.sh initdb` | `app.db` anlegen und migrieren |
 | `./run.sh config` | geladene Konfiguration anzeigen |
@@ -43,8 +44,11 @@ Mit `--config /pfad/config.toml` (vor oder nach dem Befehl) oder `TVGUIDE_CONFIG
 | `/browse` | Stöbern: Karten pro Werk, Filter-Chips, Sortierung, Paginierung |
 | `/work/{tconst}` | Werk-Detail mit allen Terminen |
 | `/review` | Offene Zuordnungen prüfen, bestätigen, ablehnen, anderer Titel, rückgängig |
+| `/searches` | Gespeicherte Suchen: Treffer, „neu", bearbeiten, löschen, aktualisieren |
 | `/status` | Datenstand |
-| `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/status` | JSON |
+| `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/status` | JSON |
+
+Gespeicherte Suchen speichern ein **validiertes Filter-JSON** (Whitelist: `type`, `decade`, `group`, `genre`, `retro`, `q`, plus `include_review`/`notify`). Ausgewertet wird mit derselben Engine wie die Filteransicht, deshalb liefern Suche und Ansicht dieselben Treffer. `search_hits` wird bei `refresh` und über `./run.sh searches` fortgeschrieben; „neu" ist die Anzahl der beim letzten Lauf neu hinzugekommenen Termine.
 
 Review-Entscheidungen landen in `overrides` (haben Vorrang vor der Automatik) und werden in `override_log` protokolliert, damit die letzte Entscheidung rückgängig gemacht werden kann.
 
@@ -68,10 +72,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/`, `config.toml` stehen in `.gitignore`.
 - IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, Quellenangabe steht im Seitenfuß.
 
-## Manuelle Abnahme M0 bis M5
+## Manuelle Abnahme M0 bis M6
 
 - [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
-- [ ] `./run.sh initdb` meldet Schema-Version 3.
+- [ ] `./run.sh initdb` meldet Schema-Version 4.
 - [ ] `./run.sh status` zeigt 195 Sender, 49.669 Sendungen und 1.285.899 IMDb-Titel.
 - [ ] `http://xubuntu-dev:8085/status` zeigt dieselben Zahlen im Browser (auch vom Notebook aus).
 - [ ] `./run.sh match` meldet auto 1.425 / review 631 / none 1.556 (Laufzeit unter 2 Minuten).
@@ -82,4 +86,5 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] Seiten laden spürbar unter einer Sekunde (Katalog wird pro Prozess gecacht).
 - [ ] Unter „Review" lässt sich ein Vorschlag bestätigen; die Show gilt danach als „sicher" in Jetzt/Stöbern und bleibt nach einem Refresh erhalten.
 - [ ] „Letzte Entscheidung rückgängig" stellt den vorherigen Zustand wieder her.
+- [ ] Eine gespeicherte Suche „Serien der 80er und 90er" liefert dieselben Treffer wie die Filteransicht; nach „Treffer jetzt aktualisieren" steigt „neu" einmalig.
 - [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).

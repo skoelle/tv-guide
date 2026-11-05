@@ -85,8 +85,8 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
         if r["status"] == "review":
             w["status"] = "review"
         w["airings"].append({
-            "channel": r["channel"], "start_ts": r["start_ts"], "stop_ts": r["stop_ts"],
-            "sub_title": r["sub_title"], "title": r["title"],
+            "channel": r["channel"], "channel_id": r["channel_id"], "start_ts": r["start_ts"],
+            "stop_ts": r["stop_ts"], "sub_title": r["sub_title"], "title": r["title"],
         })
     for w in works.values():
         w["title"] = w["_titles"].most_common(1)[0][0]

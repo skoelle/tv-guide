@@ -14,6 +14,7 @@
        hx-get="{{ base }}?{{ qs(with_sort(f, key)) }}" hx-target="#page" hx-select="#page" hx-push-url="true">{{ label }}</a>
     {% endfor %}
   </div>
+  {% include "_save_search.html" %}
 </div>
 <p class="muted">{{ total }} Werke{% if pages > 1 %} · Seite {{ page }}/{{ pages }}{% endif %}</p>
 {% if works %}

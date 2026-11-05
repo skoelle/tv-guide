@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Suchen · TV-Guide{% endblock %}
+{% block content %}
+<h1>Suchen</h1>
+<form method="post" action="/searches/run" style="margin-bottom:1rem">
+  <button class="btn" type="submit">Treffer jetzt aktualisieren</button>
+</form>
+
+{% if not searches %}<p class="muted">Noch keine gespeicherten Suchen. Lege sie in „Jetzt" oder „Stöbern" über „Als Suche speichern" an.</p>{% endif %}
+
+{% for s in searches %}
+<div class="box" style="margin-bottom:1rem">
+  <h2 style="margin-bottom:.2rem">{{ s.name }}
+    <span class="chip {{ 'on' if s.notify else '' }}">{{ '🔔 Mail an' if s.notify else '🔔 Mail aus' }}</span>
+    <span class="chip {{ 'on' if s.include_review else '' }}">{{ 'unsicher einbezogen' if s.include_review else 'nur sicher' }}</span>
+  </h2>
+  <p class="muted">{{ s.summary }}</p>
+  <p>{{ s.hits }} Treffer{% if s.new %} · <b>{{ s.new }} neu</b>{% endif %}
+    {% if s.last_run_at %}<span class="muted">· letzter Lauf {{ s.last_run_at }}</span>{% endif %}</p>
+  <p>
+    <a class="btn" href="/browse?{{ s.query }}">Filter öffnen</a>
+    <a class="btn" href="/searches/{{ s.id }}">Treffer ansehen</a>
+  </p>
+  <details>
+    <summary class="btn">Bearbeiten</summary>
+    <form method="post" action="/searches/{{ s.id }}/update">
+      <p><input type="search" name="name" value="{{ s.name }}"></p>
+      <p>
+        <label><input type="checkbox" name="include_review" {{ 'checked' if s.include_review }}> auch unsichere Treffer</label>
+        <label><input type="checkbox" name="notify" {{ 'checked' if s.notify }}> per Mail benachrichtigen</label>
+      </p>
+      <p><button class="btn" type="submit">Speichern</button></p>
+    </form>
+  </details>
+  <form method="post" action="/searches/{{ s.id }}/delete" style="margin-top:.4rem"
+        onsubmit="return confirm('Suche löschen?');">
+    <button class="btn" type="submit">Löschen</button>
+  </form>
+</div>
+{% endfor %}
+{% endblock %}

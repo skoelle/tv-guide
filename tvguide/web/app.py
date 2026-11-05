@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from zoneinfo import ZoneInfo
 
 from .. import __version__
@@ -19,9 +20,24 @@ from ..config import Config, load_config
 from ..db import Db, connect
 from ..matching import search_titles
 from ..review import apply_override, list_review, review_count, show_key_for, undo_last
+from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
+                      update_search)
 from ..status import collect, fmt_num, fmt_size, fmt_ts
 
 HERE = Path(__file__).parent
+
+
+class SearchCreate(BaseModel):
+    name: str = "Suche"
+    filter: dict = {}
+    include_review: bool = False
+    notify: bool = False
+
+
+class SearchUpdate(BaseModel):
+    name: str | None = None
+    include_review: bool | None = None
+    notify: bool | None = None
 
 
 def _qs(f: dict) -> str:
@@ -233,6 +249,85 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         apply_override(con, key, tconst, note=body.get("note"))
         return {"ok": True, "show_key": key, "tconst": tconst,
                 "status": "confirmed" if tconst else "rejected"}
+
+    @app.get("/searches")
+    def searches_page(request: Request, con: Db = Depends(get_db)):
+        ctx = _base(request, con, "suchen")
+        ctx["searches"] = list_searches(con)
+        return templates.TemplateResponse(request, "searches.html", ctx)
+
+    @app.post("/searches")
+    def searches_create(name: str = Form(""), type: str = Form(""), decade: str = Form(""),
+                        genre: str = Form(""), q: str = Form(""), group: str = Form(""),
+                        retro: str = Form(""), include_review: str = Form(None), notify: str = Form(None),
+                        con: Db = Depends(get_db)):
+        filt = {"type": type, "decade": decade, "genre": genre, "q": q, "group": group or None,
+                "retro": retro in ("1", "on", "true")}
+        try:
+            create_search(con, cfg, name, filt, include_review=include_review is not None,
+                          notify=notify is not None)
+        except ValueError:
+            pass
+        return RedirectResponse("/searches", status_code=303)
+
+    @app.get("/searches/{search_id}")
+    def searches_detail(search_id: int, request: Request, con: Db = Depends(get_db)):
+        s = get_search(con, search_id)
+        if s is None:
+            return templates.TemplateResponse(request, "not_found.html",
+                                              {**_base(request, con, ""), "tconst": f"Suche {search_id}"},
+                                              status_code=404)
+        ctx = _base(request, con, "suchen")
+        ctx.update({"s": s, "hits": hits_for(con, search_id)})
+        return templates.TemplateResponse(request, "search_detail.html", ctx)
+
+    @app.post("/searches/{search_id}/update")
+    def searches_update(search_id: int, name: str = Form(""), con: Db = Depends(get_db),
+                        include_review: str = Form(None), notify: str = Form(None)):
+        update_search(con, search_id, name=name, include_review=include_review is not None,
+                      notify=notify is not None)
+        return RedirectResponse("/searches", status_code=303)
+
+    @app.post("/searches/{search_id}/delete")
+    def searches_delete(search_id: int, con: Db = Depends(get_db)):
+        delete_search(con, search_id)
+        return RedirectResponse("/searches", status_code=303)
+
+    @app.post("/searches/run")
+    def searches_run(con: Db = Depends(get_db)):
+        run_searches(con, cfg)
+        return RedirectResponse("/searches", status_code=303)
+
+    @app.get("/api/searches")
+    def api_searches(con: Db = Depends(get_db)):
+        return {"searches": list_searches(con)}
+
+    @app.post("/api/searches")
+    def api_searches_create(body: SearchCreate, con: Db = Depends(get_db)):
+        try:
+            sid = create_search(con, cfg, body.name, body.filter, include_review=body.include_review,
+                                notify=body.notify)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        return {"id": sid}
+
+    @app.put("/api/searches/{search_id}")
+    def api_searches_update(search_id: int, body: SearchUpdate, con: Db = Depends(get_db)):
+        update_search(con, search_id, name=body.name, include_review=body.include_review,
+                      notify=body.notify)
+        return {"ok": True}
+
+    @app.delete("/api/searches/{search_id}")
+    def api_searches_delete(search_id: int, con: Db = Depends(get_db)):
+        delete_search(con, search_id)
+        return {"ok": True}
+
+    @app.get("/api/searches/{search_id}/hits")
+    def api_searches_hits(search_id: int, con: Db = Depends(get_db)):
+        s = get_search(con, search_id)
+        if s is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return {"search": s, "hits": hits_for(con, search_id)}
 
     @app.get("/status")
     def status_page(request: Request, con: Db = Depends(get_db)):

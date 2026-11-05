@@ -9,6 +9,7 @@ from .config import load_config
 from .db import connect
 from .matching import run_match
 from .refresh import refresh
+from .search import run_searches
 from .status import collect, render_text
 
 
@@ -82,6 +83,20 @@ def cmd_refresh(args, cfg) -> int:
     return 0
 
 
+def cmd_searches(args, cfg) -> int:
+    con = connect(cfg)
+    try:
+        stats = run_searches(con, cfg)
+    finally:
+        con.close()
+    if not stats:
+        print("Keine gespeicherten Suchen.")
+        return 0
+    for s in stats:
+        print(f"  {s['name']}: {s['hits']} Treffer, {s['new']} neu")
+    return 0
+
+
 def cmd_serve(args, cfg) -> int:
     try:
         import uvicorn
@@ -120,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("refresh", parents=[common], help="geaenderte epg.db erkennen und matchen")
     p.add_argument("--force", action="store_true", help="Match auch ohne erkannte Aenderung ausfuehren")
     p.set_defaults(func=cmd_refresh)
+
+    p = sub.add_parser("searches", parents=[common], help="gespeicherte Suchen auswerten (search_hits)")
+    p.set_defaults(func=cmd_searches)
 
     p = sub.add_parser("serve", parents=[common], help="Webserver starten")
     p.add_argument("--host")

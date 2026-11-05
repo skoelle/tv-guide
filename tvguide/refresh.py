@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .matching import run_match
+from .search import run_searches
 
 
 def _scalar(con: sqlite3.Connection, sql: str, params: tuple = ()):
@@ -63,5 +64,6 @@ def refresh(con: sqlite3.Connection, cfg: Config, *, force: bool = False, progre
     stats = run_match(con, cfg, progress=progress)
     stats["changed"] = True
     stats["new_events"] = _scalar(con, "SELECT events_new FROM epg.imports ORDER BY id DESC LIMIT 1") or 0
+    stats["searches"] = run_searches(con, cfg)
     set_meta(con, {**sig, "last_refresh": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
     return stats
