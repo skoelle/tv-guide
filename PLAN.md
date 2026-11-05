@@ -244,9 +244,24 @@ Anmerkungen:
 - `Dockerfile` basiert auf `python:3.12-slim`, enthält einen Healthcheck auf `/healthz`; `config.toml` und `data/` werden als Volumes eingebunden.
 - `docker-compose.yml`: `restart: unless-stopped`, Port `8085`, `TVGUIDE_SMTP_PASSWORD` aus `.env`.
 - `scripts/docker_update.sh` = atomarer rsync + `refresh` im Container; `scripts/backup_appdb.sh` sichert `app.db` konsistent.
-- Image `tvguide:test` gebaut und im Container geprüft (`/healthz` ok, `/status` Schema-Version 4).
+- Image `tvguide:test` gebaut und im Container geprüft (`/healthz` ok).
 
 Abnahme: Neustart des Zielsystems startet die App automatisch. Zustand (Overrides, Suchen) bleibt erhalten.
+
+### M9: Automatischer EPG-/IMDb-Abgleich
+
+- [x] Inhaltsbasierte Änderungserkennung: EPG über `imports.xml_sha1`, IMDb über `meta.source_date` + Build-Parameter. Re-Match nur bei echter Änderung.
+- [x] Werkzeuge im Image (`COPY tools`), Wrapper `python -m tvguide epg` / `imdb` (Subprozess, danach Refresh).
+- [x] Hintergrund-Jobs (`jobs`-Tabelle, Migration 5): genau ein Job gleichzeitig, Log unter `data/logs/`, Recovery verwaister Jobs beim Start.
+- [x] In-App-Scheduler (Daemon-Thread): EPG stündlich, IMDb wöchentlich (Default Montag 04:30 Europe/Berlin), aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
+- [x] Buttons in `/status` („EPG jetzt importieren", „IMDb jetzt neu bauen") + Live-Status via HTMX, API `/api/jobs`.
+- [x] Disk-Preflight beim IMDb-Build (~2 GB); `TVGUIDE_TVH_PASSWORD` aus dem Environment.
+
+Anmerkungen:
+
+- Der Scheduler läuft im Webprozess (ein Prozess pro Container); Zustand in `app_meta`, überlebt Neustarts.
+- Das Image enthält jetzt `tools/`; das Produktionsimage installiert weiterhin nur `requirements.txt`.
+- Offen (optional): Healthchecks-Ping nach erfolgreichem Lauf.
 
 ## 5. Tests
 

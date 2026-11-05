@@ -66,3 +66,34 @@ def test_api_now(client):
 
 def test_work_unbekannt_ist_404(client):
     assert client.get("/work/tt0000000").status_code == 404
+
+
+def test_status_zeigt_sync_buttons(client):
+    r = client.get("/status")
+    assert "EPG jetzt importieren" in r.text
+    assert "IMDb jetzt neu bauen" in r.text
+
+
+def test_jobs_api_und_partial(client):
+    assert client.get("/api/jobs").json()["running"] is False
+    assert client.get("/partials/jobs").status_code == 200
+
+
+def test_job_endpoint_startet(client, cfg, monkeypatch):
+    from tvguide import jobs
+
+    def fake_run(cfg, kind, log):
+        log("stub")
+        return "ok"
+
+    monkeypatch.setattr(jobs, "run_kind", fake_run)
+    r = client.post("/jobs/epg", follow_redirects=False)
+    assert r.status_code == 303
+    con = connect(cfg)
+    row = con.execute("SELECT kind, status FROM jobs ORDER BY id DESC LIMIT 1").fetchone()
+    con.close()
+    assert tuple(row) == ("epg", "running") or tuple(row) == ("epg", "ok")
+
+
+def test_job_endpoint_lehnt_unbekannt_ab(client):
+    assert client.post("/jobs/nope", follow_redirects=False).status_code == 404

@@ -52,6 +52,12 @@ th { color: #666; font-weight: 600; }
 .poster { width: 56px; height: 80px; border: 1px dashed #aaa; border-radius: 4px; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: .65rem; flex: none; }
 .card table { margin-top: .6rem; }
 
+.sync-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }
+.sync-actions form { margin: 0; }
+.btn[disabled] { opacity: .5; cursor: default; }
+pre.joblog { background: #111; color: #d6ffd6; padding: .6rem; border-radius: 6px; overflow: auto; max-height: 220px; font-size: .78rem; }
+table.jobs td, table.jobs th { font-size: .85rem; }
+
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; }
   .filters { position: static; }

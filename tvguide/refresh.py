@@ -1,7 +1,7 @@
-"""Refresh: erkennt eine geaenderte epg.db und laesst das Matching laufen.
+"""Refresh: erkennt geaenderte EPG-/IMDb-Daten und laesst das Matching laufen.
 
-Der Zustand liegt in `app_meta` (epg_mtime + letzte Import-ID). Dadurch ist ein
-unveraenderter Lauf billig: ohne Aenderung wird nicht neu gematcht.
+Der Zustand liegt in `app_meta` (EPG-XML-SHA1 + IMDb-Datenstand/Parameter).
+Dadurch ist ein unveraenderter Lauf billig: ohne Aenderung wird nicht neu gematcht.
 """
 from __future__ import annotations
 
@@ -36,11 +36,24 @@ def set_meta(con: sqlite3.Connection, values: dict[str, str]) -> None:
     con.commit()
 
 
+_IMDB_KEYS = ("source_date", "types", "min_votes", "min_year", "with_episodes")
+
+
 def signature(con: sqlite3.Connection, cfg: Config) -> dict[str, str]:
-    """Erkennungsmerkmale der aktuellen epg.db: mtime und hoechste Import-ID."""
-    mtime = int(cfg.epg_db.stat().st_mtime) if cfg.epg_db.exists() else None
-    imp_id = _scalar(con, "SELECT max(id) FROM epg.imports")
-    return {"epg_mtime": str(mtime), "epg_import_id": str(imp_id)}
+    """Inhaltliche Erkennungsmerkmale von EPG und IMDb.
+
+    EPG: SHA1 des zuletzt importierten XMLTV. IMDb: Datenstand und Build-Parameter.
+    Ein Re-Match passiert nur, wenn sich einer der Werte wirklich aendert.
+    """
+    epg_sha1 = _scalar(
+        con, "SELECT xml_sha1 FROM epg.imports WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1")
+    try:
+        meta = {r[0]: r[1] for r in con.execute(
+            "SELECT key, value FROM imdb.meta WHERE key IN (%s)" % ",".join("?" * len(_IMDB_KEYS)), _IMDB_KEYS)}
+    except sqlite3.Error:
+        meta = {}
+    imdb_key = "|".join(str(meta.get(k, "")) for k in _IMDB_KEYS)
+    return {"epg_sha1": str(epg_sha1 or ""), "imdb_key": imdb_key}
 
 
 def _summary(con: sqlite3.Connection) -> dict:

@@ -42,6 +42,26 @@ min_duration = 8             # Median-Laenge in Minuten: kuerzer -> skip_short
 block_min_duration = 100     # ohne Kategorie, ab dieser Laenge ...
 block_min_events = 10        # ... und so vielen Terminen -> skip_block
 
+# Datenquellen fuer Import/Build im Container (Buttons in /status und Scheduler)
+[epg]
+url = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
+user = ""                    # Passwort kommt aus TVGUIDE_TVH_PASSWORD
+prune_days = 0               # 0 = nie
+
+[imdb]
+raw_dir = "data/imdb_raw"    # Rohdatensatz, gross; im data-Volume
+types = "movie,tvMovie,tvSeries,tvMiniSeries"
+min_votes = 0
+min_year = 0                 # 0 = aus
+with_episodes = false
+
+# Zeitplan im Container. Lokal/Dev aus; docker-compose setzt TVGUIDE_SCHEDULE_ENABLED=true.
+[schedule]
+enabled = false
+epg_every_minutes = 60       # stuendlich pruefen, nur bei Aenderung neu matchen
+imdb_weekday = 0             # 0 = Montag
+imdb_time = "04:30"
+
 # Sendergruppen fuer Filter (exakte Sendernamen aus dem EPG)
 [channel_groups]
 retro = ["TELE 5", "Kabel Eins", "RTLNITRO", "Pro7 MAXX", "SAT.1 Gold", "ONE", "RTLZWEI"]

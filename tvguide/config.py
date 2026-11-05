@@ -28,6 +28,20 @@ class Config:
     skip_min_duration: int = 8
     skip_block_min_duration: int = 100
     skip_block_min_events: int = 10
+    # Datenquellen (Import/Build im Container)
+    epg_url: str = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
+    epg_user: str = ""
+    epg_prune_days: int = 0
+    imdb_raw_dir: Path | None = None
+    imdb_types: str = "movie,tvMovie,tvSeries,tvMiniSeries"
+    imdb_min_votes: int = 0
+    imdb_min_year: int = 0
+    imdb_with_episodes: bool = False
+    # Zeitplan (im Container aktiv)
+    schedule_enabled: bool = False
+    schedule_epg_every_minutes: int = 60
+    schedule_imdb_weekday: int = 0     # 0 = Montag
+    schedule_imdb_time: str = "04:30"
     channel_groups: dict[str, list[str]] = field(default_factory=dict)
     smtp: dict = field(default_factory=dict)
     source: Path | None = None  # geladene Konfigurationsdatei, falls vorhanden
@@ -52,6 +66,13 @@ DEFAULT_SKIP_TITLES: tuple[str, ...] = (
 def _resolve(base: Path, value: str) -> Path:
     p = Path(value).expanduser()
     return p if p.is_absolute() else (base / p).resolve()
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in ("0", "false", "no", "off", "")
 
 
 def find_config_file(explicit: str | os.PathLike | None = None) -> Path | None:
@@ -81,6 +102,9 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
     matching = raw.get("matching", {})
     retro = raw.get("retro", {})
     skip = raw.get("skip", {})
+    epg = raw.get("epg", {})
+    imdb = raw.get("imdb", {})
+    schedule = raw.get("schedule", {})
 
     return Config(
         base_dir=base,
@@ -102,6 +126,18 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         skip_min_duration=int(skip.get("min_duration", 8)),
         skip_block_min_duration=int(skip.get("block_min_duration", 100)),
         skip_block_min_events=int(skip.get("block_min_events", 10)),
+        epg_url=str(epg.get("url", "http://docker-host-nas.fritz.box:9981/xmltv/channels")),
+        epg_user=str(epg.get("user", "") or ""),
+        epg_prune_days=int(epg.get("prune_days", 0) or 0),
+        imdb_raw_dir=_resolve(base, imdb.get("raw_dir", "data/imdb_raw")),
+        imdb_types=str(imdb.get("types", "movie,tvMovie,tvSeries,tvMiniSeries")),
+        imdb_min_votes=int(imdb.get("min_votes", 0) or 0),
+        imdb_min_year=int(imdb.get("min_year", 0) or 0),
+        imdb_with_episodes=bool(imdb.get("with_episodes", False)),
+        schedule_enabled=_env_bool("TVGUIDE_SCHEDULE_ENABLED", bool(schedule.get("enabled", False))),
+        schedule_epg_every_minutes=int(schedule.get("epg_every_minutes", 60)),
+        schedule_imdb_weekday=int(schedule.get("imdb_weekday", 0)),
+        schedule_imdb_time=str(schedule.get("imdb_time", "04:30")),
         channel_groups={k: list(v) for k, v in raw.get("channel_groups", {}).items()},
         smtp=dict(raw.get("smtp", {})),
         source=cfg_file,

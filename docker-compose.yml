@@ -13,3 +13,5 @@ services:
     environment:
       - TZ=Europe/Berlin
       - TVGUIDE_SMTP_PASSWORD=${TVGUIDE_SMTP_PASSWORD:-}
+      - TVGUIDE_TVH_PASSWORD=${TVGUIDE_TVH_PASSWORD:-}
+      - TVGUIDE_SCHEDULE_ENABLED=true

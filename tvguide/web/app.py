@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -18,8 +19,10 @@ from ..browse import (annotate_next, apply_filters, catalog_facets, evening_airi
                       genre_de, load_catalog, parse_filters, running_airings, sort_works)
 from ..config import Config, load_config
 from ..db import Db, connect
+from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
 from ..review import apply_override, list_review, review_count, show_key_for, undo_last
+from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
 from ..status import collect, fmt_num, fmt_size, fmt_ts
@@ -85,7 +88,28 @@ def _toggle(f: dict, key: str, value=None) -> dict:
 
 def create_app(cfg: Config | None = None) -> FastAPI:
     cfg = cfg or load_config()
-    app = FastAPI(title="TV-Guide", version=__version__)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        try:
+            startup_con = connect(cfg)
+            try:
+                recover_stale(startup_con)
+            finally:
+                startup_con.close()
+        except Exception:  # noqa: BLE001 - Start darf daran nicht scheitern
+            pass
+        scheduler = None
+        if cfg.schedule_enabled:
+            scheduler = Scheduler(cfg)
+            scheduler.start()
+        try:
+            yield
+        finally:
+            if scheduler is not None:
+                scheduler.stop()
+
+    app = FastAPI(title="TV-Guide", version=__version__, lifespan=lifespan)
     app.state.cfg = cfg
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
@@ -329,11 +353,38 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"search": s, "hits": hits_for(con, search_id)}
 
+    @app.post("/jobs/{kind}")
+    def jobs_start(kind: str, con: Db = Depends(get_db)):
+        if kind not in ("epg", "imdb"):
+            return JSONResponse({"error": "not found"}, status_code=404)
+        start_job(con, cfg, kind)
+        return RedirectResponse("/status", status_code=303)
+
+    @app.get("/partials/jobs")
+    def jobs_partial(request: Request, con: Db = Depends(get_db)):
+        ctx = _base(request, con, "status")
+        ctx.update({"jobs": recent_jobs(con), "job_running": running_job(con) is not None})
+        return templates.TemplateResponse(request, "_jobs.html", ctx)
+
+    @app.get("/api/jobs")
+    def api_jobs(con: Db = Depends(get_db)):
+        return {"running": running_job(con) is not None, "jobs": recent_jobs(con)}
+
+    @app.get("/api/jobs/{job_id}")
+    def api_job(job_id: int, con: Db = Depends(get_db)):
+        job = get_job(con, job_id)
+        if job is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return dict(job)
+
     @app.get("/status")
     def status_page(request: Request, con: Db = Depends(get_db)):
         data = collect(con, cfg)
         ctx = _base(request, con, "status")
         ctx["s"] = data
+        ctx["jobs"] = recent_jobs(con)
+        ctx["job_running"] = running_job(con) is not None
+        ctx["schedule_enabled"] = cfg.schedule_enabled
         return templates.TemplateResponse(request, "status.html", ctx)
 
     @app.get("/api/status")

@@ -6,14 +6,18 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY tvguide ./tvguide
+COPY tools ./tools
 COPY config.example.toml ./config.example.toml
 
 # config.toml und data/ werden zur Laufzeit als Volume eingebunden.
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data /app/data/imdb_raw /app/data/logs
 
 EXPOSE 8085
 

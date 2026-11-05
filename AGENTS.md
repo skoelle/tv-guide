@@ -26,10 +26,17 @@ Layout:
 ./run.sh refresh                # detect changed epg.db, then match + searches + email
 ./run.sh searches               # update search_hits
 ./run.sh notify --dry-run       # write an .eml to data/outbox/
+./run.sh epg                    # import TVHeadend XMLTV and refresh
+./run.sh imdb                   # build IMDb datasets and refresh
 ./run.sh                        # web server on port 8085
 .venv/bin/python -m pytest -q   # tests
 ruff check .                    # lint (config in ruff.toml)
 ```
+
+`refresh` detects changes by content (EPG XML SHA1, IMDb source_date + build params),
+not by file mtime. In the container a background scheduler runs EPG hourly and IMDb
+weekly (`TVGUIDE_SCHEDULE_ENABLED=true`); the same work can be triggered from the
+`/status` buttons. Jobs run one at a time and log to `data/logs/`.
 
 ## Conventions
 

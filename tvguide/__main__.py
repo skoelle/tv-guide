@@ -9,6 +9,7 @@ from .config import load_config
 from .db import connect
 from .matching import run_match
 from .notify.digest import send_notifications, send_test
+from .pipeline import run_epg_job, run_imdb_job
 from .refresh import refresh
 from .search import run_searches
 from .status import collect, render_text
@@ -42,6 +43,20 @@ def cmd_config(args, cfg) -> int:
     print(f"  {'retro':22} {cfg.retro_from} bis {cfg.retro_to}, Serienende bis {cfg.retro_end_max}")
     print(f"  {'skip':22} {len(cfg.skip_categories)} Kategorien, {len(cfg.skip_titles)} Titel, "
           f"kurz < {cfg.skip_min_duration} min, Block >= {cfg.skip_block_min_duration} min / {cfg.skip_block_min_events}x")
+    print(f"  {'epg':22} {cfg.epg_url}")
+    print(f"  {'imdb raw':22} {cfg.imdb_raw_dir}")
+    print(f"  {'schedule':22} {'an' if cfg.schedule_enabled else 'aus'}, EPG alle "
+          f"{cfg.schedule_epg_every_minutes} min, IMDb Wochentag {cfg.schedule_imdb_weekday} um {cfg.schedule_imdb_time}")
+    return 0
+
+
+def cmd_epg(args, cfg) -> int:
+    print(run_epg_job(cfg, log=print))
+    return 0
+
+
+def cmd_imdb(args, cfg) -> int:
+    print(run_imdb_job(cfg, log=print))
     return 0
 
 
@@ -160,6 +175,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("searches", parents=[common], help="gespeicherte Suchen auswerten (search_hits)")
     p.set_defaults(func=cmd_searches)
+
+    p = sub.add_parser("epg", parents=[common], help="TVHeadend-XMLTV importieren und refreshen")
+    p.set_defaults(func=cmd_epg)
+
+    p = sub.add_parser("imdb", parents=[common], help="IMDb-Datasets neu bauen und refreshen")
+    p.set_defaults(func=cmd_imdb)
 
     p = sub.add_parser("notify", parents=[common], help="Benachrichtigung ueber neue Treffer versenden")
     p.add_argument("--dry-run", action="store_true", help="Mail als .eml nach data/outbox/ schreiben")

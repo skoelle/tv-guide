@@ -1,0 +1,29 @@
+<div id="jobs" hx-get="/partials/jobs" hx-trigger="every 3s" hx-target="this" hx-swap="outerHTML">
+  <div class="sync-actions">
+    <form method="post" action="/jobs/epg">
+      <button class="btn" type="submit" {% if job_running %}disabled{% endif %}>EPG jetzt importieren</button>
+    </form>
+    <form method="post" action="/jobs/imdb">
+      <button class="btn" type="submit" {% if job_running %}disabled{% endif %}>IMDb jetzt neu bauen</button>
+    </form>
+    {% if job_running %}<span class="tag ok">läuft …</span>{% endif %}
+  </div>
+  {% if jobs %}
+  <table class="jobs">
+    <tr><th>Job</th><th>Status</th><th>Start</th><th>Ende</th><th>Meldung</th></tr>
+    {% for j in jobs %}
+    <tr>
+      <td>{{ j.kind }}</td>
+      <td><span class="tag {{ 'bad' if j.status == 'error' else ('ok' if j.status == 'ok' else '') }}">{{ j.status }}</span></td>
+      <td>{{ j.started_at }}</td>
+      <td>{{ j.finished_at or '–' }}</td>
+      <td class="muted">{{ j.message or '' }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% set last = jobs[0] %}
+  {% if last.log_tail %}<pre class="joblog">{{ last.log_tail }}</pre>{% endif %}
+  {% else %}
+  <p class="muted">Noch keine Import-/Build-Läufe.</p>
+  {% endif %}
+</div>

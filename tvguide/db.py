@@ -84,6 +84,19 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE saved_searches ADD COLUMN last_new INTEGER NOT NULL DEFAULT 0;
     """,
+    # Version 5: Hintergrundjobs fuer EPG-Import und IMDb-Build
+    """
+    CREATE TABLE jobs (
+        id          INTEGER PRIMARY KEY,
+        kind        TEXT NOT NULL,
+        status      TEXT NOT NULL,
+        started_at  TEXT NOT NULL,
+        finished_at TEXT,
+        message     TEXT,
+        log_path    TEXT
+    );
+    CREATE INDEX idx_jobs_status ON jobs(status);
+    """,
 ]
 
 

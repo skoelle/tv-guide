@@ -3,7 +3,7 @@
 [![build](https://github.com/skoelle/tv-guide/actions/workflows/build.yml/badge.svg)](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)
 
 Browse the TVHeadend EPG, find movies and series (80s and 90s), and keep saved searches with email notifications.
-Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M8.
+Details: `SPEC.md` (what) and `PLAN.md` (how). This package covers milestones M0–M9.
 
 ## Requirements
 
@@ -29,7 +29,9 @@ vim config.toml             # check paths and port
 | `./run.sh` or `./run.sh serve` | Web server (port from `config.toml`) |
 | `./run.sh status [--json]` | Status of EPG, IMDb and app data |
 | `./run.sh match` | Match EPG shows against IMDb and write to `app.db` |
-| `./run.sh refresh [--force]` | Detect a changed `epg.db` and only then re-match |
+| `./run.sh refresh [--force]` | Detect changed EPG/IMDb data and only then re-match |
+| `./run.sh epg` | Import TVHeadend XMLTV (atomic, change-aware) and refresh |
+| `./run.sh imdb` | Build the IMDb database (weekly) and refresh |
 | `./run.sh searches` | Evaluate saved searches (`search_hits`) |
 | `./run.sh notify [--dry-run] [--test]` | Send notifications for new hits |
 | `scripts/sync_data.sh epg.db` | Fetch `epg.db` from the Synology atomically |
@@ -61,6 +63,34 @@ Review decisions are stored in `overrides` (they take precedence over the automa
 
 Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&sort=jahr&q=...`). The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
 
+## Automatic sync (scheduler + buttons)
+
+The container can keep EPG and IMDb up to date by itself:
+
+- **EPG** is checked every `[schedule].epg_every_minutes` (default hourly). The import is cheap and only triggers a re-match when the XMLTV content (SHA1) changed.
+- **IMDb** is rebuilt weekly (`[schedule].imdb_weekday` / `imdb_time`, default Monday 04:30 Europe/Berlin). A re-match only happens if the dataset date or the build parameters changed.
+- The `/status` page has the buttons **"EPG jetzt importieren"** and **"IMDb jetzt neu bauen"**. Only one job runs at a time; the page polls the job status and shows the last log lines.
+- The scheduler lives inside the web container (single process, background thread). State (`last_epg_run`, `last_imdb_run`) is kept in `app_meta`, so it survives restarts. Jobs interrupted by a restart are marked as `error` and retried on the next schedule.
+
+Relevant config/env:
+
+```toml
+[epg]
+url = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
+user = ""                 # password from TVGUIDE_TVH_PASSWORD
+
+[imdb]
+raw_dir = "data/imdb_raw" # large dataset, lives in the data volume
+
+[schedule]
+enabled = false           # docker-compose sets TVGUIDE_SCHEDULE_ENABLED=true
+epg_every_minutes = 60
+imdb_weekday = 0          # Monday
+imdb_time = "04:30"
+```
+
+The IMDb build needs network access to `datasets.imdbws.com` and about 2 GB of free disk (`imdb_raw` + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.
+
 ## Docker operation (since M8)
 
 > **Development ≠ operation:** `xubuntu-dev` runs **no container**. It is used for local Python tests only (`./run.sh`, `.venv/bin/python -m pytest -q`). Docker and the GHCR image are only used on the target host (Synology/Docker host).
@@ -74,7 +104,7 @@ docker compose logs -f tvguide          # logs
 docker compose ps                       # status including healthcheck
 ```
 
-Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. `app.db` (overrides, searches, hits) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD` comes from `.env` (not committed); `restart: unless-stopped` restarts the container automatically after a host reboot.
+Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. `app.db` (overrides, searches, hits) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD` and `TVGUIDE_TVH_PASSWORD` come from `.env` (not committed); the bundled compose files set `TVGUIDE_SCHEDULE_ENABLED=true`. `restart: unless-stopped` restarts the container automatically after a host reboot.
 
 ### Pulling the image from GHCR (built in GitHub)
 
@@ -133,10 +163,10 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/` and `config.toml` are listed in `.gitignore`.
 - IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
 
-## Manual acceptance M0–M8
+## Manual acceptance M0–M9
 
 - [ ] `./scripts/check_env.sh` shows no `[FAIL]` line.
-- [ ] `./run.sh initdb` reports schema version 4.
+- [ ] `./run.sh initdb` reports schema version 5.
 - [ ] `./run.sh status` shows 195 channels, 49,669 airings and 1,285,899 IMDb titles.
 - [ ] `http://xubuntu-dev:8085/status` shows the same numbers in the browser (also from the notebook).
 - [ ] `./run.sh match` reports auto 1,425 / review 631 / none 1,556 (runtime under 2 minutes).
@@ -149,6 +179,9 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] "Letzte Entscheidung rückgängig" restores the previous state.
 - [ ] A saved search "Serien der 80er und 90er" returns the same hits as the filter view; after "Treffer jetzt aktualisieren", "new" increases once.
 - [ ] `./run.sh notify --dry-run` writes a `.eml` to `data/outbox/`; with SMTP configured, a new hit triggers exactly one email and a second refresh none.
+- [ ] In `/status`, "EPG jetzt importieren" imports the EPG and re-matches only when it changed; the job log is shown.
+- [ ] "IMDb jetzt neu bauen" builds the database and re-matches only if the dataset/params changed.
+- [ ] With `TVGUIDE_SCHEDULE_ENABLED=true`, EPG runs hourly and IMDb weekly; interrupted jobs are marked `error` after a restart.
 - [ ] `docker compose up -d --build` starts the service; `/healthz` returns `{"ok": true}` and `/status` is reachable.
 - [ ] Restarting the container/host preserves overrides and searches (`app.db` in the volume).
 - [ ] `./scripts/backup_appdb.sh` creates a backup; after replacing `data/app.db` the state is restored.
