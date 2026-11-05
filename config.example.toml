@@ -10,6 +10,7 @@ ignore_channels_file = "channels_ignore.txt"
 [server]
 host = "0.0.0.0"
 port = 8085
+base_url = "http://xubuntu-dev:8085"   # fuer Links in E-Mails, ohne Schraegstrich am Ende
 timezone = "Europe/Berlin"
 
 [matching]

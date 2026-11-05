@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from .config import Config
 from .matching import run_match
+from .notify.digest import send_notifications
 from .search import run_searches
 
 
@@ -65,5 +66,9 @@ def refresh(con: sqlite3.Connection, cfg: Config, *, force: bool = False, progre
     stats["changed"] = True
     stats["new_events"] = _scalar(con, "SELECT events_new FROM epg.imports ORDER BY id DESC LIMIT 1") or 0
     stats["searches"] = run_searches(con, cfg)
+    try:
+        stats["mail"] = send_notifications(con, cfg)
+    except Exception as exc:  # noqa: BLE001 - Refresh darf an der Benachrichtigung nicht scheitern
+        stats["mail"] = {"error": str(exc)}
     set_meta(con, {**sig, "last_refresh": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")})
     return stats

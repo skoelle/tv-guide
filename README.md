@@ -1,7 +1,7 @@
 # TV-Guide
 
 EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
-Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M6.
+Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M7.
 
 ## Voraussetzungen
 
@@ -29,6 +29,7 @@ vim config.toml             # Pfade und Port prüfen
 | `./run.sh match` | EPG-Shows gegen IMDb matchen und in `app.db` schreiben |
 | `./run.sh refresh [--force]` | geänderte `epg.db` erkennen und nur dann matchen |
 | `./run.sh searches` | gespeicherte Suchen auswerten (`search_hits`) |
+| `./run.sh notify [--dry-run] [--test]` | Benachrichtigung über neue Treffer versenden |
 | `scripts/sync_data.sh epg.db` | `epg.db` atomar von der Synology holen |
 | `./run.sh initdb` | `app.db` anlegen und migrieren |
 | `./run.sh config` | geladene Konfiguration anzeigen |
@@ -47,6 +48,10 @@ Mit `--config /pfad/config.toml` (vor oder nach dem Befehl) oder `TVGUIDE_CONFIG
 | `/searches` | Gespeicherte Suchen: Treffer, „neu", bearbeiten, löschen, aktualisieren |
 | `/status` | Datenstand |
 | `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/status` | JSON |
+
+## E-Mail (ab M7)
+
+Nach jedem `refresh` (und über `./run.sh notify`) verschickt der TV-Guide **eine Sammelmail** für alle offenen Treffer von Suchen mit „benachrichtigen". In der `[smtp]`-Sektion in `config.toml` stehen `host`, `port`, `security` (`starttls`|`ssl`), `username`, `from`, `to`; das Passwort kommt ausschließlich aus der Umgebungsvariable `TVGUIDE_SMTP_PASSWORD`. Links in der Mail nutzen `[server].base_url`. `notified_at` wird erst nach erfolgreichem Versand gesetzt – bei fehlendem SMTP oder Fehlern wird beim nächsten Lauf nachgeholt. `./run.sh notify --dry-run` schreibt die Mail nach `data/outbox/`, `--test` sendet eine Testmail.
 
 Gespeicherte Suchen speichern ein **validiertes Filter-JSON** (Whitelist: `type`, `decade`, `group`, `genre`, `retro`, `q`, plus `include_review`/`notify`). Ausgewertet wird mit derselben Engine wie die Filteransicht, deshalb liefern Suche und Ansicht dieselben Treffer. `search_hits` wird bei `refresh` und über `./run.sh searches` fortgeschrieben; „neu" ist die Anzahl der beim letzten Lauf neu hinzugekommenen Termine.
 
@@ -72,7 +77,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - `*.db`, `data/`, `config.toml` stehen in `.gitignore`.
 - IMDb-Daten nur für persönliche, nicht kommerzielle Nutzung, Quellenangabe steht im Seitenfuß.
 
-## Manuelle Abnahme M0 bis M6
+## Manuelle Abnahme M0 bis M7
 
 - [ ] `./scripts/check_env.sh` zeigt keine `[FAIL]`-Zeile.
 - [ ] `./run.sh initdb` meldet Schema-Version 4.
@@ -87,4 +92,5 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 - [ ] Unter „Review" lässt sich ein Vorschlag bestätigen; die Show gilt danach als „sicher" in Jetzt/Stöbern und bleibt nach einem Refresh erhalten.
 - [ ] „Letzte Entscheidung rückgängig" stellt den vorherigen Zustand wieder her.
 - [ ] Eine gespeicherte Suche „Serien der 80er und 90er" liefert dieselben Treffer wie die Filteransicht; nach „Treffer jetzt aktualisieren" steigt „neu" einmalig.
+- [ ] `./run.sh notify --dry-run` schreibt eine `.eml` nach `data/outbox/`; mit gesetztem SMTP löst ein neuer Treffer genau eine Mail aus, ein erneuter Refresh keine weitere.
 - [ ] `.venv/bin/python -m pytest -q` läuft grün (inkl. Golden-Test gegen `tests/golden/matches.csv`).

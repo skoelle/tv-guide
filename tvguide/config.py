@@ -16,6 +16,7 @@ class Config:
     ignore_channels_file: Path
     host: str = "0.0.0.0"
     port: int = 8085
+    base_url: str = ""
     timezone: str = "Europe/Berlin"
     auto_threshold: float = 1.0
     review_threshold: float = 0.6
@@ -89,6 +90,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         ignore_channels_file=_resolve(base, paths.get("ignore_channels_file", "channels_ignore.txt")),
         host=server.get("host", "0.0.0.0"),
         port=int(server.get("port", 8085)),
+        base_url=(server.get("base_url", "") or "").rstrip("/"),
         timezone=server.get("timezone", "Europe/Berlin"),
         auto_threshold=float(matching.get("auto_threshold", 1.0)),
         review_threshold=float(matching.get("review_threshold", 0.6)),

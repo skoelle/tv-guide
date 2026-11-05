@@ -209,15 +209,22 @@ Abnahme: Eine gespeicherte Suche "Serien der 80er und 90er" liefert dieselben Tr
 
 Umfang:
 
-- [ ] Schnittstelle `Notifier` mit `send(subject, text, html)`. Erste Umsetzung: `EmailNotifier` mit `smtplib` (Standardbibliothek).
-- [ ] Konfiguration in `config.toml`: `smtp_host`, `smtp_port`, `security` (`starttls` oder `ssl`), `username`, `from`, `to` (eine oder mehrere Adressen). Das Passwort kommt aus der Umgebungsvariable `TVGUIDE_SMTP_PASSWORD` und steht nie im Git.
-- [ ] Eine Sammelmail pro Refresh (nicht pro Suche und nicht pro Treffer). Gliederung nach gespeicherter Suche, je Treffer: Titel, Jahr, Sender, Datum und Uhrzeit, Link zur Werk-Seite der App.
-- [ ] Format: Text und HTML als `multipart/alternative`, Betreff mit Anzahl der Treffer (zum Beispiel "TV-Guide: 3 neue Treffer").
-- [ ] `notified_at` in `search_hits` verhindert doppelte Mails. Erst nach erfolgreichem Versand setzen.
-- [ ] Fehlerverhalten: SMTP-Fehler werden protokolliert, `notified_at` bleibt leer, der nächste Lauf versucht es erneut. Kein Absturz des Refresh.
-- [ ] `python -m tvguide notify --dry-run` schreibt die Mail als `.eml` nach `data/outbox/` und versendet nichts.
-- [ ] `python -m tvguide notify --test` sendet eine Testmail.
+- [x] Schnittstelle `Notifier` mit `send(subject, text, html)`. Erste Umsetzung: `EmailNotifier` mit `smtplib` (Standardbibliothek).
+- [x] Konfiguration in `config.toml`: `host`, `port`, `security` (`starttls` oder `ssl`), `username`, `from`, `to`. Das Passwort kommt aus der Umgebungsvariable `TVGUIDE_SMTP_PASSWORD` und steht nie im Git.
+- [x] Eine Sammelmail pro Refresh. Gliederung nach gespeicherter Suche, je Treffer: Titel, Jahr, Sender, Datum und Uhrzeit, Link zur Werk-Seite der App.
+- [x] Format: Text und HTML als `multipart/alternative`, Betreff mit Anzahl der Treffer.
+- [x] `notified_at` in `search_hits` verhindert doppelte Mails. Erst nach erfolgreichem Versand setzen.
+- [x] Fehlerverhalten: SMTP-Fehler werden protokolliert, `notified_at` bleibt leer, der nächste Lauf versucht es erneut. Kein Absturz des Refresh.
+- [x] `python -m tvguide notify --dry-run` schreibt die Mail als `.eml` nach `data/outbox/` und versendet nichts.
+- [x] `python -m tvguide notify --test` sendet eine Testmail.
 - [ ] Optional: Healthchecks-Ping nach erfolgreichem Lauf.
+
+Anmerkungen:
+
+- `tvguide/notify/`: `Notifier`/`NullNotifier`, `EmailNotifier` und `digest` (`pending_hits`, `render_digest`, `send_notifications`, `send_test`).
+- Der Refresh ruft nach `run_searches` automatisch `send_notifications` auf (in `try/except`, damit der Refresh nie scheitert); ohne `[smtp].host` wird nichts versendet und beim nächsten Lauf nachgeholt.
+- Mail-Links nutzen `[server].base_url`.
+- Healthchecks-Ping bleibt offen (optional).
 
 Testen ohne echten Mailserver: lokaler Test-SMTP-Server (zum Beispiel Mailpit im Docker-Container auf `localhost:1025`), dazu `--dry-run`. Python 3.12 bringt das Modul `smtpd` nicht mehr mit, daher nicht darauf aufbauen.
 

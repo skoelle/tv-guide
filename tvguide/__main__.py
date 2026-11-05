@@ -8,6 +8,7 @@ import sys
 from .config import load_config
 from .db import connect
 from .matching import run_match
+from .notify.digest import send_notifications, send_test
 from .refresh import refresh
 from .search import run_searches
 from .status import collect, render_text
@@ -97,6 +98,27 @@ def cmd_searches(args, cfg) -> int:
     return 0
 
 
+def cmd_notify(args, cfg) -> int:
+    if args.test:
+        result = send_test(cfg, dry_run=args.dry_run)
+        print(f"Testmail: {result}")
+        return 0
+    con = connect(cfg)
+    try:
+        result = send_notifications(con, cfg, dry_run=args.dry_run)
+    finally:
+        con.close()
+    if result.get("skipped"):
+        print(f"Keine Mail gesendet: {result['skipped']} ({result['pending']} offene Treffer).")
+    elif result.get("dry_run"):
+        print(f"{result['pending']} offene Treffer als {result['file']} geschrieben (nicht versendet).")
+    elif result.get("error"):
+        print(f"Versand fehlgeschlagen: {result['error']} ({result['pending']} offene Treffer bleiben).")
+    else:
+        print(f"{result['sent']} Treffer in einer Mail versendet.")
+    return 0
+
+
 def cmd_serve(args, cfg) -> int:
     try:
         import uvicorn
@@ -138,6 +160,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("searches", parents=[common], help="gespeicherte Suchen auswerten (search_hits)")
     p.set_defaults(func=cmd_searches)
+
+    p = sub.add_parser("notify", parents=[common], help="Benachrichtigung ueber neue Treffer versenden")
+    p.add_argument("--dry-run", action="store_true", help="Mail als .eml nach data/outbox/ schreiben")
+    p.add_argument("--test", action="store_true", help="Testmail senden")
+    p.set_defaults(func=cmd_notify)
 
     p = sub.add_parser("serve", parents=[common], help="Webserver starten")
     p.add_argument("--host")
