@@ -98,6 +98,77 @@ def test_http_review_flow(cfg):
     con.close()
 
 
+def test_api_review_confirm(cfg):
+    _review_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/review/confirm",
+                    data={"show_key": "sendung 0", "tconst": "tt0086659"},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert "location" not in r.headers
+    con = connect(cfg)
+    assert review_count(con) == 0
+    assert con.execute("SELECT tconst FROM overrides WHERE show_key='sendung 0'").fetchone()[0] == "tt0086659"
+    con.close()
+
+
+def test_api_review_confirm_validiert_eingaben(cfg):
+    _review_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/review/confirm", data={"show_key": "sendung 0"})
+    assert r.status_code == 400
+    r = client.post("/api/review/confirm",
+                    data={"show_key": "gibt-es-nicht", "tconst": "tt0086659"})
+    assert r.status_code == 404
+    con = connect(cfg)
+    assert review_count(con) == 1
+    con.close()
+
+
+def test_api_review_reject(cfg):
+    _review_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/review/reject", data={"show_key": "sendung 0"},
+                    follow_redirects=False)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert "location" not in r.headers
+    con = connect(cfg)
+    assert review_count(con) == 0
+    row = con.execute("""SELECT sm.status, sm.tconst FROM show_match sm
+                         WHERE sm.show_id=(SELECT id FROM epg_shows WHERE show_key='sendung 0')""").fetchone()
+    assert tuple(row) == ("rejected", None)
+    con.close()
+    r = client.post("/api/review/reject", data={"show_key": "gibt-es-nicht"})
+    assert r.status_code == 404
+
+
+def test_api_review_undo(cfg):
+    _review_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    client.post("/api/review/confirm",
+                data={"show_key": "sendung 0", "tconst": "tt0086659"})
+    r = client.post("/api/review/undo", follow_redirects=False)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert r.json()["show_key"] == "sendung 0"
+    assert "location" not in r.headers
+    con = connect(cfg)
+    assert review_count(con) == 1
+    con.close()
+
+
+def test_review_html_nutzt_htmx(cfg):
+    _review_show(cfg).close()
+    html = TestClient(create_app(cfg)).get("/review").text
+    assert 'hx-post="api/review/confirm"' in html
+    assert 'hx-post="api/review/reject"' in html
+    assert 'hx-post="api/review/undo"' in html
+    assert 'name="show_key" value="sendung 0"' in html
+    assert 'id="review-list"' in html
+
+
 def _add_imdb_title(cfg, tconst, title_type, title, genres):
     con = sqlite3.connect(cfg.imdb_db)
     try:

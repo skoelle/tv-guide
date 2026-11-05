@@ -53,6 +53,7 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
 | `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/jobs`, `/api/status` | JSON |
+| `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review actions for HTMX (JSON, no redirect) |
 | `/partials/jobs` | HTMX fragment with the sync job status |
 
 ## Content categories

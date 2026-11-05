@@ -9,8 +9,10 @@
     <td>{{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}</td>
     <td>
       <form method="post" action="review/{{ show_key }}/confirm">
+        <input type="hidden" name="show_key" value="{{ show_key }}">
         <input type="hidden" name="tconst" value="{{ c.tconst }}">
-        <button class="btn" type="submit">wählen</button>
+        <button class="btn" type="submit" hx-post="api/review/confirm" hx-include="closest form"
+                hx-target="closest .review-item" hx-swap="delete">wählen</button>
       </form>
     </td>
   </tr>

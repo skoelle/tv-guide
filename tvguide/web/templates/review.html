@@ -6,7 +6,8 @@
   Entscheidungen werden zu Overrides und gelten für alle Termine der Show.</p>
 
 <form method="post" action="review/undo" style="margin-bottom:1rem">
-  <button class="btn" type="submit">↩︎ Letzte Entscheidung rückgängig</button>
+  <button class="btn" type="submit" hx-post="api/review/undo" hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) htmx.trigger(document.body, 'review-refresh')">↩︎ Letzte Entscheidung rückgängig</button>
 </form>
 
 {% if marks %}
@@ -27,6 +28,10 @@
 </div>
 {% endif %}
 
+<div id="review-list"
+     hx-get="review{% if page > 1 %}?page={{ page }}{% endif %}"
+     hx-trigger="review-refresh from:body"
+     hx-target="#review-list" hx-select="#review-list" hx-swap="outerHTML">
 {% if not shows %}<p class="muted">Nichts zu prüfen. 🎉</p>{% endif %}
 
 {% for s in shows %}
@@ -37,6 +42,7 @@
     {% if s.events > s.samples | length %} · … {{ s.events }} Termine insgesamt{% endif %}
   </p>
   <form method="post" action="review/{{ s.show_key }}/confirm">
+    <input type="hidden" name="show_key" value="{{ s.show_key }}">
     {% for c in s.suggestions %}
     <label class="box" style="display:block; margin:.3rem 0; padding:.5rem .7rem">
       <input type="radio" name="tconst" value="{{ c.tconst }}" {{ 'checked' if loop.first }}>
@@ -49,8 +55,11 @@
     <p class="muted">Keine Kandidaten gefunden.</p>
     {% endfor %}
     <p>
-      <button class="btn" type="submit">✔ Bestätigen</button>
-      <button class="btn" type="submit" formaction="review/{{ s.show_key }}/reject" formnovalidate>✘ Kein Treffer</button>
+      <button class="btn" type="submit" hx-post="api/review/confirm" hx-include="closest form"
+              hx-target="closest .review-item" hx-swap="delete">✔ Bestätigen</button>
+      <button class="btn" type="submit" formaction="review/{{ s.show_key }}/reject" formnovalidate
+              hx-post="api/review/reject" hx-include="closest form"
+              hx-target="closest .review-item" hx-swap="delete">✘ Kein Treffer</button>
     </p>
   </form>
   <button class="btn" type="button"
@@ -74,4 +83,5 @@
   {% if page < pages %}<a class="btn" href="?page={{ page + 1 }}">Weiter →</a>{% endif %}
 </div>
 {% endif %}
+</div>
 {% endblock %}

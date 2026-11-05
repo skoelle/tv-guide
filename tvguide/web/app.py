@@ -244,6 +244,29 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
         return {"ok": True, "tconst": tconst}
 
+    @app.post("/api/review/confirm")
+    def api_review_confirm(show_key: str = Form(""), tconst: str = Form(""),
+                           con: Db = Depends(get_db)):
+        key = show_key_for(con, show_key)
+        if key is None:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        if not tconst.strip():
+            return JSONResponse({"ok": False, "error": "tconst required"}, status_code=400)
+        apply_override(con, key, tconst.strip())
+        return {"ok": True, "show_key": key, "tconst": tconst.strip()}
+
+    @app.post("/api/review/reject")
+    def api_review_reject(show_key: str = Form(""), con: Db = Depends(get_db)):
+        key = show_key_for(con, show_key)
+        if key is None:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        apply_override(con, key, None)
+        return {"ok": True, "show_key": key, "tconst": None}
+
+    @app.post("/api/review/undo")
+    def api_review_undo(con: Db = Depends(get_db)):
+        return {"ok": True, "show_key": undo_last(con)}
+
     @app.post("/api/marks/undo")
     def api_marks_undo(con: Db = Depends(get_db)):
         return {"removed": undo_last_mark(con)}

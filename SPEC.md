@@ -233,6 +233,7 @@ damit die App auch unter einem Sub-Pfad (Reverse Proxy) funktioniert.
 | `GET /api/works/{tconst}` | Werk inkl. Kategorie und Terminen |
 | `POST /api/works/{tconst}/mark?mark=format\|keep\|none` | manuelle Kategorie |
 | `GET /api/review`, `POST /api/review/{show_id\|show_key}` | Review |
+| `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review-Aktionen für HTMX (JSON, kein Redirect) |
 | `POST /api/review/format?show_key=…` | Show als Format markieren |
 | `POST /api/marks/undo` | letzte Markierung rückgängig |
 | `GET/POST /api/searches`, `PUT/DELETE /api/searches/{id}` | gespeicherte Suchen |
