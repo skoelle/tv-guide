@@ -353,12 +353,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"search": s, "hits": hits_for(con, search_id)}
 
-    @app.post("/jobs/{kind}")
-    def jobs_start(kind: str, con: Db = Depends(get_db)):
+    @app.post("/api/jobs/{kind}")
+    def api_jobs_start(kind: str, con: Db = Depends(get_db)):
         if kind not in ("epg", "imdb"):
             return JSONResponse({"error": "not found"}, status_code=404)
-        start_job(con, cfg, kind)
-        return RedirectResponse("/status", status_code=303)
+        result = start_job(con, cfg, kind)
+        return JSONResponse(result, status_code=202 if result.get("started") else 409)
 
     @app.get("/partials/jobs")
     def jobs_partial(request: Request, con: Db = Depends(get_db)):

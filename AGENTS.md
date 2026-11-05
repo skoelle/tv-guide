@@ -45,6 +45,8 @@ weekly (`TVGUIDE_SCHEDULE_ENABLED=true`); the same work can be triggered from th
 - Never add co-authors to commits.
 - Never commit `data/`, `config.toml`, `channels_ignore.txt`, `backup/`, `.env`, or databases.
 - Commit per milestone; keep messages concise and imperative.
+- After `git push`, do **not** wait for or poll the GitHub Actions run. Report the commit
+  and let CI run in the background; check with `gh run list` only when explicitly asked.
 - Do not add Python dependencies beyond what `requirements.txt` needs without good reason;
   the Docker image installs only `requirements.txt` (`requirements-dev.txt` adds ruff).
 

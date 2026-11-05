@@ -41,15 +41,6 @@
   </section>
 
   <section class="box">
-    <h2>Synchronisierung</h2>
-    <p class="muted">
-      Zeitplan: {{ 'aktiv' if schedule_enabled else 'aus' }}
-      {% if schedule_enabled %}· EPG regelmäßig · IMDb wöchentlich{% endif %}
-    </p>
-    {% include "_jobs.html" %}
-  </section>
-
-  <section class="box">
     <h2>App</h2>
     <dl>
       <dt>Datei</dt><dd>{{ s.app.file.path }}<br><span class="muted">Schema-Version {{ s.app.schema_version }}</span></dd>
@@ -62,6 +53,15 @@
     </dl>
   </section>
 </div>
+
+<section class="box full">
+  <h2>Synchronisierung</h2>
+  <p class="muted">
+    Zeitplan: {{ 'aktiv' if schedule_enabled else 'aus' }}
+    {% if schedule_enabled %}· EPG regelmäßig · IMDb wöchentlich{% endif %}
+  </p>
+  {% include "_jobs.html" %}
+</section>
 
 <p class="muted">Konfiguration: {{ s.config_file or 'Standardwerte' }} · Zeitzone {{ s.timezone }} · <a href="/api/status">JSON</a></p>
 {% endblock %}

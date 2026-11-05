@@ -72,6 +72,8 @@ def test_status_zeigt_sync_buttons(client):
     r = client.get("/status")
     assert "EPG jetzt importieren" in r.text
     assert "IMDb jetzt neu bauen" in r.text
+    assert 'hx-post="api/jobs/epg"' in r.text
+    assert 'hx-post="api/jobs/imdb"' in r.text
 
 
 def test_jobs_api_und_partial(client):
@@ -79,7 +81,7 @@ def test_jobs_api_und_partial(client):
     assert client.get("/partials/jobs").status_code == 200
 
 
-def test_job_endpoint_startet(client, cfg, monkeypatch):
+def test_job_api_startet(client, cfg, monkeypatch):
     from tvguide import jobs
 
     def fake_run(cfg, kind, log):
@@ -87,13 +89,23 @@ def test_job_endpoint_startet(client, cfg, monkeypatch):
         return "ok"
 
     monkeypatch.setattr(jobs, "run_kind", fake_run)
-    r = client.post("/jobs/epg", follow_redirects=False)
-    assert r.status_code == 303
+    r = client.post("/api/jobs/epg")
+    assert r.status_code == 202
+    assert r.json()["started"] is True
     con = connect(cfg)
     row = con.execute("SELECT kind, status FROM jobs ORDER BY id DESC LIMIT 1").fetchone()
     con.close()
     assert tuple(row) == ("epg", "running") or tuple(row) == ("epg", "ok")
 
 
-def test_job_endpoint_lehnt_unbekannt_ab(client):
-    assert client.post("/jobs/nope", follow_redirects=False).status_code == 404
+def test_job_api_busy(client, cfg):
+    con = connect(cfg)
+    con.execute("INSERT INTO jobs (kind, status, started_at) VALUES ('epg','running','x')")
+    con.commit()
+    con.close()
+    assert client.post("/api/jobs/imdb").status_code == 409
+
+
+def test_job_api_lehnt_unbekannt_ab(client):
+    assert client.post("/api/jobs/nope").status_code == 404
+    assert client.post("/jobs/epg").status_code in (404, 405)

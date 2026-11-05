@@ -69,7 +69,7 @@ The container can keep EPG and IMDb up to date by itself:
 
 - **EPG** is checked every `[schedule].epg_every_minutes` (default hourly). The import is cheap and only triggers a re-match when the XMLTV content (SHA1) changed.
 - **IMDb** is rebuilt weekly (`[schedule].imdb_weekday` / `imdb_time`, default Monday 04:30 Europe/Berlin). A re-match only happens if the dataset date or the build parameters changed.
-- The `/status` page has the buttons **"EPG jetzt importieren"** and **"IMDb jetzt neu bauen"**. Only one job runs at a time; the page polls the job status and shows the last log lines.
+- The `/status` page has the buttons **"EPG jetzt importieren"** and **"IMDb jetzt neu bauen"**. They call `POST /api/jobs/{kind}` (JSON, no redirect) via HTMX, so they also work when the app is served under a sub-path. Only one job runs at a time; the page polls the job status and shows the last log lines.
 - The scheduler lives inside the web container (single process, background thread). State (`last_epg_run`, `last_imdb_run`) is kept in `app_meta`, so it survives restarts. Jobs interrupted by a restart are marked as `error` and retried on the next schedule.
 
 Relevant config/env:
