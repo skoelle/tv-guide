@@ -9,7 +9,7 @@ from tvguide.browse import apply_filters, load_catalog  # noqa: E402
 from tvguide.db import connect  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import apply_override  # noqa: E402
-from tvguide.search import (create_search, delete_search, effective_filters, filter_to_query,  # noqa: E402
+from tvguide.search import (create_search, delete_search, effective_filters,  # noqa: E402
                             get_search, list_searches, matched_works, normalize_filter, run_searches,
                             update_search)
 from tvguide.web.app import create_app  # noqa: E402

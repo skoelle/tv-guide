@@ -147,11 +147,14 @@ def create_search(con: sqlite3.Connection, cfg: Config, name: str, filter_json, 
 def update_search(con: sqlite3.Connection, search_id: int, *, name=None, include_review=None, notify=None) -> None:
     sets, params = [], []
     if name is not None:
-        sets.append("name=?"); params.append(name.strip() or "Suche")
+        sets.append("name=?")
+        params.append(name.strip() or "Suche")
     if include_review is not None:
-        sets.append("include_review=?"); params.append(1 if include_review else 0)
+        sets.append("include_review=?")
+        params.append(1 if include_review else 0)
     if notify is not None:
-        sets.append("notify=?"); params.append(1 if notify else 0)
+        sets.append("notify=?")
+        params.append(1 if notify else 0)
     if not sets:
         return
     params.append(search_id)

@@ -1,0 +1,24 @@
+# Beispiel: Image aus der GitHub-Container-Registry ziehen (kein lokaler Build).
+# Nach docker-compose.yml kopieren und die Pfade anpassen.
+#
+#   cp docker-compose.example.yml docker-compose.yml
+#   docker compose pull
+#   docker compose up -d
+#
+# Das Image enthaelt nur den Code. config.toml und data/ (epg.db, imdb.db, app.db)
+# werden als Volumes eingebunden und bleiben lokal.
+services:
+  tvguide:
+    image: ghcr.io/skoelle/tv-guide:latest
+    container_name: tvguide
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    volumes:
+      - /srv/docker/tv-guide/config.toml:/app/config.toml:ro
+      - /srv/docker/tv-guide/data:/app/data
+    environment:
+      TZ: Europe/Berlin
+      TVGUIDE_SMTP_PASSWORD: "${TVGUIDE_SMTP_PASSWORD:-}"
+    labels:
+      - com.centurylinklabs.watchtower.enable=true

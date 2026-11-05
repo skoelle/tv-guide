@@ -1,5 +1,7 @@
 # TV-Guide
 
+[![build](https://github.com/skoelle/tv-guide/actions/workflows/build.yml/badge.svg)](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)
+
 EPG aus TVHeadend durchstöbern, Filme und Serien (80er und 90er) finden, gespeicherte Suchen mit E-Mail-Benachrichtigung.
 Details: `SPEC.md` (was) und `PLAN.md` (wie). Stand dieses Pakets: Meilensteine M0 bis M8.
 
@@ -71,6 +73,20 @@ docker compose ps                       # Status inkl. Healthcheck
 ```
 
 Volumes: `./config.toml` (read-only) nach `/app/config.toml`, `./data` nach `/app/data`. `app.db` (Overrides, Suchen, Treffer) liegt im Volume und überlebt Neustarts und Updates. `TVGUIDE_SMTP_PASSWORD` kommt aus `.env` (nicht im Git); `restart: unless-stopped` startet den Container nach einem Neustart des Hosts automatisch.
+
+### Image von GHCR ziehen (Build in GitHub)
+
+GitHub Actions baut bei jedem Push auf `main` (und wöchentlich) das Image und legt es als `ghcr.io/skoelle/tv-guide:latest` ab ([build-Workflow](https://github.com/skoelle/tv-guide/actions/workflows/build.yml)). Damit musst du lokal nichts bauen:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml   # Pfade in den Volumes anpassen
+docker compose pull
+docker compose up -d
+```
+
+Das Image enthält nur den Code; `config.toml` und `data/` werden als Volumes eingebunden. Ist das GHCR-Paket noch privat, in GitHub unter *Packages* auf **public** stellen (oder einmalig `docker login ghcr.io` ausführen).
+
+Für automatisches Nachziehen ist im Beispiel ein Watchtower-Label gesetzt. Setzt du im Repo die Secrets `WEBHOOK_URL` (und optional `WEBHOOK_TOKEN`), ruft der Build nach dem Push deinen Watchtower-Webhook auf.
 
 **Aktualisieren** (Import auf der Synology, dann Daten holen und refreshen):
 
