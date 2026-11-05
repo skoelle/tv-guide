@@ -7,6 +7,7 @@ import sys
 
 from .config import load_config
 from .db import connect
+from .matching import run_match
 from .status import collect, render_text
 
 
@@ -36,6 +37,27 @@ def cmd_config(args, cfg) -> int:
     print(f"  {'timezone':22} {cfg.timezone}")
     print(f"  {'schwellen':22} auto >= {cfg.auto_threshold}, review >= {cfg.review_threshold}")
     print(f"  {'retro':22} {cfg.retro_from} bis {cfg.retro_to}, Serienende bis {cfg.retro_end_max}")
+    print(f"  {'skip':22} {len(cfg.skip_categories)} Kategorien, {len(cfg.skip_titles)} Titel, "
+          f"kurz < {cfg.skip_min_duration} min, Block >= {cfg.skip_block_min_duration} min / {cfg.skip_block_min_events}x")
+    return 0
+
+
+def cmd_match(args, cfg) -> int:
+    con = connect(cfg)
+    try:
+        def progress(done: int, total: int) -> None:
+            print(f"  {done}/{total} Shows", file=sys.stderr)
+        stats = run_match(con, cfg, progress=progress)
+    finally:
+        con.close()
+    by = stats["by_status"]
+    print(f"Matching fertig in {stats['seconds']:.1f}s")
+    print(f"  Events: {stats['events_total']} gesamt, {stats['events_ignored']} ignorierte Sender, "
+          f"{stats['events_considered']} betrachtet")
+    print(f"  Shows:  {stats['shows']}")
+    for key in ("auto", "review", "none"):
+        print(f"  {key:8} {by.get(key, 0)}")
+    print(f"  {'skip':8} {sum(v for k, v in by.items() if k.startswith('skip'))}")
     return 0
 
 
@@ -70,6 +92,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("config", parents=[common], help="geladene Konfiguration anzeigen")
     p.set_defaults(func=cmd_config)
+
+    p = sub.add_parser("match", parents=[common], help="EPG-Shows gegen IMDb matchen")
+    p.set_defaults(func=cmd_match)
 
     p = sub.add_parser("serve", parents=[common], help="Webserver starten")
     p.add_argument("--host")

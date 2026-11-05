@@ -121,11 +121,18 @@ Abnahme: `status` gibt die bekannten Zahlen aus (195 Sender, 49.669 Sendungen, 1
 
 ### M2: Matching-Modul
 
-- [ ] `normalize.py`, `cleaning.py`, `matching.py` aus `match_test.py` v2.1 übernehmen und in testbare Funktionen aufteilen. Keine Logik im `main`.
-- [ ] Ignorierliste (`channels_ignore.txt`) und Skip-Regeln (Kategorie, Titel, kurz, Block) als Konfiguration.
-- [ ] Golden-Tests aus echten Läufen: eine CSV mit etwa 100 Zeilen (EPG-Titel, erwarteter IMDb-Titel oder "kein Treffer"). Mindestens: Das A-Team, MacGyver, Magnum, Xena, Hör' mal wer da hämmert, Alle unter einem Dach, Pfarrer Braun: Adel vernichtet (Serie), Polizeiruf 110: Abgründe (review), Stargate, Barbara (Folge 1 von 10), Hubert und Staller (94), Hitnacht (Skip).
-- [ ] `python -m tvguide match` schreibt `epg_shows`, `show_match`, `event_show` in `app.db`. Läuft nur für neue Shows und für Shows ohne `confirmed` oder Override.
-- [ ] Overrides haben Vorrang und werden nie überschrieben.
+- [x] `normalize.py`, `cleaning.py`, `matching.py` aus `match_test.py` v2.1 übernehmen und in testbare Funktionen aufteilen. Keine Logik im `main`.
+- [x] Ignorierliste (`channels_ignore.txt`) und Skip-Regeln (Kategorie, Titel, kurz, Block) als Konfiguration (`[skip]` in `config.toml`).
+- [x] Golden-Tests aus echten Läufen: eine CSV mit etwa 100 Zeilen (EPG-Titel, erwarteter IMDb-Titel oder "kein Treffer"). Mindestens: Das A-Team, MacGyver, Magnum, Xena, Hör' mal wer da hämmert, Alle unter einem Dach, Pfarrer Braun: Adel vernichtet (Serie), Polizeiruf 110: Abgründe (review), Stargate, Barbara (Folge 1 von 10), Hubert und Staller (94), Hitnacht (Skip).
+- [x] `python -m tvguide match` schreibt `epg_shows`, `show_match`, `event_show` in `app.db`. Läuft nur für neue Shows und für Shows ohne `confirmed` oder Override.
+- [x] Overrides haben Vorrang und werden nie überschrieben.
+
+Anmerkungen zur Umsetzung:
+
+- `reason` in `show_match` enthält die Einzelsignale als JSON (SPEC 4).
+- Der Match-Lauf reproduziert den Prototyp exakt (4.298 Shows, auto 1.425 / review 631 / none 1.556, 686 per Skip gefiltert, 28.676 betrachtete Sendungen) in wenigen Sekunden.
+- Golden-Rohdaten stammen aus einem Referenzlauf von `tools/match_test.py`; der Test hängt bewusst von der Live-`channels_ignore.txt` ab und wird ohne die echten `data/*.db` übersprungen.
+- `normalize_version` in `imdb.meta` bleibt bis zum nächsten `imdb.db`-Neubau offen.
 
 Abnahme: Ergebnis stimmt mit dem Prototyp überein (auto, review und none je auf etwa 1 Prozent genau), alle Golden-Tests laufen grün. Laufzeit unter 2 Minuten.
 

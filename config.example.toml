@@ -21,6 +21,26 @@ from_year = 1980
 to_year = 1999
 end_max = 2009               # Serie gilt als abgeschlossen, wenn Ende bis dahin
 
+# Vorfilter beim Matching: Sendungen werden nicht zugeordnet.
+# Kategorien werden als Praefix verglichen (exakte EPG-Strings).
+[skip]
+categories = [
+    "News",
+    "Leisure hobbies : Advertisement",
+    "Sports",
+    "Social / Political",
+    "Education / Science",
+    "Children's / Youth programs : Pre-school",
+]
+titles = [
+    "teleshopping", "sendeschluss", "tagesschau", "heute", "tagesthemen", "wetter",
+    "nachrichten", "programmhinweis", "sendepause", "werbung", "infokanal", "infomercial",
+    "derzeit keine uebertragung",
+]
+min_duration = 8             # Median-Laenge in Minuten: kuerzer -> skip_short
+block_min_duration = 100     # ohne Kategorie, ab dieser Laenge ...
+block_min_events = 10        # ... und so vielen Terminen -> skip_block
+
 # Sendergruppen fuer Filter (exakte Sendernamen aus dem EPG)
 [channel_groups]
 retro = ["TELE 5", "Kabel Eins", "RTLNITRO", "Pro7 MAXX", "SAT.1 Gold", "ONE", "RTLZWEI"]

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tvguide.config import Config
+from tvguide.config import DEFAULT_SKIP_CATEGORIES, DEFAULT_SKIP_TITLES, Config
 
 
 def make_epg_db(path: Path, events: int = 3) -> None:
@@ -66,4 +66,6 @@ def cfg(tmp_path) -> Config:
         imdb_db=data / "imdb.db",
         app_db=data / "app.db",
         ignore_channels_file=tmp_path / "channels_ignore.txt",
+        skip_categories=list(DEFAULT_SKIP_CATEGORIES),
+        skip_titles=list(DEFAULT_SKIP_TITLES),
     )
