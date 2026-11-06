@@ -32,62 +32,13 @@
   {% else %}
   <p class="muted">Keine EPG-Termine vorhanden.</p>
   {% endif %}
-{% for g in groups %}
-<h3 class="airing-day">{{ g.label }}</h3>
-<table>
-  <tr><th>Zeit</th><th>Sender</th><th>Titel</th>{% if tvh_enabled %}<th>Aufnahme</th>{% endif %}</tr>
-  {% for a in g.airings %}
-  <tr>
-    <td>{{ a.start_ts | ts('%H:%M') }}–{{ a.stop_ts | ts('%H:%M') }}</td>
-    <td>{{ a.channel }}</td>
-    <td>
-      {% set imdb_ep = (airing_episodes or {}).get((a.channel_id, a.start_ts)) %}
-      {{ a.sub_title or a.title }}
-      {% if imdb_ep %}<span class="muted">· {{ imdb_ep.primary_title }}{% if imdb_ep.avg_rating %} ({{ '%.1f' | format(imdb_ep.avg_rating) }}){% endif %}</span>{% endif %}
-      {% if a.description or a.categories or a.fsk or a.prod_date or a.episodes or a.credits or a.star_rating or imdb_ep %}
-      <details class="airing-details">
-        <summary class="muted">Details</summary>
-        <dl>
-          {% if a.categories %}<dt>Kategorien</dt><dd>{{ a.categories | join(', ') }}</dd>{% endif %}
-          {% if a.fsk %}<dt>FSK</dt><dd>{{ a.fsk }}</dd>{% endif %}
-          {% if a.prod_date %}<dt>Produktionsjahr</dt><dd>{{ a.prod_date }}</dd>{% endif %}
-          {% if a.episodes %}<dt>Episode</dt><dd>{{ a.episodes | join('; ') }}</dd>{% endif %}
-          {% if imdb_ep %}
-          <dt>IMDb-Episode</dt>
-          <dd>{{ imdb_ep.primary_title or '–' }}{% if imdb_ep.season is not none %}, Staffel {{ imdb_ep.season }}{% endif %}{% if imdb_ep.episode is not none %}, Folge {{ imdb_ep.episode }}{% endif %}{% if imdb_ep.avg_rating %} · {{ '%.1f' | format(imdb_ep.avg_rating) }} ({{ imdb_ep.num_votes | num }} Stimmen){% endif %}</dd>
-          {% endif %}
-          {% if a.star_rating %}<dt>Sterne</dt><dd>{{ a.star_rating }}</dd>{% endif %}
-          {% for credit in a.credits %}<dt>{{ credit.label }}</dt><dd>{{ credit.names | join(', ') }}</dd>{% endfor %}
-          {% if a.description %}<dt>Beschreibung</dt><dd>{{ a.description }}</dd>{% endif %}
-        </dl>
-      </details>
-      {% endif %}
-    </td>
-    {% if tvh_enabled %}
-    <td>
-      {% if a.start_ts >= at %}
-      {% if w.kind == 'serie' %}
-      <button class="btn" type="button"
-              hx-post="/api/works/{{ w.tconst }}/record-series"
-              hx-vals='{"channel_id": "{{ a.channel_id }}", "start_ts": {{ a.start_ts }}}'
-              hx-swap="none"
-              hx-confirm="Serien-Timer für „{{ w.title }}“ auf {{ a.channel }} in TVHeadend anlegen?"
-              hx-on::after-request="tvhRecordResult(event)">Serie aufnehmen</button>
-      {% else %}
-      <button class="btn" type="button"
-              hx-post="/api/works/{{ w.tconst }}/record-event"
-              hx-vals='{"channel_id": "{{ a.channel_id }}", "start_ts": {{ a.start_ts }}}'
-              hx-swap="none"
-              hx-confirm="Einzelaufnahme von „{{ w.title }}“ auf {{ a.channel }} in TVHeadend anlegen?"
-              hx-on::after-request="tvhRecordResult(event)">Film aufnehmen</button>
-      {% endif %}
-      {% else %}<span class="muted">vorbei</span>{% endif %}
-    </td>
-    {% endif %}
-  </tr>
-  {% endfor %}
-</table>
-{% endfor %}
+{% include "_airings.html" %}
+{% if past_groups %}
+<details class="airing-details past-airings">
+  <summary class="btn">Vergangene Termine anzeigen ({{ past_count }})</summary>
+  {% with groups=past_groups %}{% include "_airings.html" %}{% endwith %}
+</details>
+{% endif %}
 </div>
 <div class="grid work-sources">
   <div class="box">

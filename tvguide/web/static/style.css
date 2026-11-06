@@ -67,6 +67,7 @@ th { color: #666; font-weight: 600; }
 .airing-details { margin-top: .3rem; }
 .airing-details summary { cursor: pointer; }
 .airing-details dl { margin-top: .3rem; }
+.past-airings { margin-top: .8rem; }
 
 .box.full { margin-top: 1rem; }
 .sync-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }

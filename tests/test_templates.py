@@ -1,6 +1,7 @@
 """Rendert die Templates direkt mit Jinja2 (unabhaengig von FastAPI)."""
 from dataclasses import replace
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -9,7 +10,7 @@ from tvguide.browse import (airing_summary, annotate_next, catalog_facets, eveni
 from tvguide.categories import label as category_label
 from tvguide.db import connect
 from tvguide.status import collect, fmt_num, fmt_size, fmt_ts
-from tvguide.web.app import _qs, _toggle
+from tvguide.web.app import _airing_groups, _qs, _toggle
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "tvguide" / "web" / "templates"
 AT = 1793538000  # 2026-11-01 13:00 UTC
@@ -248,3 +249,45 @@ def test_work_shows_cast_and_episodes(cfg):
     assert "Episodenliste anzeigen" in html
     assert "Episode Two" in html and "8.1" in html
     assert "1 von 1" in html
+
+
+def test_airing_groups_trennt_vergangene():
+    tz = ZoneInfo("Europe/Berlin")
+    past = {"start_ts": AT - 7200, "stop_ts": AT - 3600}
+    running = {"start_ts": AT - 600, "stop_ts": AT + 600}
+    future = {"start_ts": AT + 3600, "stop_ts": AT + 7200}
+    groups, past_groups = _airing_groups([past, running, future], AT, tz)
+    assert [a["start_ts"] for g in groups for a in g["airings"]] == [AT - 600, AT + 3600]
+    assert [a["start_ts"] for g in past_groups for a in g["airings"]] == [AT - 7200]
+
+
+def test_work_klappt_vergangene_termine_ein(cfg):
+    past = {
+        "channel": "Kabel Eins", "channel_id": "c1", "start_ts": AT - 7200,
+        "stop_ts": AT - 3600, "sub_title": "Alte Folge", "title": "Das A-Team",
+    }
+    future = {
+        "channel": "Kabel Eins", "channel_id": "c1", "start_ts": AT + 3600,
+        "stop_ts": AT + 7200, "sub_title": "Neue Folge", "title": "Das A-Team",
+    }
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [past, future],
+    }
+    ctx = {
+        "w": work,
+        "groups": [{"label": "So, 01.11.2026", "airings": [future]}],
+        "past_groups": [{"label": "So, 01.11.2026", "airings": [past]}],
+        "past_count": 1, "epg": airing_summary([past, future]), "mark": None,
+        "review_shows": [], "imdb_source_date": "2026-11-05", "tmdb_info": None,
+        "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert 'class="airing-details past-airings"' in html
+    assert "Vergangene Termine anzeigen (1)" in html
+    assert "Alte Folge" in html
+    assert "Neue Folge" in html

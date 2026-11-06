@@ -49,6 +49,19 @@ class SearchUpdate(BaseModel):
     notify: bool | None = None
 
 
+def _airing_groups(airings: list[dict], at: int, tz: ZoneInfo) -> tuple[list[dict], list[dict]]:
+    """Termine nach Tag gruppieren, getrennt in kommende/laufende und vergangene."""
+    groups: list[dict] = []
+    past_groups: list[dict] = []
+    for a in airings:
+        label = datetime.fromtimestamp(a["start_ts"], tz).strftime("%a, %d.%m.%Y")
+        target = past_groups if a["stop_ts"] <= at else groups
+        if not target or target[-1]["label"] != label:
+            target.append({"label": label, "airings": []})
+        target[-1]["airings"].append(a)
+    return groups, past_groups
+
+
 def _qs(f: dict) -> str:
     """Filter als Query-String (nur Abweichungen vom Standard)."""
     parts: list[str] = []
@@ -210,12 +223,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return templates.TemplateResponse(request, "not_found.html",
                                               {**_base(request, con, ""), "tconst": tconst}, status_code=404)
         tz = ZoneInfo(cfg.timezone)
-        groups: list[dict] = []
-        for a in w["airings"]:
-            label = datetime.fromtimestamp(a["start_ts"], tz).strftime("%a, %d.%m.%Y")
-            if not groups or groups[-1]["label"] != label:
-                groups.append({"label": label, "airings": []})
-            groups[-1]["airings"].append(a)
+        at = _at(request)
+        groups, past_groups = _airing_groups(w["airings"], at, tz)
         review_shows = (review_entries_for_tconst(con, cfg, tconst)
                         if w["status"] == "review" else [])
         channels = {a["channel_id"]: a["channel"] for a in w["airings"]}
@@ -235,12 +244,14 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             for a in w["airings"]
         }
         ctx = _base(request, con, "")
-        ctx.update({"w": w, "groups": groups, "epg": airing_summary(w["airings"]),
+        past_count = sum(len(g["airings"]) for g in past_groups)
+        ctx.update({"w": w, "groups": groups, "past_groups": past_groups, "past_count": past_count,
+                    "epg": airing_summary(w["airings"]),
                     "mark": get_marks(con).get(tconst),
                     "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
                     "tmdb_info": tmdb_info, "credits": credits, "episodes": episodes,
                     "airing_episodes": airing_episodes,
-                    "at": _at(request), "tvh_enabled": bool(api_base(cfg)),
+                    "at": at, "tvh_enabled": bool(api_base(cfg)),
                     "tvh_channels": tvh_channels})
         return templates.TemplateResponse(request, "work.html", ctx)
 
