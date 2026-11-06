@@ -115,8 +115,9 @@
   </div>
   {% endif %}
 </div>
+<div class="grid work-actions">
 {% if review_shows %}
-<div class="box" style="margin-top:1rem">
+<div class="box">
   <h2>Zuordnung prüfen</h2>
   <p class="muted">Diese Show ist noch unsicher zugeordnet. Bestätige den Treffer, lehne ihn ab
     oder wähle einen anderen Titel.</p>
@@ -141,7 +142,7 @@
 </div>
 {% endif %}
 {% if not review_shows %}
-<div class="box" style="margin-top:1rem">
+<div class="box">
   <h2>Zuordnung</h2>
   <p class="muted">Falsch automatisch zugeordnet? Die Zuordnung entfernen legt alle Shows dieses
     Werks ohne IMDb-Treffer zurück ins Review. Poster und TMDB-Link verschwinden mit dem Werk.</p>
@@ -150,7 +151,7 @@
           hx-on::after-request="if(event.detail.successful) location.href='/review'">Zuordnung entfernen</button>
 </div>
 {% endif %}
-<div class="box" style="margin-top:1rem">
+<div class="box">
   <h2>Kategorie</h2>
   <p class="muted">Aktuell: {{ category_label(w.category) }}{% if mark %} · manuell: {{ 'Format' if mark == 'format' else 'serie behalten' }}{% endif %}</p>
   <p class="muted">Kategorie-Markierung – unabhängig von der Zuordnung.</p>
@@ -167,7 +168,7 @@
   </p>
 </div>
 {% if tvh_enabled and w.kind == 'serie' %}
-<div class="box" style="margin-top:1rem">
+<div class="box">
   <h2>TVHeadend-Serien-Timer</h2>
   <p class="muted">Serien-Timer unabhängig von aktuellen Terminen anlegen – zum Beispiel, falls die Serie wieder kommt.</p>
   <form hx-post="/api/works/{{ w.tconst }}/record-series" hx-swap="none"
@@ -184,6 +185,7 @@
   </form>
 </div>
 {% endif %}
+</div>
 {% if tvh_enabled %}<p id="tvh-record-result" class="muted" role="status"></p>{% endif %}
 {% if tvh_enabled %}
 <script>
