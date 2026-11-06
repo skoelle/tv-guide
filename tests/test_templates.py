@@ -133,3 +133,38 @@ def test_work_shows_runtime_type_and_source_date(cfg):
     assert "60 Min." in html
     assert "IMDb-Datenstand" in html
     assert "2026-11-05" in html
+
+
+def test_work_shows_tmdb_box(cfg):
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [],
+    }
+    tmdb_info = {
+        "tmdb_id": 821, "media_type": "tv", "title": "Das A-Team",
+        "original_title": "The A-Team", "overview": "Beschreibung",
+        "date": "23.01.1983", "date_label": "Erstausstrahlung",
+        "vote_average": 7.5, "vote_count": 1234, "popularity": 42.5,
+        "original_language": "en", "origin_country": ["US"],
+        "fetched_date": "06.11.2026", "url": "https://www.themoviedb.org/tv/821",
+    }
+    ctx = {
+        "w": work, "groups": [], "mark": None, "review_shows": [],
+        "imdb_source_date": "2026-11-05", "tmdb_info": tmdb_info,
+        "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert "TMDB-Titel" in html
+    assert "Beschreibung" in html
+    assert "Erstausstrahlung" in html
+    assert "TMDB-Rating" in html
+    assert "Popularität" in html
+    assert "Originalsprache" in html
+    assert "Herkunftsland" in html
+    assert "TMDB-ID" in html
+    assert "TMDB-Datenstand" in html
+    assert 'href="https://www.themoviedb.org/tv/821"' in html

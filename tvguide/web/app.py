@@ -24,7 +24,7 @@ from ..config import Config, load_config
 from ..db import Db, connect
 from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
-from ..posters import TCONST_RE
+from ..posters import TCONST_RE, cached_find_summary
 from ..review import (apply_override, list_review, mark_as_format, reopen_work, review_count,
                       review_entries_for_tconst, show_key_for, undo_last)
 from ..scheduler import Scheduler
@@ -220,9 +220,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                         if w["status"] == "review" else [])
         channels = {a["channel_id"]: a["channel"] for a in w["airings"]}
         tvh_channels = sorted(channels.items(), key=lambda item: item[1].lower())
+        tmdb_info = cached_find_summary(con, cfg, tconst, w["type"])
+        if tmdb_info is None and w.get("tmdb_url"):
+            tmdb_info = {"url": w["tmdb_url"]}
         ctx = _base(request, con, "")
         ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
                     "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
+                    "tmdb_info": tmdb_info,
                     "at": _at(request), "tvh_enabled": bool(api_base(cfg)),
                     "tvh_channels": tvh_channels})
         return templates.TemplateResponse(request, "work.html", ctx)

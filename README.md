@@ -61,7 +61,7 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 |---|---|
 | `/` | Now: "running now" and "tonight" with a filter bar |
 | `/browse` | Browse: cards per work, filter chips, sorting, pagination |
-| `/work/{tconst}` | Work detail with IMDb title, TMDB link, all airings, and review actions |
+| `/work/{tconst}` | Work detail with IMDb title, cached TMDB metadata, all airings, and review actions |
 | `/review` | Review open matches: confirm, reject, pick another title, undo |
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
@@ -87,7 +87,9 @@ Manual control: a work classified as **Format** can be kept as a **film/series**
 
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
-The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, data date, and, when available, a link to the work's TMDB page. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB link disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
+The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, and data date. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB data disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
+
+When poster data has been cached, the work detail also has a **TMDB** box. It is built only from the stored `/find` response in `tmdb_cache` (no additional API request) and shows the TMDB title and original title, overview, release/first-air date, TMDB rating and votes, popularity, original language, origin country, TMDB ID, cache date, and a link to the TMDB page. Fields that are missing in the cached response are omitted. Backdrops are not shown because only the poster image is cached locally; genres remain the IMDb genres.
 
 ## 📺 TVHeadend recordings
 

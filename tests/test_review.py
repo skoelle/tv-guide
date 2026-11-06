@@ -1,3 +1,4 @@
+import json
 import re
 import sqlite3
 
@@ -420,6 +421,41 @@ def test_work_page_zeigt_imdb_titel_und_tmdb_link(cfg):
     assert "The A-Team" in html
     assert 'href="https://www.themoviedb.org/tv/821"' in html
     assert "TMDB-Seite" in html
+
+
+def test_work_page_zeigt_tmdb_box_aus_cache(cfg):
+    con = _review_show(cfg, tconst="tt0086659")
+    payload = {
+        "movie_results": [],
+        "tv_results": [{
+            "id": 821, "name": "Das A-Team", "original_name": "The A-Team",
+            "overview": "Ein Kommando aus Vietnam-Kriegern hilft Menschen in Not.",
+            "first_air_date": "1983-01-23", "vote_average": 7.5, "vote_count": 1234,
+            "popularity": 42.5, "original_language": "en", "origin_country": ["US"],
+        }],
+    }
+    con.execute("INSERT INTO tmdb_cache (cache_key, payload, fetched_at) VALUES (?,?,?)",
+                ("find:tt0086659:de-DE", json.dumps(payload), "2026-11-06T00:00:00Z"))
+    con.commit()
+    con.close()
+    html = TestClient(create_app(cfg)).get("/work/tt0086659").text
+    assert "TMDB-Titel" in html
+    assert "Das A-Team" in html
+    assert "The A-Team" in html
+    assert "Ein Kommando aus Vietnam-Kriegern hilft Menschen in Not." in html
+    assert "Erstausstrahlung" in html
+    assert "23.01.1983" in html
+    assert "TMDB-Rating" in html
+    assert "7.5" in html
+    assert "1.234 Stimmen" in html
+    assert "Popularität" in html
+    assert "42.5" in html
+    assert "Originalsprache" in html
+    assert "Herkunftsland" in html
+    assert "TMDB-ID" in html
+    assert "TMDB-Datenstand" in html
+    assert 'href="https://www.themoviedb.org/tv/821"' in html
+    assert _relative_urls(html) == []
 
 
 def test_work_page_zuordnung_entfernen_button(cfg):

@@ -223,6 +223,9 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
   einschließlich „Genre ausschließen“, Zuordnung, Retro, nur zukünftige Termine), Sortierung,
   Paginierung; Format standardmäßig ausgeblendet.
 - **Werk-Detail:** Poster, Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
+  TMDB-Box aus der gecachten `/find`-Antwort (Titel, Originaltitel, Beschreibung, Datum,
+  TMDB-Rating/Stimmen, Popularität, Originalsprache, Herkunftsland, TMDB-ID, Datenstand,
+  Link; ohne zusätzliche API-Abfrage);
   pro zukünftigem Termin ein Aufnahme-Button: bei Serien „Serie aufnehmen“ (Autorec über
   die TVHeadend-JSON-API für Titel und Sender), bei Filmen „Film aufnehmen“ (Einzelaufnahme
   nur dieses Termins). Bei Serien zusätzlich ein titelbasierter Serien-Timer ohne Termin

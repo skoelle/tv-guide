@@ -1,10 +1,11 @@
+import json
 import sqlite3
 
 import httpx
 import pytest
 
 from tvguide.db import connect
-from tvguide.posters import PosterError, TmdbClient, _auth, fetch_posters
+from tvguide.posters import PosterError, TmdbClient, _auth, cached_find_summary, fetch_posters
 
 
 def _show(con, key: str, tconst: str) -> None:
@@ -134,6 +135,71 @@ def test_poster_falls_back_to_details(cfg):
     assert stats["downloaded"] == 1
     cached = {r[0] for r in con.execute("SELECT cache_key FROM tmdb_cache")}
     assert "tv:999:de-DE" in cached
+    con.close()
+
+
+def test_cached_find_summary_movie(cfg):
+    con = connect(cfg)
+    payload = {
+        "movie_results": [{
+            "id": 278, "title": "Die Verurteilten", "original_title": "The Shawshank Redemption",
+            "overview": "Ein Banker wird unschuldig verurteilt.",
+            "release_date": "1994-09-23", "vote_average": 8.7, "vote_count": 27000,
+            "popularity": 100.5, "original_language": "en", "origin_country": ["US"],
+            "poster_path": "/shawshank.jpg",
+        }],
+        "tv_results": [],
+    }
+    con.execute("INSERT INTO tmdb_cache (cache_key, payload, fetched_at) VALUES (?,?,?)",
+                ("find:tt0111161:de-DE", json.dumps(payload), "2026-11-06T00:00:00Z"))
+    con.commit()
+    info = cached_find_summary(con, cfg, "tt0111161", "movie")
+    con.close()
+
+    assert info["tmdb_id"] == 278
+    assert info["media_type"] == "movie"
+    assert info["title"] == "Die Verurteilten"
+    assert info["original_title"] == "The Shawshank Redemption"
+    assert info["date"] == "23.09.1994"
+    assert info["date_label"] == "Erscheinungsdatum"
+    assert info["vote_average"] == 8.7 and info["vote_count"] == 27000
+    assert info["popularity"] == 100.5
+    assert info["original_language"] == "en"
+    assert info["origin_country"] == ["US"]
+    assert info["fetched_date"] == "06.11.2026"
+    assert info["url"] == "https://www.themoviedb.org/movie/278"
+
+
+def test_cached_find_summary_tv_and_en_fallback(cfg):
+    con = connect(cfg)
+    payload = {
+        "movie_results": [],
+        "tv_results": [{
+            "id": 821, "name": "Das A-Team", "original_name": "The A-Team",
+            "first_air_date": "1983-01-23", "vote_average": 7.5, "vote_count": 1234,
+            "popularity": 42.5, "original_language": "en", "origin_country": ["US"],
+        }],
+    }
+    con.execute("INSERT INTO tmdb_cache (cache_key, payload, fetched_at) VALUES (?,?,?)",
+                ("find:tt0086659:en-US", json.dumps(payload), "2026-11-06T00:00:00Z"))
+    con.commit()
+    info = cached_find_summary(con, cfg, "tt0086659", "tvSeries")
+    con.close()
+
+    assert info["media_type"] == "tv"
+    assert info["title"] == "Das A-Team"
+    assert info["date"] == "23.01.1983"
+    assert info["date_label"] == "Erstausstrahlung"
+    assert info["url"] == "https://www.themoviedb.org/tv/821"
+
+
+def test_cached_find_summary_missing_or_invalid(cfg):
+    con = connect(cfg)
+    assert cached_find_summary(con, cfg, "tt0000000", "movie") is None
+    con.execute("INSERT INTO tmdb_cache (cache_key, payload, fetched_at) VALUES (?,?,?)",
+                ("find:tt0000001:de-DE", "kein json", "2026-11-06T00:00:00Z"))
+    con.commit()
+    assert cached_find_summary(con, cfg, "tt0000001", "movie") is None
     con.close()
 
 

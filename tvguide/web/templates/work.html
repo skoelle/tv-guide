@@ -22,12 +22,30 @@
         {% if w.original_title and w.original_title != w.imdb_title %}<dt>Originaltitel</dt><dd>{{ w.original_title }}</dd>{% endif %}
         <dt>IMDb-ID</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
         {% if imdb_source_date %}<dt>IMDb-Datenstand</dt><dd>{{ imdb_source_date }}</dd>{% endif %}
-        {% if w.tmdb_url %}<dt>TMDB</dt><dd><a href="{{ w.tmdb_url }}" target="_blank" rel="noopener noreferrer">TMDB-Seite ↗</a></dd>{% endif %}
         <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
       </dl>
     </div>
   </div>
 </div>
+{% if tmdb_info %}
+<div class="box" style="margin-top:1rem">
+  <h2>TMDB</h2>
+  {% if tmdb_info.overview %}<p>{{ tmdb_info.overview }}</p>{% endif %}
+  <dl>
+    {% if tmdb_info.title %}<dt>TMDB-Titel</dt><dd>{{ tmdb_info.title }}</dd>{% endif %}
+    {% if tmdb_info.original_title and tmdb_info.original_title != tmdb_info.title %}<dt>Originaltitel</dt><dd>{{ tmdb_info.original_title }}</dd>{% endif %}
+    {% if tmdb_info.media_type %}<dt>TMDB-Typ</dt><dd>{{ 'Serie' if tmdb_info.media_type == 'tv' else 'Film' }}</dd>{% endif %}
+    {% if tmdb_info.date %}<dt>{{ tmdb_info.date_label or 'Datum' }}</dt><dd>{{ tmdb_info.date }}</dd>{% endif %}
+    {% if tmdb_info.vote_count and tmdb_info.vote_average is not none %}<dt>TMDB-Rating</dt><dd>{{ '%.1f' | format(tmdb_info.vote_average) }} ({{ tmdb_info.vote_count | num }} Stimmen)</dd>{% endif %}
+    {% if tmdb_info.popularity is defined and tmdb_info.popularity is not none %}<dt>Popularität</dt><dd>{{ '%.1f' | format(tmdb_info.popularity) }}</dd>{% endif %}
+    {% if tmdb_info.original_language %}<dt>Originalsprache</dt><dd>{{ tmdb_info.original_language }}</dd>{% endif %}
+    {% if tmdb_info.origin_country %}<dt>Herkunftsland</dt><dd>{{ tmdb_info.origin_country | join(', ') }}</dd>{% endif %}
+    {% if tmdb_info.tmdb_id %}<dt>TMDB-ID</dt><dd>{{ tmdb_info.tmdb_id }}</dd>{% endif %}
+    {% if tmdb_info.fetched_date %}<dt>TMDB-Datenstand</dt><dd>{{ tmdb_info.fetched_date }}</dd>{% endif %}
+    {% if tmdb_info.url %}<dt>TMDB-Seite</dt><dd><a href="{{ tmdb_info.url }}" target="_blank" rel="noopener noreferrer">TMDB-Seite ↗</a></dd>{% endif %}
+  </dl>
+</div>
+{% endif %}
 {% if review_shows %}
 <div class="box" style="margin-top:1rem">
   <h2>Zuordnung prüfen</h2>

@@ -136,7 +136,7 @@ def _cache_payload(con: sqlite3.Connection, key: str, payload: dict) -> None:
     )
 
 
-def _choose(payload: dict, title_type: str | None) -> dict | None:
+def _find_result(payload: dict, title_type: str | None) -> tuple[dict, str] | None:
     movie_results = payload.get("movie_results") or []
     tv_results = payload.get("tv_results") or []
     if title_type in _MOVIE_TYPES:
@@ -149,11 +149,76 @@ def _choose(payload: dict, title_type: str | None) -> dict | None:
             results, media_type = movie_results, "movie"
     if not results:
         return None
-    result = results[0]
+    return results[0], media_type
+
+
+def _choose(payload: dict, title_type: str | None) -> dict | None:
+    found = _find_result(payload, title_type)
+    if found is None:
+        return None
+    result, media_type = found
     return {
         "tmdb_id": result.get("id"),
         "media_type": media_type,
         "poster_path": result.get("poster_path"),
+    }
+
+
+def _date_de(value) -> str | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        return datetime.strptime(value[:10], "%Y-%m-%d").strftime("%d.%m.%Y")
+    except ValueError:
+        return value
+
+
+def cached_find_summary(con: sqlite3.Connection, cfg: Config, tconst: str,
+                        title_type: str | None) -> dict | None:
+    """Liest die gecachte /find-Antwort fuer die Werkseite (ohne Netzzugriff)."""
+    languages = [cfg.poster_language]
+    if cfg.poster_language != "en-US":
+        languages.append("en-US")
+    row = None
+    for language in languages:
+        row = con.execute(
+            "SELECT payload, fetched_at FROM tmdb_cache WHERE cache_key = ?",
+            (f"find:{tconst}:{language}",),
+        ).fetchone()
+        if row:
+            break
+    if row is None:
+        return None
+    try:
+        payload = json.loads(row[0])
+    except (TypeError, ValueError):
+        return None
+    found = _find_result(payload, title_type)
+    if found is None:
+        return None
+    result, media_type = found
+    is_tv = media_type == "tv"
+    tmdb_id = result.get("id")
+    origin_country = result.get("origin_country") or []
+    if not isinstance(origin_country, list):
+        origin_country = [origin_country]
+    return {
+        "tmdb_id": tmdb_id,
+        "media_type": media_type,
+        "title": result.get("name" if is_tv else "title") or "",
+        "original_title": result.get("original_name" if is_tv else "original_title") or "",
+        "overview": result.get("overview") or "",
+        "date": _date_de(result.get("first_air_date" if is_tv else "release_date")),
+        "date_label": "Erstausstrahlung" if is_tv else "Erscheinungsdatum",
+        "vote_average": result.get("vote_average"),
+        "vote_count": result.get("vote_count"),
+        "popularity": result.get("popularity"),
+        "original_language": result.get("original_language") or "",
+        "origin_country": [str(c) for c in origin_country if c],
+        "fetched_at": row[1],
+        "fetched_date": _date_de(row[1]),
+        "url": (f"https://www.themoviedb.org/{media_type}/{tmdb_id}"
+                if tmdb_id else None),
     }
 
 
