@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 from . import __version__
 from .config import Config
 from .db import Db
+from .posters import poster_stats
 from .review import review_count
 
 
@@ -73,6 +74,7 @@ def collect(con: Db, cfg: Config) -> dict:
         "overrides": _one(con, "SELECT count(*) FROM overrides"),
         "searches": _one(con, "SELECT count(*) FROM saved_searches"),
         "review_open": review_count(con),
+        "posters": poster_stats(con),
     }
 
     return {
@@ -154,6 +156,9 @@ def render_text(s: dict) -> str:
         L.append("  Zuordnungen: " + ", ".join(f"{k} {fmt_num(v)}" for k, v in sorted(a["matches"].items())))
     else:
         L.append("  Zuordnungen: noch keine (Matching folgt in M2)")
+    p = a.get("posters") or {}
+    L.append(f"  Poster: {fmt_num(p.get('ok'))} ok, {fmt_num(p.get('missing'))} fehlend, "
+             f"{fmt_num(p.get('error'))} Fehler" + (f", zuletzt {p.get('last')}" if p.get("last") else ""))
     if s["problems"]:
         L.append("")
         L.append("Probleme:")

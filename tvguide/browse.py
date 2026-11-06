@@ -62,7 +62,13 @@ def _signature(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]):
         marks = con.execute("SELECT max(id), count(*) FROM content_marks").fetchone()
     except sqlite3.Error:
         marks = (None, 0)
-    return (statuses, sm[0], sm[1], ev, marks[0], marks[1],
+    try:
+        posters = con.execute(
+            "SELECT max(fetched_at), count(*), "
+            "sum(CASE WHEN status = 'ok' THEN 1 ELSE 0 END) FROM posters").fetchone()
+    except sqlite3.Error:
+        posters = (None, 0, 0)
+    return (statuses, sm[0], sm[1], ev, marks[0], marks[1], posters[0], posters[1], posters[2],
             mt(cfg.epg_db), mt(cfg.imdb_db), mt(cfg.app_db))
 
 
@@ -98,9 +104,18 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
             "channel": r["channel"], "channel_id": r["channel_id"], "start_ts": r["start_ts"],
             "stop_ts": r["stop_ts"], "sub_title": r["sub_title"], "title": r["title"],
         })
+    poster_tconsts: set[str] = set()
+    try:
+        for row in con.execute(
+                "SELECT tconst, image_file FROM posters WHERE image_file IS NOT NULL"):
+            if (cfg.posters_dir / row["image_file"]).exists():
+                poster_tconsts.add(row["tconst"])
+    except sqlite3.Error:
+        pass
     for w in works.values():
         w["title"] = w["_titles"].most_common(1)[0][0]
         w["airings"].sort(key=lambda a: a["start_ts"])
+        w["poster"] = w["tconst"] in poster_tconsts
         w.pop("_titles", None)
     result = list(works.values())
     _CACHE["key"] = key

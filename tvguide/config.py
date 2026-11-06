@@ -42,9 +42,22 @@ class Config:
     schedule_epg_every_minutes: int = 60
     schedule_imdb_weekday: int = 0     # 0 = Montag
     schedule_imdb_time: str = "04:30"
+    # Poster von TMDB (Bilder werden lokal gecacht)
+    poster_enabled: bool = True
+    poster_language: str = "de-DE"
+    poster_image_size: str = "w342"
+    poster_cache_dir: Path | None = None
+    poster_refresh_days: int = 180
+    poster_missing_retry_days: int = 30
+    poster_error_retry_days: int = 1
+    poster_request_delay: float = 0.3
     channel_groups: dict[str, list[str]] = field(default_factory=dict)
     smtp: dict = field(default_factory=dict)
     source: Path | None = None  # geladene Konfigurationsdatei, falls vorhanden
+
+    @property
+    def posters_dir(self) -> Path:
+        return self.poster_cache_dir or (self.app_db.parent / "posters")
 
 
 # Standard-Skip-Regeln (match_test.py v2.1), falls config.toml keine [skip]-Sektion hat.
@@ -105,6 +118,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
     epg = raw.get("epg", {})
     imdb = raw.get("imdb", {})
     schedule = raw.get("schedule", {})
+    posters = raw.get("posters", {})
 
     return Config(
         base_dir=base,
@@ -138,6 +152,14 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         schedule_epg_every_minutes=int(schedule.get("epg_every_minutes", 60)),
         schedule_imdb_weekday=int(schedule.get("imdb_weekday", 0)),
         schedule_imdb_time=str(schedule.get("imdb_time", "04:30")),
+        poster_enabled=bool(posters.get("enabled", True)),
+        poster_language=str(posters.get("language", "de-DE")),
+        poster_image_size=str(posters.get("image_size", "w342")),
+        poster_cache_dir=_resolve(base, posters.get("cache_dir", "data/posters")),
+        poster_refresh_days=int(posters.get("refresh_days", 180)),
+        poster_missing_retry_days=int(posters.get("missing_retry_days", 30)),
+        poster_error_retry_days=int(posters.get("error_retry_days", 1)),
+        poster_request_delay=float(posters.get("request_delay", 0.3)),
         channel_groups={k: list(v) for k, v in raw.get("channel_groups", {}).items()},
         smtp=dict(raw.get("smtp", {})),
         source=cfg_file,

@@ -7,8 +7,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import Depends, FastAPI, Form, Request, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -23,6 +23,7 @@ from ..config import Config, load_config
 from ..db import Db, connect
 from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
+from ..posters import TCONST_RE
 from ..review import (apply_override, list_review, mark_as_format, review_count,
                       review_entries_for_tconst, show_key_for, undo_last)
 from ..scheduler import Scheduler
@@ -206,9 +207,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         f = parse_filters(request.query_params)
         works = load_catalog(con, cfg)
         return {"at": at,
-                "running": [{"tconst": x["work"]["tconst"], "title": x["work"]["title"], **x["airing"]}
+                "running": [{"tconst": x["work"]["tconst"], "title": x["work"]["title"],
+                             "poster": x["work"].get("poster", False), **x["airing"]}
                             for x in running_airings(works, at, f, cfg)],
-                "evening": [{"tconst": x["work"]["tconst"], "title": x["work"]["title"], **x["airing"]}
+                "evening": [{"tconst": x["work"]["tconst"], "title": x["work"]["title"],
+                             "poster": x["work"].get("poster", False), **x["airing"]}
                             for x in evening_airings(works, at, f, cfg)]}
 
     @app.get("/api/browse")
@@ -218,7 +221,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         works = sort_works(apply_filters(load_catalog(con, cfg), f, cfg), f, at)
         return {"total": len(works),
                 "works": [{k: w[k] for k in ("tconst", "title", "year", "end_year", "type", "kind",
-                                             "category", "genres", "rating", "votes", "status", "retro")}
+                                             "category", "genres", "rating", "votes", "status", "retro",
+                                             "poster")}
                           | {"count": len(w["airings"])} for w in works]}
 
     @app.get("/api/works/{tconst}")
@@ -227,6 +231,19 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if w is None:
             return JSONResponse({"error": "not found"}, status_code=404)
         return w
+
+    @app.get("/poster/{tconst}")
+    def poster_file(tconst: str, con: Db = Depends(get_db)):
+        if not TCONST_RE.fullmatch(tconst):
+            return Response(status_code=404)
+        row = con.execute("SELECT image_file FROM posters WHERE tconst = ?", (tconst,)).fetchone()
+        if row is None or not row["image_file"]:
+            return Response(status_code=404)
+        path = (cfg.posters_dir / row["image_file"]).resolve()
+        if cfg.posters_dir.resolve() not in path.parents or not path.is_file():
+            return Response(status_code=404)
+        return FileResponse(path, media_type="image/jpeg",
+                            headers={"Cache-Control": "public, max-age=2592000"})
 
     @app.get("/review")
     def review_page(request: Request, con: Db = Depends(get_db)):
@@ -412,7 +429,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.post("/api/jobs/{kind}")
     def api_jobs_start(kind: str, con: Db = Depends(get_db)):
-        if kind not in ("epg", "imdb"):
+        if kind not in ("epg", "imdb", "posters"):
             return JSONResponse({"error": "not found"}, status_code=404)
         result = start_job(con, cfg, kind)
         return JSONResponse(result, status_code=202 if result.get("started") else 409)

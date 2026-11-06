@@ -106,6 +106,25 @@ MIGRATIONS: list[str] = [
         created_at TEXT NOT NULL
     );
     """,
+    # Version 7: TMDB-Poster und Rohantworten (Cache, max. 6 Monate laut TMDB)
+    """
+    CREATE TABLE posters (
+        tconst      TEXT PRIMARY KEY,
+        tmdb_id     INTEGER,
+        media_type  TEXT,
+        poster_path TEXT,
+        image_file  TEXT,
+        status      TEXT NOT NULL,
+        error       TEXT,
+        fetched_at  TEXT NOT NULL
+    );
+    CREATE INDEX idx_posters_status ON posters(status);
+    CREATE TABLE tmdb_cache (
+        cache_key  TEXT PRIMARY KEY,
+        payload    TEXT NOT NULL,
+        fetched_at TEXT NOT NULL
+    );
+    """,
 ]
 
 

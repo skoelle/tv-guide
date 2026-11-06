@@ -1,7 +1,7 @@
 # SPEC: TV-Guide (Arbeitstitel `tv-guide`)
 
 Status: v1.0 „as built“, 2026-11-05. Beschreibt den tatsächlich umgesetzten Stand
-(M0–M10). Abweichungen von früheren Entwürfen sind unten direkt eingearbeitet.
+(M0–M11). Abweichungen von früheren Entwürfen sind unten direkt eingearbeitet.
 
 ## 1. Ziel
 
@@ -92,7 +92,7 @@ den Kopien in `tools/`). Änderungen erfordern einen `imdb.db`-Neubau. Ein
 
 ## 4. Datenmodell `app.db`
 
-Migrationen liegen in `tvguide/db.py`; `schema_version` steht aktuell auf **6**.
+Migrationen liegen in `tvguide/db.py`; `schema_version` steht aktuell auf **7**.
 
 Aus SPEC-Entwurf (Migration 1):
 - `epg_shows(id, show_key UNIQUE, show_name, first_seen)`
@@ -112,6 +112,9 @@ Spätere Migrationen (as built):
   Hintergrundjobs (EPG/IMDb/Refresh), genau einer gleichzeitig.
 - Migration 6: `content_marks(id, tconst UNIQUE, mark, created_at)` –
   manuelle Inhaltskategorie (`format` = als Format markieren, `keep` = als Film/Serie behalten).
+- Migration 7: `posters(tconst PK, tmdb_id, media_type, poster_path, image_file, status, error,
+  fetched_at)` – lokaler Poster-Cache; `tmdb_cache(cache_key PK, payload, fetched_at)` – vollständige
+  TMDB-Rohantworten (Find/Details/Konfiguration) für spätere Nutzung. TMDB erlaubt Caching max. 6 Monate.
 
 Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nur in `app.db`.
 
@@ -214,7 +217,7 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
 - **Jetzt:** „Läuft gerade“ und „Heute Abend“, Filterleiste inkl. Kategorie.
 - **Stöbern:** Karten pro Werk, Filter-Chips (Kategorie/Typ, Dekade, Sendergruppe, Genre,
   Zuordnung, Retro), Sortierung, Paginierung; Format standardmäßig ausgeblendet.
-- **Werk-Detail:** Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
+- **Werk-Detail:** Poster, Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
   bei unsicheren Zuordnungen eine Review-Box (Kandidaten bestätigen, „Kein Treffer“,
   anderer Titel). Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei
   Film/Serie, „Als Film/Serie behalten“ bei Format, „Markierung entfernen“ nur bei
@@ -223,7 +226,7 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
   „Als Format markieren“, Override-Undo und Markierungs-Undo.
 - **Suchen:** Liste, Treffer/„neu“, bearbeiten, löschen, aktualisieren.
 - **Status:** Datenstand, Synchronisierung (Buttons „EPG jetzt importieren“, „IMDb jetzt
-  neu bauen“), Job-Status/Log, Zeitplan-Info.
+  neu bauen“, „Fehlende Poster holen“), Job-Status/Log, Zeitplan-Info.
 
 Alle interaktiven Elemente (Jobs, Kategorien, Review-Aktionen) nutzen root-absolute URLs
 (`/api/...`, `/review/...`). Die App wird am Root-Pfad betrieben; ein Sub-Pfad unter einem
@@ -235,6 +238,7 @@ Reverse Proxy wird nicht unterstützt.
 | `GET /api/now` | laufende/heutige Sendungen |
 | `GET /api/browse` | gefilterte Werke (inkl. `category`) |
 | `GET /api/works/{tconst}` | Werk inkl. Kategorie und Terminen |
+| `GET /poster/{tconst}` | lokal gecachtes TMDB-Poster (sonst 404) |
 | `POST /api/works/{tconst}/mark?mark=format\|keep\|none` | manuelle Kategorie |
 | `GET /api/review`, `POST /api/review/{show_id\|show_key}` | Review |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review-Aktionen für HTMX (JSON, kein Redirect) |
@@ -242,7 +246,7 @@ Reverse Proxy wird nicht unterstützt.
 | `POST /api/marks/undo` | letzte Markierung rückgängig |
 | `GET/POST /api/searches`, `PUT/DELETE /api/searches/{id}` | gespeicherte Suchen |
 | `GET /api/searches/{id}/hits` | Treffer |
-| `GET /api/jobs`, `POST /api/jobs/{kind=epg\|imdb}` | Jobs |
+| `GET /api/jobs`, `POST /api/jobs/{kind=epg\|imdb\|posters}` | Jobs |
 | `GET /api/status` | Datenstand |
 
 ## 8. Benachrichtigungen per E-Mail
@@ -273,7 +277,7 @@ tv-guide/
   tools/ (epg_import, imdb_build, match_test – unverändert)
   tvguide/
     config.py db.py normalize.py cleaning.py matching.py categories.py marks.py
-    browse.py review.py search.py refresh.py pipeline.py jobs.py scheduler.py status.py
+    browse.py review.py search.py refresh.py pipeline.py jobs.py scheduler.py status.py posters.py
     notify/ (__init__, email, digest)
     web/ (app.py, templates/, static/ inkl. htmx und Favicon)
   tests/ (inkl. golden/)
@@ -299,6 +303,7 @@ tv-guide/
 ### 9.4 Umgebungsvariablen
 - `TVGUIDE_CONFIG` – Pfad zur `config.toml`.
 - `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD` – Passwörter (nie im Git).
+- `TVGUIDE_TMDB_READ_TOKEN` (bevorzugt) / `TVGUIDE_TMDB_API_KEY` – TMDB-Poster.
 - `TVGUIDE_SCHEDULE_ENABLED` – Scheduler im Container aktivieren.
 - Repo-Secrets für CI: `WEBHOOK_URL`, `WEBHOOK_TOKEN`.
 
@@ -316,8 +321,9 @@ tv-guide/
 
 - IMDb-Daten nur persönliche, nicht kommerzielle Nutzung; Attribution in `imdb.meta` und im Seitenfuß.
 - Keine Weitergabe von `imdb.db`; kein Zugriff von außerhalb des Heimnetzes.
-- SMTP-/TVH-Zugangsdaten nur per Umgebungsvariable, nie im Git.
-- TMDB/Poster weiterhin nicht verwendet.
+- SMTP-/TVH-/TMDB-Zugangsdaten nur per Umgebungsvariable, nie im Git.
+- TMDB-Poster werden lokal gecacht (max. 6 Monate), nur persönlich/nicht kommerziell genutzt und im Seitenfuß
+  als TMDB-Inhalt ausgewiesen. Die TMDB-Rohantworten liegen in `app.db`, die Bilder in `data/posters/`.
 
 ## 11. Phasenplan (umgesetzt)
 
@@ -335,13 +341,14 @@ tv-guide/
 | M8 | Docker, Compose, Backup, GHCR/CI | erledigt |
 | M9 | Automatischer EPG-/IMDb-Abgleich (Scheduler, Jobs, Buttons) | erledigt |
 | M10 | Inhaltskategorien Film/Serie/Format inkl. manueller Markierungen | erledigt |
+| M11 | TMDB-Poster mit lokalem JSON-/Bild-Cache | erledigt |
 
 ## 12. Offene Fragen
 
 1. SMTP-Zugang für den echten Versand (Anbieter, Port, App-Passwort, Absender) – technisch fertig, nur Konfiguration offen.
 2. Produktivziel final: Synology oder Docker-Host „Debian“ (beide unterstützt).
 3. Darsteller/Regie als Filter (bräuchte `title.principals` + `name.basics`).
-4. Optional: `normalize_version` in `imdb.meta` + Neuaufbau, Healthchecks-Ping, TMDB-Poster.
+4. Optional: `normalize_version` in `imdb.meta` + Neuaufbau, Healthchecks-Ping.
 
 Entschieden: E-Mail statt Telegram, Entwicklung auf `xubuntu-dev` ohne Container,
 Standard-Suchen nur `auto`/`confirmed`, Kategorien Film/Serie/Format mit Format

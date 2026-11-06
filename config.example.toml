@@ -62,6 +62,18 @@ epg_every_minutes = 60       # stuendlich pruefen, nur bei Aenderung neu matchen
 imdb_weekday = 0             # 0 = Montag
 imdb_time = "04:30"
 
+# Poster von TMDB. Token/Key kommen aus dem Environment:
+# TVGUIDE_TMDB_READ_TOKEN (bevorzugt) oder TVGUIDE_TMDB_API_KEY.
+[posters]
+enabled = true
+language = "de-DE"
+image_size = "w342"          # TMDB-Bildgroesse, z.B. w185, w342, w500
+cache_dir = "data/posters"   # lokaler Bild-Cache (app.db speichert die Rohdaten)
+refresh_days = 180           # TMDB erlaubt Caching maximal 6 Monate
+missing_retry_days = 30      # Titel ohne Poster seltener erneut pruefen
+error_retry_days = 1         # Fehler am naechsten Tag erneut versuchen
+request_delay = 0.3          # Sekunden zwischen API-Aufrufen (TMDB: 40/10s)
+
 # Sendergruppen fuer Filter (exakte Sendernamen aus dem EPG)
 [channel_groups]
 retro = ["TELE 5", "Kabel Eins", "RTLNITRO", "Pro7 MAXX", "SAT.1 Gold", "ONE", "RTLZWEI"]

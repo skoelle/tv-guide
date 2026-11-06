@@ -4,6 +4,8 @@
             {% if job_running %}disabled{% endif %}>EPG jetzt importieren</button>
     <button class="btn" type="button" hx-post="/api/jobs/imdb" hx-swap="none"
             {% if job_running %}disabled{% endif %}>IMDb jetzt neu bauen</button>
+    <button class="btn" type="button" hx-post="/api/jobs/posters" hx-swap="none"
+            {% if job_running %}disabled{% endif %}>Fehlende Poster holen</button>
     {% if job_running %}<span class="tag ok">läuft …</span>{% endif %}
   </div>
   {% if jobs %}

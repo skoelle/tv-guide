@@ -58,7 +58,8 @@ weekly (`TVGUIDE_SCHEDULE_ENABLED=true`); the same work can be triggered from th
 - CI (GitHub Actions) runs `ruff` + `pytest`, builds `ghcr.io/skoelle/tv-guide`, and calls a
   Watchtower webhook (`WEBHOOK_URL`/`WEBHOOK_TOKEN`) to roll out the new image.
 - Runtime env vars: `TVGUIDE_CONFIG`, `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD`,
-  `TVGUIDE_SCHEDULE_ENABLED` (see `.env.example`). Never commit real values.
+  `TVGUIDE_TMDB_READ_TOKEN`, `TVGUIDE_TMDB_API_KEY`, `TVGUIDE_SCHEDULE_ENABLED`
+  (see `.env.example`). Never commit real values.
 
 ## Tests
 

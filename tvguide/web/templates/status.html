@@ -50,6 +50,7 @@
       <dt>Offene Reviews</dt><dd>{{ s.app.review_open | num }}</dd>
       <dt>Overrides</dt><dd>{{ s.app.overrides | num }}</dd>
       <dt>Gespeicherte Suchen</dt><dd>{{ s.app.searches | num }}</dd>
+      <dt>Poster</dt><dd>{{ s.app.posters.ok | num }} ok, {{ s.app.posters.missing | num }} fehlend, {{ s.app.posters.error | num }} Fehler{% if s.app.posters.last %}<br><span class="muted">zuletzt {{ s.app.posters.last }}</span>{% endif %}</dd>
     </dl>
   </section>
 </div>

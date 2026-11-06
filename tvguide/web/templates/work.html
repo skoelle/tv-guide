@@ -1,20 +1,25 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge, imdb_link with context %}
+{% from "_macros.html" import badge, imdb_link, poster with context %}
 {% block title %}{{ w.title }} · TV-Guide{% endblock %}
 {% block content %}
-<h1>{{ w.title }}</h1>
-<p>
-  <span class="muted">{{ category_label(w.category) }} ·
-  {{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %}</span>
-  {{ badge(w.status) }}
-</p>
-<div class="box">
-  <dl>
-    <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
-    <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
-    <dt>IMDb</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
-    <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
-  </dl>
+<div class="work-head">
+  {{ poster(w, 'large') }}
+  <div class="work-main">
+    <h1>{{ w.title }}</h1>
+    <p>
+      <span class="muted">{{ category_label(w.category) }} ·
+      {{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %}</span>
+      {{ badge(w.status) }}
+    </p>
+    <div class="box">
+      <dl>
+        <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
+        <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
+        <dt>IMDb</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
+        <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
+      </dl>
+    </div>
+  </div>
 </div>
 {% if review_shows %}
 <div class="box" style="margin-top:1rem">

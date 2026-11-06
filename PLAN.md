@@ -164,7 +164,7 @@ Abnahme: Ein zweiter `epg_import.py`-Lauf mit unveränderten Daten führt zu "0 
 Anmerkungen:
 
 - `tvguide/browse.py` baut den Werk-Katalog (Aggregation pro `tconst`), Filter, Facetten und Sortierung; der Katalog wird pro Prozess gecacht (Signatur aus `epg.db`/`imdb.db`-mtime und `app.db`-Inhalt).
-- Genres werden über eine EN→DE-Tabelle angezeigt; Poster sind Platzhalter.
+- Genres werden über eine EN→DE-Tabelle angezeigt; Poster waren zunächst Platzhalter (siehe M11).
 - Review-Treffer erscheinen als „unsicher" und sind per Chip abwählbar.
 - Ansichten sind unter `/?at=` reproduzierbar; `/api/now`, `/api/browse`, `/api/works/{tconst}` liefern JSON.
 
@@ -275,7 +275,24 @@ Anmerkungen:
 Anmerkungen:
 
 - Der Match-Status bleibt unverändert (`auto/review/...`), die Kategorie ist eine Sicht-/Filter-Dimension; Golden-Test und Prototyp-Zahlen bleiben gültig.
-- Restfälle ohne IMDb-Genres bleiben „Serie" und können weiterhin per „Kein Treffer" oder manueller Markierung behandelt werden.
+- Restfälle ohne IMDb-Genres bleiben „Serie“ und können weiterhin per „Kein Treffer“ oder manueller Markierung behandelt werden.
+
+### M11: Poster von TMDB
+
+- [x] Auth über `TVGUIDE_TMDB_READ_TOKEN` (Bearer, bevorzugt) oder `TVGUIDE_TMDB_API_KEY`.
+- [x] Auflösung per IMDb-ID (`/find/{tconst}`), Film/Serie-Auswahl, Detail-Fallback.
+- [x] Vollständige TMDB-Antworten in `tmdb_cache` (app.db), Bilder unter `data/posters/`.
+- [x] Migration 7 (`posters`, `tmdb_cache`); lokaler Cache, 6-Monats-Refresh, Retry für fehlende/fehlerhafte Titel.
+- [x] CLI `./run.sh posters [--limit N] [--force] [--prune]` und Job/Button in `/status`.
+- [x] Poster in Jetzt, Stöbern und Werk-Detail; Fallback bleibt der bestehende Platzhalter.
+- [x] Tests mit gemocktem TMDB (kein Netz), Doku und Attribution.
+
+Anmerkungen:
+
+- Der Initiallauf erfolgt nach dem Deployment im Container, nicht auf `xubuntu-dev`:
+  `docker compose exec tvguide python -m tvguide posters`.
+- Die Rohdaten liegen bewusst vollständig in `tmdb_cache`, damit spätere Funktionen (z. B. Backdrops oder weitere Metadaten) ohne erneute API-Abfrage darauf zugreifen können.
+- Poster werden nicht automatisch bei jedem Refresh geladen; der Lauf ist ein eigener Job/CLI-Befehl.
 
 ## 5. Tests
 

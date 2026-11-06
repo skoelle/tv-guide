@@ -16,3 +16,12 @@
 {%- endmacro %}
 
 {% macro kind_de(kind) -%}{{ 'Film' if kind == 'film' else 'Serie' }}{%- endmacro %}
+
+{% macro poster(w, size='small') -%}
+{%- if w.poster -%}
+<img class="poster-img {{ 'large' if size == 'large' else 'small' }}" src="/poster/{{ w.tconst }}"
+     alt="Poster von {{ w.title }}" loading="lazy">
+{%- else -%}
+<span class="poster {{ 'large' if size == 'large' else '' }}">kein<br>Poster</span>
+{%- endif -%}
+{%- endmacro %}

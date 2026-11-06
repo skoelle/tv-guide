@@ -124,3 +124,19 @@ def test_job_api_busy(client, cfg):
 def test_job_api_lehnt_unbekannt_ab(client):
     assert client.post("/api/jobs/nope").status_code == 404
     assert client.post("/jobs/epg").status_code in (404, 405)
+
+
+def test_poster_route(client, cfg):
+    cfg.posters_dir.mkdir(parents=True, exist_ok=True)
+    (cfg.posters_dir / "tt0086659.jpg").write_bytes(b"image-bytes")
+    con = connect(cfg)
+    con.execute(
+        "INSERT INTO posters (tconst, tmdb_id, media_type, poster_path, image_file, status, fetched_at) "
+        "VALUES ('tt0086659', 821, 'tv', '/x.jpg', 'tt0086659.jpg', 'ok', '2026-11-06T00:00:00Z')")
+    con.commit()
+    con.close()
+    r = client.get("/poster/tt0086659")
+    assert r.status_code == 200
+    assert r.content == b"image-bytes"
+    assert r.headers["content-type"] == "image/jpeg"
+    assert client.get("/poster/nope").status_code == 404

@@ -39,3 +39,20 @@ def test_missing_explicit_file(tmp_path):
     import pytest
     with pytest.raises(FileNotFoundError):
         load_config(tmp_path / "gibt-es-nicht.toml")
+
+
+def test_poster_paths_and_defaults(tmp_path):
+    f = tmp_path / "config.toml"
+    f.write_text('''
+[posters]
+language = "en-US"
+image_size = "w185"
+cache_dir = "bilder"
+refresh_days = 90
+''')
+    cfg = load_config(f)
+    assert cfg.poster_language == "en-US"
+    assert cfg.poster_image_size == "w185"
+    assert cfg.poster_cache_dir == (tmp_path / "bilder").resolve()
+    assert cfg.posters_dir == cfg.poster_cache_dir
+    assert cfg.poster_refresh_days == 90

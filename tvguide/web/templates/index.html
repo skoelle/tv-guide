@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge, imdb_link with context %}
+{% from "_macros.html" import badge, imdb_link, poster with context %}
 {% block title %}Jetzt · TV-Guide{% endblock %}
 {% block content %}
 {% set base = '/' %}
@@ -16,9 +16,10 @@
       <h2>Läuft gerade <span class="muted">(Stand {{ at | ts('%H:%M') }})</span></h2>
       {% if running %}
       <table>
-        <tr><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Zuordnung</th></tr>
+        <tr><th></th><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Zuordnung</th></tr>
         {% for x in running %}
         <tr>
+          <td class="poster-cell">{{ poster(x.work) }}</td>
           <td>{{ x.airing.channel }}</td>
           <td>{{ x.airing.start_ts | ts('%H:%M') }}–{{ x.airing.stop_ts | ts('%H:%M') }}</td>
           <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a> {{ imdb_link(x.work.tconst) }}
@@ -36,9 +37,10 @@
       <h2>Heute Abend <span class="muted">ab 20:00</span></h2>
       {% if evening %}
       <table>
-        <tr><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Genre</th></tr>
+        <tr><th></th><th>Sender</th><th>Zeit</th><th>Titel</th><th>Jahr</th><th>Typ</th><th>Genre</th></tr>
         {% for x in evening %}
         <tr>
+          <td class="poster-cell">{{ poster(x.work) }}</td>
           <td>{{ x.airing.channel }}</td>
           <td>{{ x.airing.start_ts | ts('%H:%M') }}</td>
           <td><a href="/work/{{ x.work.tconst }}"><b>{{ x.work.title }}</b></a> {{ imdb_link(x.work.tconst) }}</td>

@@ -9,7 +9,8 @@ def test_migrations_are_idempotent(cfg):
     con = connect(cfg)
     assert con.execute("SELECT version FROM schema_version").fetchone()[0] == len(MIGRATIONS)
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    assert {"epg_shows", "show_match", "event_show", "overrides", "saved_searches", "search_hits"} <= tables
+    assert {"epg_shows", "show_match", "event_show", "overrides", "saved_searches", "search_hits",
+            "posters", "tmdb_cache"} <= tables
     con.close()
     con = connect(cfg)  # zweiter Aufruf aendert nichts
     assert con.execute("SELECT count(*) FROM schema_version").fetchone()[0] == 1
