@@ -14,7 +14,7 @@
       <tr><th>Job</th><th>Status</th><th>Start</th><th>Ende</th><th>Meldung</th></tr>
       {% for j in jobs %}
       <tr>
-        <td>{{ j.kind }}</td>
+        <td>{{ 'EPG+IMDb' if j.kind == 'epg_chain' else j.kind }}</td>
         <td><span class="tag {{ 'bad' if j.status == 'error' else ('ok' if j.status == 'ok' else '') }}">{{ j.status }}</span></td>
         <td>{{ j.started_at }}</td>
         <td>{{ j.finished_at or '–' }}</td>

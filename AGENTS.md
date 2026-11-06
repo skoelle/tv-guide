@@ -35,8 +35,9 @@ ruff check .                    # lint (config in ruff.toml)
 ```
 
 `refresh` detects changes by content (EPG XML SHA1, IMDb source_date + build params),
-not by file mtime. In the container a background scheduler runs EPG hourly and IMDb
-weekly (`TVGUIDE_SCHEDULE_ENABLED=true`); the same work can be triggered from the
+not by file mtime. In the container a background scheduler runs EPG hourly; the first
+EPG content change of each day also triggers the IMDb rebuild, matching and poster
+update (`TVGUIDE_SCHEDULE_ENABLED=true`). The same work can be triggered from the
 `/status` buttons. Jobs run one at a time and log to `data/logs/`.
 
 ## Conventions

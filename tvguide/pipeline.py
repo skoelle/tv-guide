@@ -12,7 +12,9 @@ import socket
 import sqlite3
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from .config import Config
 
@@ -65,12 +67,7 @@ def _refresh(cfg: Config, log) -> str:
     return msg
 
 
-def run_epg_job(cfg: Config, log=print) -> str:
-    """Importiert das TVHeadend-XMLTV in `epg.db` und prueft danach den Refresh.
-
-    Auch bei unveraendertem EPG wird refresht, damit Aenderungen an der
-    Ignorierliste oder anderen Eingaben erkannt werden.
-    """
+def _epg_import(cfg: Config, log) -> tuple[bool, str]:
     epg = cfg.epg_db
     old_sha = _latest_epg_sha1(epg)
     cmd = [sys.executable, str(ROOT / "tools" / "epg_import.py"), "--db", str(epg), "--url", cfg.epg_url]
@@ -92,9 +89,69 @@ def run_epg_job(cfg: Config, log=print) -> str:
         raise RuntimeError("EPG import produced no data")
     if new_sha == old_sha:
         log("EPG unchanged")
-        return "EPG unchanged; " + _refresh(cfg, log)
+        return False, "EPG unchanged"
     log(f"EPG changed ({str(new_sha)[:8]}), refreshing")
-    return "EPG imported; " + _refresh(cfg, log)
+    return True, "EPG imported"
+
+
+def run_epg_job(cfg: Config, log=print) -> str:
+    """Importiert das TVHeadend-XMLTV in `epg.db` und prueft danach den Refresh.
+
+    Auch bei unveraendertem EPG wird refresht, damit Aenderungen an der
+    Ignorierliste oder anderen Eingaben erkannt werden.
+    """
+    _changed, message = _epg_import(cfg, log)
+    return message + "; " + _refresh(cfg, log)
+
+
+def _chain_date(cfg: Config, now: datetime | None = None) -> str:
+    now = now or datetime.now(timezone.utc)
+    return now.astimezone(ZoneInfo(cfg.timezone)).date().isoformat()
+
+
+def _chain_allowed(cfg: Config, now: datetime | None = None) -> bool:
+    from .db import connect
+    from .refresh import get_meta, set_meta
+
+    today = _chain_date(cfg, now)
+    con = connect(cfg)
+    try:
+        if get_meta(con).get("last_epg_chain_date") == today:
+            return False
+        set_meta(con, {"last_epg_chain_date": today})
+        return True
+    finally:
+        con.close()
+
+
+def _chain_clear(cfg: Config) -> None:
+    from .db import connect
+    from .refresh import set_meta
+
+    con = connect(cfg)
+    try:
+        set_meta(con, {"last_epg_chain_date": ""})
+    finally:
+        con.close()
+
+
+def run_epg_chain_job(cfg: Config, log=print, *, now: datetime | None = None) -> str:
+    """EPG-Import; beim ersten EPG-Wechsel des Tages folgt die grosse Kette.
+
+    Danach laufen IMDb-Build, Matching und Posterabruf. Weitere EPG-Wechsel am
+    selben Tag aktualisieren nur das Matching.
+    """
+    changed, message = _epg_import(cfg, log)
+    result = message + "; " + _refresh(cfg, log)
+    if not changed or not _chain_allowed(cfg, now):
+        return result
+    log("Erster EPG-Wechsel des Tages: IMDb-Build, Matching und Poster folgen")
+    try:
+        imdb_result = run_imdb_job(cfg, log)
+    except Exception:
+        _chain_clear(cfg)
+        raise
+    return result + "; " + imdb_result
 
 
 def _check_disk(path: Path) -> None:

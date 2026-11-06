@@ -69,8 +69,7 @@ cast_limit = 15              # hoechstes principals.ordering pro Titel
 [schedule]
 enabled = false
 epg_every_minutes = 60       # stuendlich pruefen, nur bei Aenderung neu matchen
-imdb_weekday = 0             # 0 = Montag
-imdb_time = "04:30"
+                             # erster EPG-Wechsel pro Tag: IMDb-Build + Poster + Matching
 
 # Poster von TMDB. Token/Key kommen aus dem Environment:
 # TVGUIDE_TMDB_READ_TOKEN (bevorzugt) oder TVGUIDE_TMDB_API_KEY.

@@ -253,7 +253,7 @@ Abnahme: Neustart des Zielsystems startet die App automatisch. Zustand (Override
 - [x] Inhaltsbasierte Änderungserkennung: EPG über `imports.xml_sha1`, IMDb über `meta.source_date` + Build-Parameter. Re-Match nur bei echter Änderung.
 - [x] Werkzeuge im Image (`COPY tools`), Wrapper `python -m tvguide epg` / `imdb` (Subprozess, danach Refresh).
 - [x] Hintergrund-Jobs (`jobs`-Tabelle, Migration 5): genau ein Job gleichzeitig, Log unter `data/logs/`, Recovery verwaister Jobs beim Start.
-- [x] In-App-Scheduler (Daemon-Thread): EPG stündlich, IMDb wöchentlich (Default Montag 04:30 Europe/Berlin), aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
+- [x] In-App-Scheduler (Daemon-Thread): EPG stündlich, nach dem ersten EPG-Wechsel pro Tag folgen IMDb-Build, Matching und Posterabruf, aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
 - [x] Buttons in `/status` („EPG jetzt importieren", „IMDb jetzt neu bauen") + Live-Status via HTMX, API `/api/jobs`.
 - [x] Disk-Preflight beim IMDb-Build (~2 GB); `TVGUIDE_TVH_PASSWORD` aus dem Environment.
 

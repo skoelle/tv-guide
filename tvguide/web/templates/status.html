@@ -61,7 +61,7 @@
   <h2>Synchronisierung</h2>
   <p class="muted">
     Zeitplan: {{ 'aktiv' if schedule_enabled else 'aus' }}
-    {% if schedule_enabled %}· EPG regelmäßig · IMDb wöchentlich{% endif %}
+    {% if schedule_enabled %}· EPG regelmäßig · IMDb nach dem ersten EPG-Wechsel pro Tag{% endif %}
   </p>
   {% include "_jobs.html" %}
 </section>

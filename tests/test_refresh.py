@@ -1,7 +1,12 @@
 import sqlite3
+from datetime import datetime, timezone
+
+import pytest
 
 from tvguide.db import MIGRATIONS, connect
 from tvguide.refresh import get_meta, refresh
+
+CHAIN_DAY = datetime(2026, 11, 7, 1, 0, tzinfo=timezone.utc)
 
 
 def test_schema_hat_app_meta_und_jobs(cfg):
@@ -136,3 +141,88 @@ def test_imdb_job_survives_poster_error(cfg, monkeypatch):
     message = pipeline.run_imdb_job(cfg, log=lambda line: None)
 
     assert message == "IMDb build done; refresh: unchanged; posters: failed (RuntimeError: tmdb down)"
+
+
+def _patch_epg_chain(monkeypatch, shas):
+    from tvguide import pipeline
+
+    values = iter(shas)
+    monkeypatch.setattr(pipeline, "_latest_epg_sha1", lambda path: next(values))
+    monkeypatch.setattr(pipeline, "_run_stream", lambda cmd, log, display=None: None)
+    monkeypatch.setattr(pipeline, "_refresh", lambda cfg, log: "refresh: changed")
+    return pipeline
+
+
+def test_epg_chain_first_change_starts_imdb(cfg, monkeypatch):
+    pipeline = _patch_epg_chain(monkeypatch, ["old", "new"])
+    calls = []
+    monkeypatch.setattr(
+        pipeline, "run_imdb_job",
+        lambda cfg, log=print: (calls.append(True) or "imdb: done"))
+
+    message = pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+
+    assert calls == [True]
+    assert message == "EPG imported; refresh: changed; imdb: done"
+    con = connect(cfg)
+    assert get_meta(con).get("last_epg_chain_date") == "2026-11-07"
+    con.close()
+
+
+def test_epg_chain_only_once_per_day(cfg, monkeypatch):
+    pipeline = _patch_epg_chain(monkeypatch, ["old", "new", "old", "new"])
+    calls = []
+    monkeypatch.setattr(
+        pipeline, "run_imdb_job",
+        lambda cfg, log=print: (calls.append(True) or "imdb: done"))
+
+    first = pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+    second = pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+
+    assert calls == [True]
+    assert first.endswith("imdb: done")
+    assert second == "EPG imported; refresh: changed"
+
+
+def test_epg_chain_skips_imdb_without_change(cfg, monkeypatch):
+    pipeline = _patch_epg_chain(monkeypatch, ["same", "same"])
+    monkeypatch.setattr(
+        pipeline, "run_imdb_job",
+        lambda cfg, log=print: (_ for _ in ()).throw(AssertionError("must not run")))
+
+    message = pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+
+    assert message == "EPG unchanged; refresh: changed"
+    con = connect(cfg)
+    assert "last_epg_chain_date" not in get_meta(con)
+    con.close()
+
+
+def test_epg_chain_runs_again_next_day(cfg, monkeypatch):
+    pipeline = _patch_epg_chain(monkeypatch, ["old", "new", "old", "new"])
+    calls = []
+    monkeypatch.setattr(
+        pipeline, "run_imdb_job",
+        lambda cfg, log=print: (calls.append(True) or "imdb: done"))
+
+    pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+    pipeline.run_epg_chain_job(
+        cfg, log=lambda line: None, now=datetime(2026, 11, 8, 1, 0, tzinfo=timezone.utc))
+
+    assert calls == [True, True]
+
+
+def test_epg_chain_failure_allows_retry(cfg, monkeypatch):
+    pipeline = _patch_epg_chain(monkeypatch, ["old", "new"])
+
+    def fail(cfg, log=print):
+        raise RuntimeError("imdb down")
+
+    monkeypatch.setattr(pipeline, "run_imdb_job", fail)
+
+    with pytest.raises(RuntimeError, match="imdb down"):
+        pipeline.run_epg_chain_job(cfg, log=lambda line: None, now=CHAIN_DAY)
+
+    con = connect(cfg)
+    assert get_meta(con).get("last_epg_chain_date") == ""
+    con.close()

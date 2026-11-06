@@ -47,7 +47,7 @@ def cmd_config(args, cfg) -> int:
     print(f"  {'epg':22} {cfg.epg_url}")
     print(f"  {'imdb raw':22} {cfg.imdb_raw_dir}")
     print(f"  {'schedule':22} {'an' if cfg.schedule_enabled else 'aus'}, EPG alle "
-          f"{cfg.schedule_epg_every_minutes} min, IMDb Wochentag {cfg.schedule_imdb_weekday} um {cfg.schedule_imdb_time}")
+          f"{cfg.schedule_epg_every_minutes} min, IMDb nach dem ersten EPG-Wechsel pro Tag")
     return 0
 
 

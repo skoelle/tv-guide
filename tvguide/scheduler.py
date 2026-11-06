@@ -1,21 +1,17 @@
-"""Leichter In-App-Scheduler fuer EPG-Import (Intervall) und IMDb-Build (woechentlich).
+"""Leichter In-App-Scheduler fuer den EPG-Import und die naechtliche Datenkette.
 
 Laeuft als Daemon-Thread neben dem Webserver, nur wenn `[schedule].enabled`
 bzw. `TVGUIDE_SCHEDULE_ENABLED=true` gesetzt ist. Faellige Jobs gehen durch den
 gemeinsamen Runner in `tvguide/jobs.py`, damit nie zwei Jobs gleichzeitig laufen.
+Der erste EPG-Wechsel eines Tages stoesst zusaetzlich IMDb-Build, Matching und
+Posterabruf an.
 """
 from __future__ import annotations
 
 import threading
 from datetime import datetime, timedelta, timezone
-from zoneinfo import ZoneInfo
 
 from .config import Config
-
-
-def parse_hhmm(value: str) -> tuple[int, int]:
-    hh, _, mm = value.partition(":")
-    return int(hh), int(mm or 0)
 
 
 def _parse(value: str | None) -> datetime | None:
@@ -33,21 +29,6 @@ def epg_due(last_run: str | None, now: datetime, every_minutes: int) -> bool:
     if last is None:
         return True
     return now - last >= timedelta(minutes=every_minutes)
-
-
-def imdb_due(last_run: str | None, now: datetime, weekday: int, hhmm: str, tzname: str) -> bool:
-    tz = ZoneInfo(tzname)
-    local = now.astimezone(tz)
-    if local.weekday() != weekday:
-        return False
-    hh, mm = parse_hhmm(hhmm)
-    scheduled = local.replace(hour=hh, minute=mm, second=0, microsecond=0)
-    if local < scheduled:
-        return False
-    last = _parse(last_run)
-    if last is None:
-        return True
-    return last.astimezone(tz) < scheduled
 
 
 class Scheduler(threading.Thread):
@@ -80,12 +61,7 @@ class Scheduler(threading.Thread):
                 return
             meta = get_meta(con)
             if epg_due(meta.get("last_epg_run"), now, self.cfg.schedule_epg_every_minutes):
-                if start_job(con, self.cfg, "epg").get("started"):
+                if start_job(con, self.cfg, "epg_chain").get("started"):
                     set_meta(con, {"last_epg_run": now.isoformat()})
-                return
-            if imdb_due(meta.get("last_imdb_run"), now, self.cfg.schedule_imdb_weekday,
-                        self.cfg.schedule_imdb_time, self.cfg.timezone):
-                if start_job(con, self.cfg, "imdb").get("started"):
-                    set_meta(con, {"last_imdb_run": now.isoformat()})
         finally:
             con.close()

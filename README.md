@@ -14,7 +14,7 @@ Details: `SPEC.md` (what) and `PLAN.md` (how).
 - 📺 **TVHeadend recordings**: series timers for series, single recordings for films
 - 🔎 **Saved searches** with validated filters and hit tracking
 - 📧 **Email digest** for new hits, retried automatically on failure
-- ⏰ **Automatic sync** for EPG (hourly) and IMDb (weekly)
+- ⏰ **Automatic sync** for EPG (hourly) and IMDb (after the first EPG change of the day)
 - 🐳 **Docker-ready** with GHCR image, scheduler, backup, and restore scripts
 
 ## 📦 Requirements
@@ -43,7 +43,7 @@ vim config.toml             # check paths and port
 | `./run.sh match` | Match EPG shows against IMDb and write to `app.db` |
 | `./run.sh refresh [--force]` | Detect changed EPG/IMDb data and only then re-match |
 | `./run.sh epg` | Import TVHeadend XMLTV (atomic, change-aware) and refresh |
-| `./run.sh imdb` | Build the IMDb database (weekly) and refresh |
+| `./run.sh imdb` | Build the IMDb database and refresh |
 | `./run.sh posters [--limit N] [--force] [--prune]` | Fetch missing TMDB posters and cache them locally |
 | `./run.sh searches` | Evaluate saved searches (`search_hits`) |
 | `./run.sh notify [--dry-run] [--test]` | Send notifications for new hits |
@@ -153,9 +153,9 @@ Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=
 The container can keep EPG and IMDb up to date by itself:
 
 - **EPG** is checked every `[schedule].epg_every_minutes` (default hourly). The import is cheap and only triggers a re-match when the XMLTV content (SHA1) changed.
-- **IMDb** is rebuilt weekly (`[schedule].imdb_weekday` / `imdb_time`, default Monday 04:30 Europe/Berlin). A re-match only happens if the dataset date or the build parameters changed. Missing posters are fetched automatically right after the IMDb build and refresh; failures are logged and do not fail the IMDb job.
-- The `/status` page has the buttons **"EPG jetzt importieren"**, **"IMDb jetzt neu bauen"** and **"Fehlende Poster holen"**. They call `POST /api/jobs/{kind}` (JSON, no redirect) via HTMX. Only one job runs at a time; the page polls the job status and shows the last log lines.
-- The scheduler lives inside the web container (single process, background thread). State (`last_epg_run`, `last_imdb_run`) is kept in `app_meta`, so it survives restarts. Jobs interrupted by a restart are marked as `error` and retried on the next schedule.
+- **IMDb** is rebuilt after the first EPG content change of each calendar day (server timezone). The same chain then re-matches and fetches missing posters; failures are logged and do not fail the IMDb job. Further EPG changes on the same day only re-run the match. Without an EPG change there is no IMDb rebuild.
+- The `/status` page has the buttons **"EPG jetzt importieren"**, **"IMDb jetzt neu bauen"** and **"Fehlende Poster holen"**. They call `POST /api/jobs/{kind}` (JSON, no redirect) via HTMX. Manual EPG imports do not start the chain; use the IMDb button for that. Only one job runs at a time; the page polls the job status and shows the last log lines.
+- The scheduler lives inside the web container (single process, background thread). State (`last_epg_run`, `last_epg_chain_date`) is kept in `app_meta`, so it survives restarts. Jobs interrupted by a restart are marked as `error` and retried on the next schedule.
 
 Relevant config/env:
 
@@ -173,9 +173,7 @@ cast_limit = 15           # highest principals.ordering per title
 
 [schedule]
 enabled = false           # docker-compose sets TVGUIDE_SCHEDULE_ENABLED=true
-epg_every_minutes = 60
-imdb_weekday = 0          # Monday
-imdb_time = "04:30"
+epg_every_minutes = 60    # first EPG change of the day triggers IMDb + posters + match
 ```
 
 The IMDb build needs network access to `datasets.imdbws.com` and about 4 GB of free disk (`imdb_raw` including cast/crew datasets + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.

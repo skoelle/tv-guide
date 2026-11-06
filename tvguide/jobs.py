@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .config import Config
 
-KINDS = ("epg", "imdb", "posters", "refresh")
+KINDS = ("epg", "epg_chain", "imdb", "posters", "refresh")
 _LOG_TAIL_BYTES = 4000
 _LOCK = threading.Lock()
 
@@ -71,6 +71,8 @@ def run_kind(cfg: Config, kind: str, log) -> str:
 
     if kind == "epg":
         return pipeline.run_epg_job(cfg, log=log)
+    if kind == "epg_chain":
+        return pipeline.run_epg_chain_job(cfg, log=log)
     if kind == "imdb":
         return pipeline.run_imdb_job(cfg, log=log)
     if kind == "posters":

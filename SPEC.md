@@ -106,7 +106,7 @@ Aus SPEC-Entwurf (Migration 1):
 
 Spätere Migrationen (as built):
 - Migration 2: `app_meta(key, value)` – Refresh-Zustand (`epg_sha1`, `imdb_key`,
-  `last_epg_run`, `last_imdb_run`, `last_refresh`).
+  `last_epg_run`, `last_epg_chain_date`, `last_refresh`).
 - Migration 3: `override_log(...)` – Verlauf der Review-Entscheidungen für „rückgängig“.
 - Migration 4: `saved_searches.last_new` – Treffer des letzten Suchlaufs.
 - Migration 5: `jobs(id, kind, status, started_at, finished_at, message, log_path)` –
@@ -310,8 +310,8 @@ tv-guide/
 ### 9.3 Automatischer Abgleich (M9)
 - Tools sind im Image; `./run.sh epg` und `./run.sh imdb` rufen sie per Subprozess auf und
   refreshen danach.
-- In-App-Scheduler (Daemon-Thread): EPG stündlich, IMDb wöchentlich (Default Montag 04:30
-  Europe/Berlin), aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
+- In-App-Scheduler (Daemon-Thread): EPG stündlich; der erste EPG-Wechsel pro Tag stößt
+  IMDb-Build, Matching und Posterabruf an, aktiv über `TVGUIDE_SCHEDULE_ENABLED=true`.
 - Jobs: genau einer gleichzeitig, Logs in `data/logs/`, verwaiste Jobs werden nach Neustart
   als `error` markiert. IMDb-Build prüft vorher ~2 GB freien Platz.
 - Buttons in `/status` starten dieselben Jobs über `POST /api/jobs/{kind}` (JSON, kein Redirect).
@@ -380,6 +380,6 @@ standardmäßig ausgeblendet, Review nur Film/Serie.
 | Radiosender im Matching | `channels_ignore.txt`, `skip_block`, Senderbericht |
 | Falsche Treffer lösen Mails aus | Mails nur für `auto`/`confirmed`, Sammelmail, Dry-Run |
 | SQLite in Netzlaufwerken | nur lokale Dateisysteme, WAL-sichere Backups |
-| IMDb-Build: Netz/Platz/9 min | Disk-Preflight, wöchentlich, Log in `data/logs/` |
+| IMDb-Build: Netz/Platz/9 min | Disk-Preflight, nach dem ersten EPG-Wechsel pro Tag, Log in `data/logs/` |
 | Container-Restart während Job | Job als `error` markiert, nächster Lauf holt es nach |
 | Watchtower-Update während Build | seltener Fall; DB bleibt durch atomare Builds konsistent |

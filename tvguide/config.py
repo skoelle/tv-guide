@@ -47,8 +47,6 @@ class Config:
     # Zeitplan (im Container aktiv)
     schedule_enabled: bool = False
     schedule_epg_every_minutes: int = 60
-    schedule_imdb_weekday: int = 0     # 0 = Montag
-    schedule_imdb_time: str = "04:30"
     # Poster von TMDB (Bilder werden lokal gecacht)
     poster_enabled: bool = True
     poster_language: str = "de-DE"
@@ -164,8 +162,6 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         imdb_cast_limit=int(imdb.get("cast_limit", 15) or 15),
         schedule_enabled=_env_bool("TVGUIDE_SCHEDULE_ENABLED", bool(schedule.get("enabled", False))),
         schedule_epg_every_minutes=int(schedule.get("epg_every_minutes", 60)),
-        schedule_imdb_weekday=int(schedule.get("imdb_weekday", 0)),
-        schedule_imdb_time=str(schedule.get("imdb_time", "04:30")),
         poster_enabled=bool(posters.get("enabled", True)),
         poster_language=str(posters.get("language", "de-DE")),
         poster_image_size=str(posters.get("image_size", "w342")),
