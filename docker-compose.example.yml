@@ -18,6 +18,8 @@ services:
       - /srv/docker/tv-guide/config.toml:/app/config.toml:ro
       - /srv/docker/tv-guide/channels_ignore.txt:/app/channels_ignore.txt:ro
       - /srv/docker/tv-guide/data:/app/data
+      # Raw IMDb datasets live outside data/ so the data backup stays small.
+      - /docker-data/volumes/tv-guide/imdb_raw:/app/imdb_raw
     environment:
       TZ: Europe/Berlin
       TVGUIDE_SMTP_PASSWORD: "${TVGUIDE_SMTP_PASSWORD:-}"

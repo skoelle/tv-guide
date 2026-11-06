@@ -193,7 +193,7 @@ def _matched_tconsts(cfg: Config) -> set[str]:
 
 def run_imdb_job(cfg: Config, log=print) -> str:
     """Baut `imdb.db` aus den IMDb-Datasets, refresht und holt fehlende Poster."""
-    raw = cfg.imdb_raw_dir or (cfg.app_db.parent / "imdb_raw")
+    raw = cfg.imdb_raw_dir or (cfg.base_dir / "imdb_raw")
     raw.mkdir(parents=True, exist_ok=True)
     _check_disk(raw)
 

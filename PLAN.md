@@ -89,7 +89,8 @@ tv-guide/
     test_search.py
     test_notify_email.py
     golden/                  # CSV aus echten Läufen
-  data/                      # nicht im Git: epg.db, imdb.db, app.db, outbox/, imdb_raw/
+  data/                      # nicht im Git: epg.db, imdb.db, app.db, outbox/
+  imdb_raw/                  # nicht im Git: IMDb-Rohdaten, separater Mount
 ```
 
 `data/`, `imdb_raw/`, `*.db`, `match_out/` und `config.toml` stehen in `.gitignore`.
@@ -308,6 +309,7 @@ Anmerkungen:
 
 - Crew/Cast/Episoden werden nur für gematchte tconsts gebaut, damit `imdb.db` klein bleibt.
 - Eine alte `imdb.db` ohne die neuen Tabellen bleibt lesbar; UI und Status blenden die Bereiche dann aus.
+- Die IMDb-Rohdaten liegen unter `imdb_raw/` (Default relativ zur `config.toml`) in einem separaten Mount ausserhalb von `data/`, damit das `data/`-Backup klein bleibt.
 
 ## 5. Tests
 

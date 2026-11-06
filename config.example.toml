@@ -56,7 +56,7 @@ user = ""                    # leer = [epg].user verwenden
 dvr_config = ""              # DVR-Profilname oder UUID, leer = Standardprofil
 
 [imdb]
-raw_dir = "data/imdb_raw"    # Rohdatensatz, gross; im data-Volume
+raw_dir = "imdb_raw"         # Rohdatensatz, gross; separater Mount ausserhalb von data/
 types = "movie,tvMovie,tvSeries,tvMiniSeries"
 min_votes = 0
 min_year = 0                 # 0 = aus

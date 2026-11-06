@@ -14,6 +14,7 @@ Layout:
 - `tools/` – standalone data tools (`epg_import.py`, `imdb_build.py`, `match_test.py`); `imdb_build.py` also builds crew/cast/episode metadata for matched tconsts
 - `tests/` – pytest suite (golden test skips when `data/` is missing)
 - `data/` – local databases (`epg.db`, `imdb.db`, `app.db`); never committed
+- `imdb_raw/` – downloaded IMDb datasets, reproducible and kept in a separate mount outside `data/`
 - `SPEC.md`, `PLAN.md` – specification and plan (German)
 - `README.md`, `AGENTS.md` – English
 

@@ -16,8 +16,8 @@ COPY tvguide ./tvguide
 COPY tools ./tools
 COPY config.example.toml ./config.example.toml
 
-# config.toml und data/ werden zur Laufzeit als Volume eingebunden.
-RUN mkdir -p /app/data /app/data/imdb_raw /app/data/logs
+# config.toml, data/ und imdb_raw/ werden zur Laufzeit als Volume eingebunden.
+RUN mkdir -p /app/data /app/imdb_raw /app/data/logs
 
 EXPOSE 8085
 

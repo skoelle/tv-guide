@@ -10,6 +10,7 @@ def test_defaults_without_file(tmp_path, monkeypatch):
     assert cfg.source is None
     assert cfg.port == 8085
     assert cfg.epg_db == (tmp_path / "data" / "epg.db").resolve()
+    assert cfg.imdb_raw_dir == (tmp_path / "imdb_raw").resolve()
 
 
 def test_relative_paths_follow_config_file(tmp_path):
@@ -33,6 +34,15 @@ retro = ["TELE 5", "ONE"]
     assert cfg.port == 9090
     assert cfg.auto_threshold == 1.2
     assert cfg.channel_groups == {"retro": ["TELE 5", "ONE"]}
+
+
+def test_imdb_raw_dir_override(tmp_path):
+    f = tmp_path / "config.toml"
+    f.write_text('[imdb]\nraw_dir = "raw-data"\n')
+    assert load_config(f).imdb_raw_dir == (tmp_path / "raw-data").resolve()
+
+    f.write_text('[imdb]\nraw_dir = "/mnt/imdb_raw"\n')
+    assert load_config(f).imdb_raw_dir == Path("/mnt/imdb_raw")
 
 
 def test_missing_explicit_file(tmp_path):

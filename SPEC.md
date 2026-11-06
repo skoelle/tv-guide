@@ -40,8 +40,9 @@ Zielhost (Synology oder Docker-Host "Debian")
     - FastAPI/uvicorn (Port 8085)
     - In-App-Scheduler (Daemon-Thread)
     - Jobs: tools/epg_import.py, tools/imdb_build.py (Subprozess)
-    - liest/schreibt: data/app.db, data/epg.db, data/imdb.db, data/logs/, data/outbox/
-  Volumes: config.toml (ro), channels_ignore.txt (ro), data/ (rw, lokale Disk)
+    - liest/schreibt: data/app.db, data/epg.db, data/imdb.db, data/logs/, data/outbox/, imdb_raw/
+  Volumes: config.toml (ro), channels_ignore.txt (ro), data/ (rw, lokale Disk),
+           imdb_raw/ (rw, separater Mount ausserhalb von data/ und des data-Backups)
 
 Optional weiterhin: Import auf der Synology -> epg.db/imdb.db -> rsync -> data/
 ```
@@ -298,6 +299,7 @@ tv-guide/
     web/ (app.py, templates/, static/ inkl. htmx und Favicon)
   tests/ (inkl. golden/)
   data/ (nicht im Git)
+  imdb_raw/ (nicht im Git, separater Mount ausserhalb von data/)
 ```
 
 ### 9.2 Entwicklung und Deployment
@@ -326,6 +328,7 @@ tv-guide/
 ### 9.5 Sicherung
 - `./scripts/backup_appdb.sh` sichert `app.db` per SQLite-Backup-API (WAL-sicher).
 - `epg.db`/`imdb.db` sind reproduzierbar; `app.db` ist der einzige zu sichernde Zustand.
+- `imdb_raw/` ist ebenfalls reproduzierbar und liegt in einem separaten Mount ausserhalb von `data/`.
 
 ### 9.6 Tests
 - Unit: Normalisierung, Titelbereinigung, Matching/Bewertung, Kategorien, Filter, Jobs, Scheduler.

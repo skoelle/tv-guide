@@ -165,7 +165,7 @@ url = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
 user = ""                 # password from TVGUIDE_TVH_PASSWORD
 
 [imdb]
-raw_dir = "data/imdb_raw" # large dataset, lives in the data volume
+raw_dir = "imdb_raw"      # large dataset, separate mount outside data/
 with_episodes = true      # episode titles and ratings
 with_crew = true          # directors and writers
 with_cast = true          # top-billed cast (title.principals + name.basics)
@@ -176,7 +176,7 @@ enabled = false           # docker-compose sets TVGUIDE_SCHEDULE_ENABLED=true
 epg_every_minutes = 60    # first EPG change of the day triggers IMDb + posters + match
 ```
 
-The IMDb build needs network access to `datasets.imdbws.com` and about 4 GB of free disk (`imdb_raw` including cast/crew datasets + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.
+The IMDb build needs network access to `datasets.imdbws.com` and about 4 GB of free disk on the `imdb_raw` mount (`imdb_raw` including cast/crew datasets + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`. The raw datasets are reproducible and live outside `data/`, so they are not part of the `data/` backup.
 
 Cast, crew, and episode metadata is only materialised for the tconsts currently matched in `app.db`. The pipeline passes this list to `tools/imdb_build.py`; the standalone tool can also run with `--tconst-file FILE`. Local tests use tiny synthetic gzipped TSV fixtures and never download the full datasets. For a manual smoke test, point `--no-download --raw-dir` at a small hand-made directory with the required `.tsv.gz` files.
 
@@ -193,7 +193,7 @@ docker compose logs -f tvguide          # logs
 docker compose ps                       # status including healthcheck
 ```
 
-Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. Changes to the ignore list are detected by content on the next refresh, even when the EPG is unchanged; to apply them immediately run `docker compose exec tvguide python -m tvguide refresh --force` (or `docker exec -it tv-guide python -m tvguide refresh --force`). `app.db` (overrides, searches, hits, poster cache) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD`, `TVGUIDE_TMDB_READ_TOKEN` and `TVGUIDE_TMDB_API_KEY` come from `.env` (copy from `.env.example`, not committed); the bundled compose files set `TVGUIDE_SCHEDULE_ENABLED=true`. After the first deployment, fetch the posters once:
+Volumes: `./config.toml` (read-only) to `/app/config.toml`, `./channels_ignore.txt` (read-only) to `/app/channels_ignore.txt`, and `./data` to `/app/data`. The IMDb raw datasets use a separate mount to `/app/imdb_raw` (the example uses `/docker-data/volumes/tv-guide/imdb_raw`), keeping them out of the `data/` backup; `raw_dir` must therefore point to `imdb_raw` (the default) or an absolute path inside `/app/imdb_raw`. The ignore list must live next to `config.toml` (the path is resolved relative to the configuration file); without it, radio and shopping channels are not filtered out. Changes to the ignore list are detected by content on the next refresh, even when the EPG is unchanged; to apply them immediately run `docker compose exec tvguide python -m tvguide refresh --force` (or `docker exec -it tv-guide python -m tvguide refresh --force`). `app.db` (overrides, searches, hits, poster cache) lives in the volume and survives restarts and updates. `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD`, `TVGUIDE_TMDB_READ_TOKEN` and `TVGUIDE_TMDB_API_KEY` come from `.env` (copy from `.env.example`, not committed); the bundled compose files set `TVGUIDE_SCHEDULE_ENABLED=true`. After the first deployment, fetch the posters once:
 
 ```bash
 docker compose exec tvguide python -m tvguide posters
@@ -209,7 +209,7 @@ docker compose pull
 docker compose up -d
 ```
 
-The image contains only the code; `config.toml`, `channels_ignore.txt` and `data/` are mounted as volumes. If the GHCR package is still private, set it to **public** under *Packages* in GitHub (or run `docker login ghcr.io` once).
+The image contains only the code; `config.toml`, `channels_ignore.txt`, `data/` and the separate `imdb_raw` mount are mounted as volumes. If the GHCR package is still private, set it to **public** under *Packages* in GitHub (or run `docker login ghcr.io` once).
 
 The example compose file sets a Watchtower label for automatic updates. If you configure the `WEBHOOK_URL` (and optionally `WEBHOOK_TOKEN`) repo secrets, the build calls your Watchtower webhook after pushing.
 
@@ -236,7 +236,7 @@ cp backup/app_<stamp>.db data/app.db            # remove data/app.db-wal and -sh
 docker compose start
 ```
 
-`epg.db` and `imdb.db` are reproducible and do not need to be backed up. `backup/`, `data/` and `config.toml` are listed in `.gitignore`.
+`epg.db`, `imdb.db` and the `imdb_raw` datasets are reproducible and do not need to be backed up. The raw data lives in its own mount, so it is not included when `data/` is backed up. `backup/`, `data/`, `imdb_raw/` and `config.toml` are listed in `.gitignore`.
 
 ## 🔄 Data flow
 
@@ -253,7 +253,7 @@ xubuntu-dev:  data/epg.db (read-only)    data/imdb.db (read-only)
 ## 📝 Notes
 
 - 💾 Keep SQLite files on local filesystems only (no SMB/NFS).
-- 🙈 `.gitignore` excludes `data/`, `backup/`, `*.db`, `config.toml`, `channels_ignore.txt`, `.env`, `tmp/` and Synology `@eaDir/`.
+- 🙈 `.gitignore` excludes `data/`, `imdb_raw/`, `backup/`, `*.db`, `config.toml`, `channels_ignore.txt`, `.env`, `tmp/` and Synology `@eaDir/`.
 - 🔐 `cp .env.example .env` and fill in the passwords for Docker deployments; `.env` is git-ignored.
 - ⚖️ IMDb data is for personal, non-commercial use only; attribution is shown in the page footer.
 - 🖼️ TMDB posters are cached for at most six months; attribution is shown in the page footer.
