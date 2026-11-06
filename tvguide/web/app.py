@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from .. import __version__
 from ..browse import (airing_summary, annotate_next, apply_filters, catalog_facets, evening_airings,
                       find_work, genre_de, imdb_source_date, imdb_type_de, load_catalog,
-                      parse_filters, running_airings, sort_works)
+                      parse_filters, running_airings, sort_works, work_credits, work_episodes)
 from ..categories import label as category_label
 from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
@@ -223,11 +223,23 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         tmdb_info = cached_find_summary(con, cfg, tconst, w["type"])
         if tmdb_info is None and w.get("tmdb_url"):
             tmdb_info = {"url": w["tmdb_url"]}
+        credits = work_credits(con, tconst)
+        episodes = (work_episodes(con, tconst) if w["kind"] == "serie"
+                    else {"items": [], "shown": [], "total": 0, "limit": 0})
+        episode_by_airing = {}
+        for ep in episodes["items"]:
+            if ep["season"] is not None and ep["episode"] is not None:
+                episode_by_airing[(ep["season"], ep["episode"])] = ep
+        airing_episodes = {
+            (a["channel_id"], a["start_ts"]): episode_by_airing.get((a.get("season"), a.get("episode")))
+            for a in w["airings"]
+        }
         ctx = _base(request, con, "")
         ctx.update({"w": w, "groups": groups, "epg": airing_summary(w["airings"]),
                     "mark": get_marks(con).get(tconst),
                     "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
-                    "tmdb_info": tmdb_info,
+                    "tmdb_info": tmdb_info, "credits": credits, "episodes": episodes,
+                    "airing_episodes": airing_episodes,
                     "at": _at(request), "tvh_enabled": bool(api_base(cfg)),
                     "tvh_channels": tvh_channels})
         return templates.TemplateResponse(request, "work.html", ctx)

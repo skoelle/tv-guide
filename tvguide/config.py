@@ -40,7 +40,10 @@ class Config:
     imdb_types: str = "movie,tvMovie,tvSeries,tvMiniSeries"
     imdb_min_votes: int = 0
     imdb_min_year: int = 0
-    imdb_with_episodes: bool = False
+    imdb_with_episodes: bool = True
+    imdb_with_crew: bool = True
+    imdb_with_cast: bool = True
+    imdb_cast_limit: int = 15
     # Zeitplan (im Container aktiv)
     schedule_enabled: bool = False
     schedule_epg_every_minutes: int = 60
@@ -155,7 +158,10 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         imdb_types=str(imdb.get("types", "movie,tvMovie,tvSeries,tvMiniSeries")),
         imdb_min_votes=int(imdb.get("min_votes", 0) or 0),
         imdb_min_year=int(imdb.get("min_year", 0) or 0),
-        imdb_with_episodes=bool(imdb.get("with_episodes", False)),
+        imdb_with_episodes=bool(imdb.get("with_episodes", True)),
+        imdb_with_crew=bool(imdb.get("with_crew", True)),
+        imdb_with_cast=bool(imdb.get("with_cast", True)),
+        imdb_cast_limit=int(imdb.get("cast_limit", 15) or 15),
         schedule_enabled=_env_bool("TVGUIDE_SCHEDULE_ENABLED", bool(schedule.get("enabled", False))),
         schedule_epg_every_minutes=int(schedule.get("epg_every_minutes", 60)),
         schedule_imdb_weekday=int(schedule.get("imdb_weekday", 0)),

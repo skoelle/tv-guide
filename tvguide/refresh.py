@@ -38,7 +38,8 @@ def set_meta(con: sqlite3.Connection, values: dict[str, str]) -> None:
     con.commit()
 
 
-_IMDB_KEYS = ("source_date", "types", "min_votes", "min_year", "with_episodes")
+_IMDB_KEYS = ("source_date", "types", "min_votes", "min_year", "with_episodes",
+              "with_crew", "with_cast", "cast_limit")
 
 
 def signature(con: sqlite3.Connection, cfg: Config) -> dict[str, str]:

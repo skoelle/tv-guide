@@ -66,6 +66,80 @@ def imdb_source_date(con: sqlite3.Connection) -> str | None:
     return row["value"] if row else None
 
 
+def _characters(raw: str | None) -> str:
+    """IMDb-`characters` ist eine JSON-Liste wie ["Hannibal Smith"]."""
+    if not raw:
+        return ""
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return str(raw).strip()
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value if v)
+    return str(value).strip()
+
+
+def work_credits(con: sqlite3.Connection, tconst: str) -> dict:
+    """Regie, Buch und Besetzung eines Werks aus den IMDb-Credits."""
+    out: dict = {"directors": [], "writers": [], "cast": []}
+    try:
+        rows = con.execute(
+            "SELECT c.category, c.characters, c.ordering, c.nconst, p.name "
+            "FROM imdb.credits c JOIN imdb.people p ON p.nconst = c.nconst "
+            "WHERE c.tconst = ? "
+            "ORDER BY CASE c.category WHEN 'director' THEN 0 WHEN 'writer' THEN 1 ELSE 2 END, "
+            "c.ordering", (tconst,)).fetchall()
+    except sqlite3.Error:
+        return out
+    seen: dict[str, set[str]] = {"directors": set(), "writers": set(), "cast": set()}
+    for r in rows:
+        category = r["category"]
+        nconst = r["nconst"]
+        if category == "director":
+            key = "directors"
+        elif category == "writer":
+            key = "writers"
+        else:
+            key = "cast"
+        if nconst in seen[key]:
+            continue
+        seen[key].add(nconst)
+        person = {"nconst": nconst, "name": r["name"]}
+        if key == "cast":
+            person["role"] = _characters(r["characters"])
+        out[key].append(person)
+    return out
+
+
+def work_episodes(con: sqlite3.Connection, tconst: str, limit: int = 200) -> dict:
+    """Episodenliste einer Serie; `items` ist vollstaendig, `shown` ist begrenzt."""
+    try:
+        total = con.execute(
+            "SELECT count(*) FROM imdb.episodes WHERE parent_tconst = ?", (tconst,)).fetchone()[0]
+        rows = con.execute(
+            "SELECT tconst, season, episode, primary_title, start_year, avg_rating, num_votes "
+            "FROM imdb.episodes WHERE parent_tconst = ? "
+            "ORDER BY season, episode", (tconst,)).fetchall()
+    except sqlite3.Error:
+        return {"items": [], "shown": [], "total": 0, "limit": limit}
+    items = [dict(r) for r in rows]
+    return {"items": items, "shown": items[:limit], "total": total, "limit": limit}
+
+
+def _episode_ns(raw) -> tuple[int | None, int | None]:
+    """Liest Staffel/Folge (1-basiert) aus einem xmltv_ns-Eintrag."""
+    for item in _json_load(raw, []):
+        if not isinstance(item, dict) or item.get("system") != "xmltv_ns":
+            continue
+        parts = (item.get("value") or "").strip().split(".")
+        out: list[int | None] = []
+        for idx in range(2):
+            value = parts[idx].split("/")[0] if idx < len(parts) else ""
+            out.append(int(value) + 1 if value.isdigit() else None)
+        return out[0], out[1]
+    return None, None
+
+
 def _json_load(raw, default):
     if not raw:
         return default
@@ -186,12 +260,14 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
         w["_titles"][r["show_name"]] += 1
         if r["status"] == "review":
             w["status"] = "review"
+        season, episode = _episode_ns(r["episode_num"])
         w["airings"].append({
             "channel": r["channel"], "channel_id": r["channel_id"], "start_ts": r["start_ts"],
             "stop_ts": r["stop_ts"], "sub_title": r["sub_title"], "title": r["title"],
             "description": r["description"] or "", "categories": _json_list(r["categories"]),
             "fsk": r["epg_rating"] or "", "prod_date": r["prod_date"] or "",
             "episodes": _episode_labels(r["episode_num"]), "credits": _credits(r["credits"]),
+            "season": season, "episode": episode,
             "star_rating": r["star_rating"] or "",
         })
     poster_tconsts: set[str] = set()

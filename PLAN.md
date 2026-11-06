@@ -294,6 +294,21 @@ Anmerkungen:
 - Die Rohdaten liegen bewusst vollständig in `tmdb_cache`, damit spätere Funktionen (z. B. Backdrops oder weitere Metadaten) ohne erneute API-Abfrage darauf zugreifen können.
 - Poster werden nicht automatisch bei jedem Refresh geladen; der Lauf ist ein eigener Job/CLI-Befehl.
 
+### M12: IMDb-Crew, Cast und Episoden
+
+- [x] `imdb_build.py` importiert optional `title.crew`, `title.principals` und `name.basics`.
+- [x] Episoden werden mit Titel, Jahr, Rating und Stimmen angereichert.
+- [x] `--tconst-file` begrenzt die Anreicherung auf aktuell gematchte Werke; die Pipeline erzeugt die Liste aus `app.db`.
+- [x] Neue Tabellen `people`, `credits` und erweiterte `episodes`; `meta`/Refresh-Signatur enthält die Build-Parameter.
+- [x] Werkseite zeigt Besetzung & Stab sowie eine einklappbare Episodenliste; passende Ausstrahlungen erhalten die IMDb-Episode inline.
+- [x] Config: `with_episodes`, `with_crew`, `with_cast`, `cast_limit`; Disk-Reserve auf 4 GB erhöht.
+- [x] Tests mit synthetischen `.tsv.gz`-Fixtures (kein Download), Doku aktualisiert.
+
+Anmerkungen:
+
+- Crew/Cast/Episoden werden nur für gematchte tconsts gebaut, damit `imdb.db` klein bleibt.
+- Eine alte `imdb.db` ohne die neuen Tabellen bleibt lesbar; UI und Status blenden die Bereiche dann aus.
+
 ## 5. Tests
 
 - Unit: Normalisierung, Titelbereinigung, Kandidatenbildung, Bewertung.

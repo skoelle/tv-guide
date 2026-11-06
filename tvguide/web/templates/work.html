@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% from "_macros.html" import badge, imdb_link, poster with context %}
+{% macro person_links(people) -%}
+{% for p in people %}<a href="https://www.imdb.com/name/{{ p.nconst }}/" target="_blank" rel="noopener noreferrer">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endmacro %}
 {% block title %}{{ w.title }} · TV-Guide{% endblock %}
 {% block content %}
 <div class="work-head">
@@ -38,8 +41,10 @@
     <td>{{ a.start_ts | ts('%H:%M') }}–{{ a.stop_ts | ts('%H:%M') }}</td>
     <td>{{ a.channel }}</td>
     <td>
+      {% set imdb_ep = (airing_episodes or {}).get((a.channel_id, a.start_ts)) %}
       {{ a.sub_title or a.title }}
-      {% if a.description or a.categories or a.fsk or a.prod_date or a.episodes or a.credits or a.star_rating %}
+      {% if imdb_ep %}<span class="muted">· {{ imdb_ep.primary_title }}{% if imdb_ep.avg_rating %} ({{ '%.1f' | format(imdb_ep.avg_rating) }}){% endif %}</span>{% endif %}
+      {% if a.description or a.categories or a.fsk or a.prod_date or a.episodes or a.credits or a.star_rating or imdb_ep %}
       <details class="airing-details">
         <summary class="muted">Details</summary>
         <dl>
@@ -47,6 +52,10 @@
           {% if a.fsk %}<dt>FSK</dt><dd>{{ a.fsk }}</dd>{% endif %}
           {% if a.prod_date %}<dt>Produktionsjahr</dt><dd>{{ a.prod_date }}</dd>{% endif %}
           {% if a.episodes %}<dt>Episode</dt><dd>{{ a.episodes | join('; ') }}</dd>{% endif %}
+          {% if imdb_ep %}
+          <dt>IMDb-Episode</dt>
+          <dd>{{ imdb_ep.primary_title or '–' }}{% if imdb_ep.season is not none %}, Staffel {{ imdb_ep.season }}{% endif %}{% if imdb_ep.episode is not none %}, Folge {{ imdb_ep.episode }}{% endif %}{% if imdb_ep.avg_rating %} · {{ '%.1f' | format(imdb_ep.avg_rating) }} ({{ imdb_ep.num_votes | num }} Stimmen){% endif %}</dd>
+          {% endif %}
           {% if a.star_rating %}<dt>Sterne</dt><dd>{{ a.star_rating }}</dd>{% endif %}
           {% for credit in a.credits %}<dt>{{ credit.label }}</dt><dd>{{ credit.names | join(', ') }}</dd>{% endfor %}
           {% if a.description %}<dt>Beschreibung</dt><dd>{{ a.description }}</dd>{% endif %}
@@ -115,6 +124,42 @@
   </div>
   {% endif %}
 </div>
+{% if credits and (credits.directors or credits.writers or credits.cast) %}
+<div class="box" style="margin-top:1rem">
+  <h2>Besetzung &amp; Stab</h2>
+  <dl>
+    {% if credits.directors %}<dt>Regie</dt><dd>{{ person_links(credits.directors) }}</dd>{% endif %}
+    {% if credits.writers %}<dt>Buch</dt><dd>{{ person_links(credits.writers) }}</dd>{% endif %}
+    {% if credits.cast %}
+    <dt>Besetzung</dt>
+    <dd>
+      {% for p in credits.cast %}<a href="https://www.imdb.com/name/{{ p.nconst }}/" target="_blank" rel="noopener noreferrer">{{ p.name }}</a>{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+    </dd>
+    {% endif %}
+  </dl>
+</div>
+{% endif %}
+{% if episodes and episodes.total %}
+<div class="box" style="margin-top:1rem">
+  <h2>Episoden</h2>
+  <p class="muted">{{ episodes.total }} Folgen aus IMDb.</p>
+  <details class="airing-details">
+    <summary class="btn">Episodenliste anzeigen ({{ episodes.shown | length }} von {{ episodes.total }})</summary>
+    <table>
+      <tr><th>Staffel</th><th>Folge</th><th>Titel</th><th>Jahr</th><th>Rating</th></tr>
+      {% for e in episodes.shown %}
+      <tr>
+        <td>{{ e.season if e.season is not none else '–' }}</td>
+        <td>{{ e.episode if e.episode is not none else '–' }}</td>
+        <td>{{ e.primary_title or '–' }}</td>
+        <td>{{ e.start_year or '–' }}</td>
+        <td>{% if e.avg_rating %}{{ '%.1f' | format(e.avg_rating) }} ({{ e.num_votes | num }} Stimmen){% else %}–{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </details>
+</div>
+{% endif %}
 <div class="grid work-actions">
 {% if review_shows %}
 <div class="box">

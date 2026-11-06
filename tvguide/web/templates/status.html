@@ -33,6 +33,8 @@
       {% if s.imdb.titles is not none %}
       <dt>Titel</dt><dd>{{ s.imdb.titles | num }}</dd>
       <dt>Namen</dt><dd>{{ s.imdb.names | num }}</dd>
+      {% if s.imdb.episodes is not none %}<dt>Folgen</dt><dd>{{ s.imdb.episodes | num }}</dd>{% endif %}
+      {% if s.imdb.credits is not none %}<dt>Credits</dt><dd>{{ s.imdb.credits | num }} ({{ s.imdb.people | num }} Personen)</dd>{% endif %}
       {% if s.imdb.meta %}
       <dt>Datenstand</dt><dd>{{ s.imdb.meta.get('source_date', '-') }}<br><span class="muted">gebaut {{ s.imdb.meta.get('built_at', '-') }}</span></dd>
       {% endif %}

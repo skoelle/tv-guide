@@ -15,6 +15,8 @@ Beispiele:
   ./imdb_build.py --no-download                # vorhandene Rohdateien in ./imdb_raw verwenden
   ./imdb_build.py --min-votes 50 --min-year 1950
   ./imdb_build.py --with-episodes              # zusaetzlich Episoden (deutlich groesser)
+  ./imdb_build.py --with-crew --with-cast      # Regie/Buch und Besetzung
+  ./imdb_build.py --tconst-file matched.txt --with-crew --with-cast --with-episodes
 """
 import argparse
 import csv
@@ -33,8 +35,12 @@ from pathlib import Path
 BASE = "https://datasets.imdbws.com/"
 FILES = ["title.basics.tsv.gz", "title.akas.tsv.gz", "title.ratings.tsv.gz"]
 EPISODE_FILE = "title.episode.tsv.gz"
+CREW_FILE = "title.crew.tsv.gz"
+PRINCIPALS_FILE = "title.principals.tsv.gz"
+NAMES_FILE = "name.basics.tsv.gz"
 DEFAULT_TYPES = "movie,tvMovie,tvSeries,tvMiniSeries"
 AKA_REGIONS = {"DE", "AT", "CH"}
+PRINCIPAL_CATEGORIES = {"actor", "actress", "self"}
 
 csv.field_size_limit(1 << 24)
 
@@ -116,6 +122,10 @@ def to_int(v):
         return None
 
 
+def flag(args, name, default=False):
+    return bool(getattr(args, name, default))
+
+
 SCHEMA = """
 CREATE TABLE titles (
     tconst        TEXT PRIMARY KEY,
@@ -141,7 +151,25 @@ CREATE TABLE episodes (
     tconst        TEXT PRIMARY KEY,
     parent_tconst TEXT NOT NULL,
     season        INTEGER,
-    episode       INTEGER
+    episode       INTEGER,
+    primary_title TEXT,
+    start_year    INTEGER,
+    avg_rating    REAL,
+    num_votes     INTEGER
+);
+CREATE TABLE people (
+    nconst     TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    birth_year INTEGER,
+    death_year INTEGER
+);
+CREATE TABLE credits (
+    tconst     TEXT NOT NULL,
+    nconst     TEXT NOT NULL,
+    category   TEXT NOT NULL,        -- director | writer | actor | actress | self
+    job        TEXT,
+    characters TEXT,
+    ordering   INTEGER
 );
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
 """
@@ -153,7 +181,28 @@ CREATE INDEX idx_titles_year  ON titles(start_year);
 CREATE INDEX idx_titles_type  ON titles(title_type);
 CREATE INDEX idx_titles_votes ON titles(num_votes);
 CREATE INDEX idx_episodes_parent ON episodes(parent_tconst);
+CREATE INDEX idx_credits_tconst ON credits(tconst);
+CREATE INDEX idx_credits_nconst ON credits(nconst);
 """
+
+
+def _load_scope(path):
+    """Liest eine tconst-Liste; None bedeutet: keine Einschraenkung."""
+    if not path:
+        return None
+    scope = set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            tid = line.strip()
+            if tid:
+                scope.add(tid)
+    return scope
+
+
+def _insert_batched(con, sql, buf, limit=100000):
+    if buf:
+        con.executemany(sql, buf)
+        buf.clear()
 
 
 def build(args, raw_dir):
@@ -167,6 +216,12 @@ def build(args, raw_dir):
     con.execute("PRAGMA journal_mode=OFF")
     con.execute("PRAGMA synchronous=OFF")
     con.executescript(SCHEMA)
+
+    with_episodes = flag(args, "with_episodes")
+    with_crew = flag(args, "with_crew")
+    with_cast = flag(args, "with_cast")
+    cast_limit = int(getattr(args, "cast_limit", 15) or 15)
+    scope = _load_scope(getattr(args, "tconst_file", None))
 
     log("Lese ratings")
     ratings = {}
@@ -201,7 +256,7 @@ def build(args, raw_dir):
     con.executemany("INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)", batch)
     con.executemany("INSERT INTO title_names VALUES (?,?,?,?,?,?)", names)
     log(f"basics: {n_in:,} gelesen, {len(batch):,} behalten")
-    del ratings, batch, names
+    del batch, names
 
     log("Filtere title.akas (DE/AT/CH und Originaltitel), das dauert einige Minuten")
     seen = set()
@@ -227,17 +282,107 @@ def build(args, raw_dir):
             buf.clear()
     con.executemany("INSERT INTO title_names VALUES (?,?,?,?,?,?)", buf)
     log(f"akas: {n_in:,} gelesen, {n_out:,} behalten")
+    del seen, buf
 
-    if args.with_episodes:
+    scoped = kept if scope is None else {tid: True for tid in scope if tid in kept}
+    if scope is not None:
+        log(f"Scope: {len(scoped):,} von {len(kept):,} Titeln")
+
+    if with_episodes:
         log("Lese title.episode")
-        eb = []
+        episode_map = {}
         for _, r in rows(raw_dir / EPISODE_FILE):
-            if r[1] in kept:
-                eb.append((r[0], r[1], to_int(r[2]), to_int(r[3])))
-                if len(eb) >= 100000:
-                    con.executemany("INSERT INTO episodes VALUES (?,?,?,?)", eb)
-                    eb.clear()
-        con.executemany("INSERT INTO episodes VALUES (?,?,?,?)", eb)
+            if r[1] not in scoped:
+                continue
+            episode_map[r[0]] = (r[1], to_int(r[2]), to_int(r[3]))
+        log(f"episode: {len(episode_map):,} Folgen im Scope, lese Episodentitel")
+        for _, r in rows(raw_dir / "title.basics.tsv.gz"):
+            info = episode_map.get(r[0])
+            if info is None:
+                continue
+            parent, season, episode = info
+            rating, votes = ratings.get(r[0], (None, None))
+            episode_map[r[0]] = (parent, season, episode, r[2], to_int(r[5]), rating, votes)
+        eb = []
+        n_episodes = 0
+        for tid, info in episode_map.items():
+            if len(info) == 3:
+                parent, season, episode = info
+                info = (parent, season, episode, None, None, None, None)
+            eb.append((tid, *info))
+            n_episodes += 1
+            if len(eb) >= 100000:
+                con.executemany("INSERT INTO episodes VALUES (?,?,?,?,?,?,?,?)", eb)
+                eb.clear()
+        _insert_batched(con, "INSERT INTO episodes VALUES (?,?,?,?,?,?,?,?)", eb)
+        log(f"episode: {n_episodes:,} Folgen gespeichert")
+        del episode_map, eb
+
+    people_nconsts = set()
+
+    if with_crew:
+        log("Lese title.crew")
+        cb = []
+        n = 0
+        for _, r in rows(raw_dir / CREW_FILE):
+            tid = r[0]
+            if tid not in scoped:
+                continue
+            for role, field in (("director", r[1]), ("writer", r[2])):
+                for nconst in (field or "").split(","):
+                    nconst = nconst.strip()
+                    if not nconst or nconst == "\\N":
+                        continue
+                    people_nconsts.add(nconst)
+                    cb.append((tid, nconst, role, None, None, None))
+                    n += 1
+                    if len(cb) >= 100000:
+                        con.executemany("INSERT INTO credits VALUES (?,?,?,?,?,?)", cb)
+                        cb.clear()
+        _insert_batched(con, "INSERT INTO credits VALUES (?,?,?,?,?,?)", cb)
+        log(f"crew: {n:,} Eintraege")
+
+    if with_cast:
+        log(f"Lese title.principals (Top {cast_limit} pro Titel)")
+        pb = []
+        n = 0
+        for _, r in rows(raw_dir / PRINCIPALS_FILE):
+            tid = r[0]
+            if tid not in scoped:
+                continue
+            category = nz(r[3])
+            if category not in PRINCIPAL_CATEGORIES:
+                continue
+            ordering = to_int(r[1])
+            if cast_limit and ordering is not None and ordering > cast_limit:
+                continue
+            nconst = nz(r[2])
+            if not nconst:
+                continue
+            people_nconsts.add(nconst)
+            pb.append((tid, nconst, category, nz(r[4]), nz(r[5]), ordering))
+            n += 1
+            if len(pb) >= 100000:
+                con.executemany("INSERT INTO credits VALUES (?,?,?,?,?,?)", pb)
+                pb.clear()
+        _insert_batched(con, "INSERT INTO credits VALUES (?,?,?,?,?,?)", pb)
+        log(f"cast: {n:,} Eintraege")
+
+    if people_nconsts:
+        log(f"Lese name.basics fuer {len(people_nconsts):,} Personen")
+        nb = []
+        for _, r in rows(raw_dir / NAMES_FILE):
+            if r[0] not in people_nconsts:
+                continue
+            nb.append((r[0], r[1], to_int(r[2]), to_int(r[3])))
+            if len(nb) >= 100000:
+                con.executemany("INSERT INTO people VALUES (?,?,?,?)", nb)
+                nb.clear()
+        _insert_batched(con, "INSERT INTO people VALUES (?,?,?,?)", nb)
+        log(f"personen: {con.execute('SELECT count(*) FROM people').fetchone()[0]:,} gespeichert")
+
+    scope_size = len(scoped)
+    del ratings, kept, scoped
 
     log("Baue Indizes")
     con.executescript(INDEXES)
@@ -248,7 +393,11 @@ def build(args, raw_dir):
         "types": ",".join(sorted(types)),
         "min_votes": str(args.min_votes),
         "min_year": str(args.min_year or ""),
-        "with_episodes": str(bool(args.with_episodes)),
+        "with_episodes": str(with_episodes),
+        "with_crew": str(with_crew),
+        "with_cast": str(with_cast),
+        "cast_limit": str(cast_limit),
+        "scope_size": str(scope_size),
         "attribution": "Information courtesy of IMDb (https://www.imdb.com). Used with permission for personal, non-commercial use.",
     }
     con.executemany("INSERT INTO meta VALUES (?,?)", meta.items())
@@ -256,11 +405,16 @@ def build(args, raw_dir):
     stats = {
         "titles": con.execute("SELECT COUNT(*) FROM titles").fetchone()[0],
         "names": con.execute("SELECT COUNT(*) FROM title_names").fetchone()[0],
+        "episodes": con.execute("SELECT COUNT(*) FROM episodes").fetchone()[0],
+        "credits": con.execute("SELECT COUNT(*) FROM credits").fetchone()[0],
+        "people": con.execute("SELECT COUNT(*) FROM people").fetchone()[0],
     }
     con.execute("VACUUM")
     con.close()
     os.replace(tmp, out)
-    log(f"Fertig: {stats['titles']:,} Titel, {stats['names']:,} Namen, {out.stat().st_size / 1e6:.0f} MB -> {out}")
+    log(f"Fertig: {stats['titles']:,} Titel, {stats['names']:,} Namen, "
+        f"{stats['episodes']:,} Folgen, {stats['credits']:,} Credits, "
+        f"{stats['people']:,} Personen, {out.stat().st_size / 1e6:.0f} MB -> {out}")
 
 
 def main():
@@ -273,12 +427,25 @@ def main():
     ap.add_argument("--min-votes", type=int, default=0, help="Mindestanzahl Stimmen (Default 0)")
     ap.add_argument("--min-year", type=int, default=None, help="fruehestes startYear")
     ap.add_argument("--adult", action="store_true", help="Adult-Titel einschliessen")
-    ap.add_argument("--with-episodes", action="store_true", help="title.episode mit importieren")
+    ap.add_argument("--with-episodes", action="store_true",
+                    help="title.episode inkl. Episodentitel und -ratings mit importieren")
+    ap.add_argument("--with-crew", action="store_true", help="Regie/Drehbuch aus title.crew importieren")
+    ap.add_argument("--with-cast", action="store_true",
+                    help="Besetzung aus title.principals importieren (benoetigt name.basics)")
+    ap.add_argument("--cast-limit", type=int, default=15,
+                    help="hoechstes principals.ordering pro Titel (Default 15)")
+    ap.add_argument("--tconst-file", help="nur diese tconsts fuer Crew/Cast/Episoden anreichern")
     args = ap.parse_args()
 
     raw_dir = Path(args.raw_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
-    files = FILES + ([EPISODE_FILE] if args.with_episodes else [])
+    files = list(FILES)
+    if args.with_episodes:
+        files.append(EPISODE_FILE)
+    if args.with_crew:
+        files.append(CREW_FILE)
+    if args.with_cast:
+        files.extend([PRINCIPALS_FILE, NAMES_FILE])
     if not args.no_download:
         for f in files:
             download(f, raw_dir, args.force)
@@ -286,6 +453,9 @@ def main():
     if missing:
         log(f"Fehlende Dateien in {raw_dir}: {', '.join(missing)}")
         return 1
+    if (args.with_crew or args.with_cast or args.with_episodes) and not args.tconst_file:
+        log("Hinweis: ohne --tconst-file werden Crew/Cast/Episoden fuer alle gefilterten "
+            "Titel gebaut; das kann sehr gross werden.")
     build(args, raw_dir)
     return 0
 

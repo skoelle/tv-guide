@@ -43,11 +43,21 @@ def make_imdb_db(path: Path) -> None:
             avg_rating REAL, num_votes INTEGER);
         CREATE TABLE title_names (tconst TEXT NOT NULL, name TEXT NOT NULL, norm TEXT NOT NULL, kind TEXT NOT NULL,
             region TEXT, language TEXT);
+        CREATE TABLE episodes (tconst TEXT PRIMARY KEY, parent_tconst TEXT NOT NULL, season INTEGER,
+            episode INTEGER, primary_title TEXT, start_year INTEGER, avg_rating REAL, num_votes INTEGER);
+        CREATE TABLE people (nconst TEXT PRIMARY KEY, name TEXT NOT NULL, birth_year INTEGER, death_year INTEGER);
+        CREATE TABLE credits (tconst TEXT NOT NULL, nconst TEXT NOT NULL, category TEXT NOT NULL,
+            job TEXT, characters TEXT, ordering INTEGER);
         CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
     """)
     con.execute("INSERT INTO titles VALUES ('tt0086659','tvSeries','The A-Team','The A-Team',1983,1987,60,'Action',7.4,90000)")
     con.execute("INSERT INTO title_names VALUES ('tt0086659','Das A-Team','das a team','aka','DE','de')")
     con.execute("INSERT INTO title_names VALUES ('tt0086659','The A-Team','the a team','primary',NULL,NULL)")
+    con.execute("INSERT INTO people VALUES ('nm1','John Doe',1940,NULL)")
+    con.execute("INSERT INTO people VALUES ('nm2','Jane Smith',1950,NULL)")
+    con.execute("INSERT INTO credits VALUES ('tt0086659','nm1','director',NULL,NULL,NULL)")
+    con.execute("INSERT INTO credits VALUES ('tt0086659','nm2','actor',NULL,'[\"Hannibal Smith\"]',1)")
+    con.execute("INSERT INTO episodes VALUES ('tt9000001','tt0086659',1,1,'Pilot',1983,7.5,100)")
     con.executemany("INSERT INTO meta VALUES (?,?)", [("source_date", "2026-11-05"), ("built_at", "2026-11-05T17:49:12Z")])
     con.commit()
     con.close()

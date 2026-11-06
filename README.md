@@ -21,7 +21,7 @@ Details: `SPEC.md` (what) and `PLAN.md` (how).
 
 - 🐍 Python 3.11 or newer (tested with 3.12.3), `python3-venv`
 - 🗄️ `data/epg.db` and `data/imdb.db` (built by `tools/epg_import.py` and `tools/imdb_build.py`)
-- 🧰 `tools/` with the three scripts is already in the repo and stays unchanged
+- 🧰 `tools/` with the three standalone scripts; `imdb_build.py` also builds cast, crew, and episode metadata
 
 ## 🚀 Quick start
 
@@ -88,6 +88,8 @@ Manual control: a work classified as **Format** can be kept as a **film/series**
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
 The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, and data date. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB data disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
+
+For series, the work detail also shows a **Besetzung & Stab** box (directors, writers, top cast with roles, linked to IMDb) and a collapsible episode list with season, episode, title, year, and rating. When an airing's EPG season/episode matches an IMDb episode, the episode title and rating are shown inline with the airing. Cast, crew, and episodes are built only for currently matched works, keeping `imdb.db` small.
 
 When poster data has been cached, the work detail also has a **TMDB** box. It is built only from the stored `/find` response in `tmdb_cache` (no additional API request) and shows the TMDB title and original title, overview, release/first-air date, TMDB rating and votes, popularity, original language, origin country, TMDB ID, cache date, and a link to the TMDB page. Fields that are missing in the cached response are omitted. Backdrops are not shown because only the poster image is cached locally; genres remain the IMDb genres.
 
@@ -164,6 +166,10 @@ user = ""                 # password from TVGUIDE_TVH_PASSWORD
 
 [imdb]
 raw_dir = "data/imdb_raw" # large dataset, lives in the data volume
+with_episodes = true      # episode titles and ratings
+with_crew = true          # directors and writers
+with_cast = true          # top-billed cast (title.principals + name.basics)
+cast_limit = 15           # highest principals.ordering per title
 
 [schedule]
 enabled = false           # docker-compose sets TVGUIDE_SCHEDULE_ENABLED=true
@@ -172,7 +178,9 @@ imdb_weekday = 0          # Monday
 imdb_time = "04:30"
 ```
 
-The IMDb build needs network access to `datasets.imdbws.com` and about 2 GB of free disk (`imdb_raw` + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.
+The IMDb build needs network access to `datasets.imdbws.com` and about 4 GB of free disk (`imdb_raw` including cast/crew datasets + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`.
+
+Cast, crew, and episode metadata is only materialised for the tconsts currently matched in `app.db`. The pipeline passes this list to `tools/imdb_build.py`; the standalone tool can also run with `--tconst-file FILE`. Local tests use tiny synthetic gzipped TSV fixtures and never download the full datasets. For a manual smoke test, point `--no-download --raw-dir` at a small hand-made directory with the required `.tsv.gz` files.
 
 ## 🐳 Docker operation
 

@@ -17,7 +17,7 @@ from pathlib import Path
 from .config import Config
 
 ROOT = Path(__file__).resolve().parent.parent
-MIN_FREE_BYTES = 2 * 1024**3  # Reserve fuer imdb_raw + Temp-Build + fertige DB
+MIN_FREE_BYTES = 4 * 1024**3  # Reserve fuer imdb_raw (inkl. Cast/Crew) + Temp-Build + fertige DB
 
 
 def _run_stream(cmd: list[str], log, display: list[str] | None = None) -> None:
@@ -118,6 +118,22 @@ def _posters(cfg: Config, log) -> str:
         return msg
 
 
+def _matched_tconsts(cfg: Config) -> set[str]:
+    """Aktuell gematchte IMDb-IDs aus app.db (nur lesen, keine Migration)."""
+    if not cfg.app_db.exists():
+        return set()
+    con = sqlite3.connect(f"file:{cfg.app_db}?mode=ro", uri=True)
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT tconst FROM show_match WHERE tconst IS NOT NULL AND tconst != ''"
+        ).fetchall()
+    except sqlite3.Error:
+        return set()
+    finally:
+        con.close()
+    return {str(r[0]) for r in rows}
+
+
 def run_imdb_job(cfg: Config, log=print) -> str:
     """Baut `imdb.db` aus den IMDb-Datasets, refresht und holt fehlende Poster."""
     raw = cfg.imdb_raw_dir or (cfg.app_db.parent / "imdb_raw")
@@ -130,10 +146,32 @@ def run_imdb_job(cfg: Config, log=print) -> str:
         cmd += ["--min-votes", str(cfg.imdb_min_votes)]
     if cfg.imdb_min_year:
         cmd += ["--min-year", str(cfg.imdb_min_year)]
-    if cfg.imdb_with_episodes:
-        cmd += ["--with-episodes"]
+
+    extras = cfg.imdb_with_episodes or cfg.imdb_with_crew or cfg.imdb_with_cast
+    tconst_file = None
+    scope = _matched_tconsts(cfg) if extras else set()
+    if extras and not scope:
+        log("Keine gematchten Titel vorhanden; Crew/Cast/Episoden werden uebersprungen")
+    elif extras:
+        tconst_file = raw / ".matched_tconsts.txt"
+        tconst_file.write_text("\n".join(sorted(scope)) + "\n", encoding="utf-8")
+        cmd += ["--tconst-file", str(tconst_file)]
+        if cfg.imdb_with_episodes:
+            cmd += ["--with-episodes"]
+        if cfg.imdb_with_crew:
+            cmd += ["--with-crew"]
+        if cfg.imdb_with_cast:
+            cmd += ["--with-cast", "--cast-limit", str(cfg.imdb_cast_limit)]
+
     log(f"host={socket.gethostname()} free={shutil.disk_usage(raw).free / 1e9:.1f} GB")
-    _run_stream(cmd, log)
+    try:
+        _run_stream(cmd, log)
+    finally:
+        if tconst_file is not None:
+            try:
+                tconst_file.unlink()
+            except FileNotFoundError:
+                pass
     message = "IMDb build done; " + _refresh(cfg, log)
     posters = _posters(cfg, log)
     return f"{message}; {posters}" if posters else message

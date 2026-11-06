@@ -60,7 +60,10 @@ raw_dir = "data/imdb_raw"    # Rohdatensatz, gross; im data-Volume
 types = "movie,tvMovie,tvSeries,tvMiniSeries"
 min_votes = 0
 min_year = 0                 # 0 = aus
-with_episodes = false
+with_episodes = true
+with_crew = true             # Regie/Drehbuch
+with_cast = true             # Besetzung (title.principals + name.basics)
+cast_limit = 15              # hoechstes principals.ordering pro Titel
 
 # Zeitplan im Container. Lokal/Dev aus; docker-compose setzt TVGUIDE_SCHEDULE_ENABLED=true.
 [schedule]

@@ -205,3 +205,46 @@ def test_work_shows_epg_box_und_details(cfg):
     assert "Ein Kommando hilft Menschen in Not." in html
     assert 'class="grid work-sources"' in html
     assert "<h2>IMDb</h2>" in html
+
+
+def test_work_shows_cast_and_episodes(cfg):
+    airing = {
+        "channel": "Kabel Eins", "channel_id": "c1", "start_ts": AT,
+        "stop_ts": AT + 3600, "sub_title": "Folge 2", "title": "Das A-Team",
+        "description": "", "categories": [], "fsk": "", "prod_date": "",
+        "episodes": ["Staffel 1, Folge 2"], "star_rating": "", "credits": [],
+        "season": 1, "episode": 2,
+    }
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [airing],
+    }
+    credits = {
+        "directors": [{"nconst": "nm1", "name": "John Doe"}],
+        "writers": [{"nconst": "nm2", "name": "Jane Smith"}],
+        "cast": [{"nconst": "nm3", "name": "Actor One", "role": "Hannibal Smith"}],
+    }
+    episode = {"tconst": "tt9000002", "season": 1, "episode": 2,
+               "primary_title": "Episode Two", "start_year": 1983,
+               "avg_rating": 8.1, "num_votes": 1234}
+    episodes = {"items": [episode], "shown": [episode], "total": 1, "limit": 200}
+    ctx = {
+        "w": work, "groups": [{"label": "So, 01.11.2026", "airings": [airing]}],
+        "epg": airing_summary([airing]), "mark": None, "review_shows": [],
+        "imdb_source_date": "2026-11-05", "tmdb_info": None,
+        "credits": credits, "episodes": episodes,
+        "airing_episodes": {("c1", AT): episode},
+        "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert "Besetzung &amp; Stab" in html
+    assert 'href="https://www.imdb.com/name/nm1/"' in html
+    assert "John Doe" in html and "Jane Smith" in html
+    assert "Actor One" in html and "Hannibal Smith" in html
+    assert "Episodenliste anzeigen" in html
+    assert "Episode Two" in html and "8.1" in html
+    assert "1 von 1" in html

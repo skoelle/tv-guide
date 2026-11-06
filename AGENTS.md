@@ -11,7 +11,7 @@ categorised as Film, Serie or Format (non-fiction formats are hidden from Review
 Layout:
 
 - `tvguide/` – application (config, db, matching, browse, review, search, notify, web)
-- `tools/` – standalone data tools (`epg_import.py`, `imdb_build.py`, `match_test.py`); keep unchanged
+- `tools/` – standalone data tools (`epg_import.py`, `imdb_build.py`, `match_test.py`); `imdb_build.py` also builds crew/cast/episode metadata for matched tconsts
 - `tests/` – pytest suite (golden test skips when `data/` is missing)
 - `data/` – local databases (`epg.db`, `imdb.db`, `app.db`); never committed
 - `SPEC.md`, `PLAN.md` – specification and plan (German)

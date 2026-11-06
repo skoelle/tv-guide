@@ -52,11 +52,15 @@ def collect(con: Db, cfg: Config) -> dict:
         epg["last_import"] = dict(last) if last else None
 
     imdb: dict = {"state": con.attached.get("imdb"), "file": _file_info(cfg.imdb_db),
-                  "titles": None, "names": None, "meta": {}}
+                  "titles": None, "names": None, "episodes": None,
+                  "credits": None, "people": None, "meta": {}}
     if imdb_ok:
         imdb.update(
             titles=_one(con, "SELECT count(*) FROM imdb.titles"),
             names=_one(con, "SELECT count(*) FROM imdb.title_names"),
+            episodes=_one(con, "SELECT count(*) FROM imdb.episodes"),
+            credits=_one(con, "SELECT count(*) FROM imdb.credits"),
+            people=_one(con, "SELECT count(*) FROM imdb.people"),
         )
         try:
             imdb["meta"] = {r[0]: r[1] for r in con.execute("SELECT key, value FROM imdb.meta")}
@@ -144,6 +148,8 @@ def render_text(s: dict) -> str:
     if i.get("titles") is not None:
         L.append(f"  Titel:      {fmt_num(i['titles'])}")
         L.append(f"  Namen:      {fmt_num(i['names'])}")
+        L.append(f"  Folgen:     {fmt_num(i.get('episodes'))}")
+        L.append(f"  Credits:    {fmt_num(i.get('credits'))} ({fmt_num(i.get('people'))} Personen)")
         m = i.get("meta") or {}
         if m:
             L.append(f"  Datenstand: {m.get('source_date', '-')}, gebaut {m.get('built_at', '-')}")
