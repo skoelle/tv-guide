@@ -189,7 +189,8 @@ Serie 230, Film 120. Review zeigt seit M10 nur Film + Serie (in den Echtdaten 35
 
 ### 6.1 Filterfelder (implementiert)
 `type` (film/serie), `category` (film/serie/format), `decade`, `group` (aus
-`channel_groups`), `genre`, `status` (sicher/unsicher), `retro`, `upcoming` (nur Werke mit
+`channel_groups`), `genre`, `genre_not` (ausgeschlossene Genres), `status` (sicher/unsicher),
+`retro`, `upcoming` (nur Werke mit
 einem Termin ab jetzt), `q` (Textsuche über Titel und Untertitel). Standard: Kategorie
 Film+Serie, `upcoming` aus.
 
@@ -199,7 +200,8 @@ Gespeicherte Suchen speichern ein **validiertes Filter-JSON** (Whitelist in
 
 ```json
 {"type": ["serie"], "category": ["film", "serie"], "decade": [1980, 1999],
- "group": "retro", "genre": ["Crime"], "retro": false, "upcoming": false, "q": ""}
+ "group": "retro", "genre": ["Crime"], "genre_not": ["Animation"],
+ "retro": false, "upcoming": false, "q": ""}
 ```
 
 Zusätzlich pro Suche: `include_review` (auch unsichere Treffer) und `notify`.
@@ -216,9 +218,9 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
 
 ### 7.1 Ansichten
 - **Jetzt:** „Läuft gerade“ und „Heute Abend“, Filterleiste inkl. Kategorie.
-- **Stöbern:** Karten pro Werk, Filter-Chips (Kategorie/Typ, Dekade, Sendergruppe, Genre,
-  Zuordnung, Retro, nur zukünftige Termine), Sortierung, Paginierung; Format standardmäßig
-  ausgeblendet.
+- **Stöbern:** Karten pro Werk, Filter-Chips (Kategorie/Typ, Dekade, Sendergruppe, Genre
+  einschließlich „Genre ausschließen“, Zuordnung, Retro, nur zukünftige Termine), Sortierung,
+  Paginierung; Format standardmäßig ausgeblendet.
 - **Werk-Detail:** Poster, Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
   bei unsicheren Zuordnungen eine Review-Box (Kandidaten bestätigen, „Kein Treffer“,
   anderer Titel). Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei

@@ -60,6 +60,8 @@ def _qs(f: dict) -> str:
         parts.append("group=" + f["group"])
     if f["genre"]:
         parts.append("genre=" + ",".join(sorted(f["genre"])))
+    if f.get("genre_not"):
+        parts.append("genre_not=" + ",".join(sorted(f["genre_not"])))
     if f["status"] and f["status"] != {"sicher", "unsicher"}:
         parts.append("status=" + ",".join(sorted(f["status"])))
     if f["retro"]:
@@ -80,8 +82,20 @@ def _toggle(f: dict, key: str, value=None) -> dict:
            "category": None if f.get("category") is None else set(f["category"]),
            "decade": None if f["decade"] is None else set(f["decade"]),
            "status": None if f["status"] is None else set(f["status"]),
-           "genre": None if f["genre"] is None else set(f["genre"])}
-    if key in ("type", "category", "decade", "genre", "status"):
+           "genre": None if f["genre"] is None else set(f["genre"]),
+           "genre_not": None if f.get("genre_not") is None else set(f["genre_not"])}
+    if key in ("genre", "genre_not"):
+        other = "genre_not" if key == "genre" else "genre"
+        opposite = set(new[other] or set())
+        opposite.discard(value)
+        new[other] = opposite or None
+        cur = set(new[key] or set())
+        if value in cur:
+            cur.discard(value)
+        else:
+            cur.add(value)
+        new[key] = cur or None
+    elif key in ("type", "category", "decade", "status"):
         cur = set(new[key] or set())
         if value in cur:
             cur.discard(value)
@@ -364,11 +378,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.post("/searches")
     def searches_create(name: str = Form(""), category: str = Form(""), type: str = Form(""),
-                        decade: str = Form(""), genre: str = Form(""), q: str = Form(""),
-                        group: str = Form(""), retro: str = Form(""), upcoming: str = Form(""),
-                        include_review: str = Form(None), notify: str = Form(None),
-                        con: Db = Depends(get_db)):
-        filt = {"type": type, "category": category, "decade": decade, "genre": genre, "q": q,
+                        decade: str = Form(""), genre: str = Form(""), genre_not: str = Form(""),
+                        q: str = Form(""), group: str = Form(""), retro: str = Form(""),
+                        upcoming: str = Form(""), include_review: str = Form(None),
+                        notify: str = Form(None), con: Db = Depends(get_db)):
+        filt = {"type": type, "category": category, "decade": decade, "genre": genre,
+                "genre_not": genre_not, "q": q,
                 "group": group or None, "retro": retro in ("1", "on", "true"),
                 "upcoming": upcoming in ("1", "on", "true")}
         try:

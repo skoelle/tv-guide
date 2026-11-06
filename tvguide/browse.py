@@ -150,6 +150,7 @@ def parse_filters(params) -> dict:
         "decade": {int(d) for d in lst("decade")} if params.get("decade") else None,
         "group": params.get("group") or None,
         "genre": lst("genre"),
+        "genre_not": lst("genre_not"),
         "status": status,
         "retro": params.get("retro") in ("1", "true", "on"),
         "upcoming": params.get("upcoming") in ("1", "true", "on"),
@@ -171,6 +172,8 @@ def matches(w: dict, f: dict, cfg: Config, at: int | None = None) -> bool:
         if s not in f["status"]:
             return False
     if f["genre"] and not (set(w["genres"]) & f["genre"]):
+        return False
+    if f.get("genre_not") and (set(w["genres"]) & f["genre_not"]):
         return False
     if f["retro"] and w["retro"] not in ("film", "serie_abgeschlossen"):
         return False
@@ -220,7 +223,8 @@ def catalog_facets(works: list[dict], f: dict, cfg: Config, at: int | None = Non
         "category": {v: count({"category": {v}}) for v in ("film", "serie", "format")},
         "type": {v: count({"type": {v}}) for v in ("film", "serie")},
         "decade": {d: count({"decade": {d}}) for d in decades},
-        "genre": {g: count({"genre": {g}}) for g in genres},
+        "genre": {g: count({"genre": {g}, "genre_not": None}) for g in genres},
+        "genre_not": {g: count({"genre": None, "genre_not": {g}}) for g in genres},
         "status": {v: count({"status": {v}}) for v in ("sicher", "unsicher")},
         "group": {g: count({"group": g}) for g in cfg.channel_groups},
         "upcoming": count({"upcoming": True}),

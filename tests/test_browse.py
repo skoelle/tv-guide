@@ -93,6 +93,29 @@ def test_matches_dimensionen(cfg):
     assert matches(serie90, {**f, "genre": {"Comedy"}}, cfg)
 
 
+def test_parse_filters_genre_not():
+    assert parse_filters({})["genre_not"] is None
+    assert parse_filters({"genre_not": "Animation,Horror"})["genre_not"] == {"Animation", "Horror"}
+
+
+def test_matches_genre_not(cfg):
+    f = parse_filters({})
+    animation = _w(type_="movie", genres=("Animation", "Comedy"))
+    drama = _w(type_="movie", genres=("Drama",))
+    assert matches(animation, f, cfg)
+    assert matches(animation, {**f, "genre_not": {"Horror"}}, cfg)
+    assert not matches(animation, {**f, "genre_not": {"Animation"}}, cfg)
+    assert matches(drama, {**f, "genre_not": {"Animation"}}, cfg)
+    assert not matches(animation, {**f, "genre": {"Animation"}, "genre_not": {"Animation"}}, cfg)
+
+
+def test_facets_genre_not(cfg):
+    works = [_w("tt1", genres=("Animation",)), _w("tt2", genres=("Drama",))]
+    fac = catalog_facets(works, parse_filters({}), cfg)
+    assert fac["genre_not"]["Animation"] == 1
+    assert fac["genre_not"]["Drama"] == 1
+
+
 def test_matches_status_und_retro(cfg):
     f = parse_filters({})
     unsicher = _w(status="review")

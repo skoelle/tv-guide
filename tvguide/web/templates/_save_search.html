@@ -5,6 +5,7 @@
     <input type="hidden" name="type" value="{{ (f.type or []) | join(',') }}">
     <input type="hidden" name="decade" value="{{ (f.decade or []) | join(',') }}">
     <input type="hidden" name="genre" value="{{ (f.genre or []) | join(',') }}">
+    <input type="hidden" name="genre_not" value="{{ (f.genre_not or []) | join(',') }}">
     <input type="hidden" name="group" value="{{ f.group or '' }}">
     <input type="hidden" name="retro" value="{{ '1' if f.retro else '' }}">
     <input type="hidden" name="upcoming" value="{{ '1' if f.upcoming else '' }}">

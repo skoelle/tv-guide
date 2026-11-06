@@ -14,11 +14,11 @@ from urllib.parse import quote
 from .browse import apply_filters, load_catalog
 from .config import Config
 
-LIST_KEYS = ("type", "genre")
+LIST_KEYS = ("type", "genre", "genre_not")
 VALID_TYPES = {"film", "serie"}
 VALID_STATUS = {"sicher", "unsicher"}
 VALID_CATEGORIES = {"film", "serie", "format"}
-FILTER_KEYS = {"type", "category", "decade", "group", "genre", "retro", "upcoming", "q"}
+FILTER_KEYS = {"type", "category", "decade", "group", "genre", "genre_not", "retro", "upcoming", "q"}
 
 
 def _now() -> str:
@@ -76,6 +76,7 @@ def normalize_filter(data, cfg: Config) -> dict:
         "decade": decades,
         "group": group,
         "genre": sorted(_as_list(data.get("genre"))) if data.get("genre") else None,
+        "genre_not": sorted(_as_list(data.get("genre_not"))) if data.get("genre_not") else None,
         "retro": bool(data.get("retro")),
         "upcoming": bool(data.get("upcoming")),
         "q": (data.get("q") or "").strip(),
@@ -91,6 +92,7 @@ def effective_filters(filter_json: dict, include_review: bool) -> dict:
         "decade": set(filter_json["decade"]) if filter_json.get("decade") else None,
         "group": filter_json.get("group"),
         "genre": set(filter_json["genre"]) if filter_json.get("genre") else None,
+        "genre_not": set(filter_json["genre_not"]) if filter_json.get("genre_not") else None,
         "status": status,
         "retro": bool(filter_json.get("retro")),
         "upcoming": bool(filter_json.get("upcoming")),
@@ -113,6 +115,8 @@ def filter_to_query(filter_json: dict) -> str:
         parts.append("group=" + filter_json["group"])
     if filter_json.get("genre"):
         parts.append("genre=" + ",".join(sorted(filter_json["genre"])))
+    if filter_json.get("genre_not"):
+        parts.append("genre_not=" + ",".join(sorted(filter_json["genre_not"])))
     if filter_json.get("retro"):
         parts.append("retro=1")
     if filter_json.get("upcoming"):
@@ -136,6 +140,8 @@ def describe(filter_json: dict, include_review: bool) -> str:
         bits.append(f"Gruppe {filter_json['group'].capitalize()}")
     if filter_json.get("genre"):
         bits.append(", ".join(filter_json["genre"]))
+    if filter_json.get("genre_not"):
+        bits.append("ohne " + ", ".join(filter_json["genre_not"]))
     if filter_json.get("retro"):
         bits.append("Retro")
     if filter_json.get("upcoming"):

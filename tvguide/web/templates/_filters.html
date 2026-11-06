@@ -20,6 +20,11 @@
   {{ tchip(f, base, 'genre', g, genre_de(g), c, f.genre and g in f.genre) }}
   {% endfor %}
 </div>
+<div class="fgroup"><span class="small">Genre ausschließen</span>
+  {% for g, c in facets.genre_not.items() %}
+  {{ tchip(f, base, 'genre_not', g, genre_de(g), c, f.genre_not and g in f.genre_not, 'not') }}
+  {% endfor %}
+</div>
 <div class="fgroup"><span class="small">Zuordnung</span>
   {{ tchip(f, base, 'status', 'sicher', 'sicher', facets.status.get('sicher'), 'sicher' in (f.status or [])) }}
   {{ tchip(f, base, 'status', 'unsicher', 'unsicher', facets.status.get('unsicher'), 'unsicher' in (f.status or []), 'warn') }}

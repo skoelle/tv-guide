@@ -115,11 +115,11 @@ TMDB attribution: *This product uses the TMDB API but is not endorsed or certifi
 
 After every `refresh` (and via `./run.sh notify`) TV-Guide sends **one digest email** for all open hits of searches with notifications enabled. The `[smtp]` section in `config.toml` holds `host`, `port`, `security` (`starttls`|`ssl`), `username`, `from`, `to`; the password comes exclusively from the `TVGUIDE_SMTP_PASSWORD` environment variable. Links in the email use `[server].base_url`. `notified_at` is only set after a successful send – if SMTP is missing or sending fails, the next run retries. `./run.sh notify --dry-run` writes the email to `data/outbox/`, `--test` sends a test message.
 
-Saved searches store a **validated filter JSON** (whitelist: `type`, `decade`, `group`, `genre`, `retro`, `upcoming`, `q`, plus `include_review`/`notify`). They are evaluated with the same engine as the filter view, so a search and the view always return the same hits. `search_hits` is updated on `refresh` and via `./run.sh searches`; "new" is the number of airings added during the last run.
+Saved searches store a **validated filter JSON** (whitelist: `type`, `decade`, `group`, `genre`, `genre_not`, `retro`, `upcoming`, `q`, plus `include_review`/`notify`). They are evaluated with the same engine as the filter view, so a search and the view always return the same hits. `search_hits` is updated on `refresh` and via `./run.sh searches`; "new" is the number of airings added during the last run.
 
 Review decisions are stored in `overrides` (they take precedence over the automatic matching) and logged in `override_log` so the last decision can be undone.
 
-Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&group=retro&status=sicher&retro=1&upcoming=1&sort=jahr&q=...`). The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
+Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&genre_not=Animation&group=retro&status=sicher&retro=1&upcoming=1&sort=jahr&q=...`). Genres can be included (`genre`) and excluded (`genre_not`); exclusion wins if both mention the same genre. The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
 
 ## ⏰ Automatic sync (scheduler + buttons)
 

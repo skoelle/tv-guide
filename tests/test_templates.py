@@ -108,3 +108,5 @@ def test_browse_title_links_to_work(cfg):
     assert 'href="/work/tt1"' in html
     assert "nur zukünftige" in html
     assert 'name="upcoming"' in html
+    assert "Genre ausschließen" in html
+    assert 'name="genre_not"' in html
