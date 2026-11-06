@@ -16,7 +16,8 @@ from zoneinfo import ZoneInfo
 
 from .. import __version__
 from ..browse import (annotate_next, apply_filters, catalog_facets, evening_airings, find_work,
-                      genre_de, load_catalog, parse_filters, running_airings, sort_works)
+                      genre_de, imdb_source_date, imdb_type_de, load_catalog, parse_filters,
+                      running_airings, sort_works)
 from ..categories import label as category_label
 from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
@@ -143,6 +144,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     templates.env.filters["size"] = fmt_size
     templates.env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, cfg.timezone, fmt)
     templates.env.globals["genre_de"] = genre_de
+    templates.env.globals["imdb_type_de"] = imdb_type_de
     templates.env.globals["category_label"] = category_label
     templates.env.globals["decade_label"] = lambda d: f"{d}er" if d >= 2000 else f"{str(d)[2:]}er"
     templates.env.globals["with_sort"] = lambda f, v: {**f, "sort": v}
@@ -217,7 +219,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                         if w["status"] == "review" else [])
         ctx = _base(request, con, "")
         ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
-                    "review_shows": review_shows})
+                    "review_shows": review_shows,
+                    "imdb_source_date": imdb_source_date(con)})
         return templates.TemplateResponse(request, "work.html", ctx)
 
     @app.get("/api/now")

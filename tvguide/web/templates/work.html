@@ -14,10 +14,14 @@
     <div class="box">
       <dl>
         <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
+        <dt>Typ</dt><dd>{{ imdb_type_de(w.imdb_type) }}</dd>
+        <dt>{{ 'Folgenlänge' if w.kind == 'serie' else 'Laufzeit' }}</dt>
+        <dd>{% if w.runtime %}{{ w.runtime }} Min.{% else %}–{% endif %}</dd>
         <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
         <dt>IMDb-Titel</dt><dd>{{ imdb_link(w.tconst, w.imdb_title or w.title) }}</dd>
         {% if w.original_title and w.original_title != w.imdb_title %}<dt>Originaltitel</dt><dd>{{ w.original_title }}</dd>{% endif %}
         <dt>IMDb-ID</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
+        {% if imdb_source_date %}<dt>IMDb-Datenstand</dt><dd>{{ imdb_source_date }}</dd>{% endif %}
         {% if w.tmdb_url %}<dt>TMDB</dt><dd><a href="{{ w.tmdb_url }}" target="_blank" rel="noopener noreferrer">TMDB-Seite ↗</a></dd>{% endif %}
         <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
       </dl>

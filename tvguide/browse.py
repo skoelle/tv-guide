@@ -15,6 +15,11 @@ from .config import Config
 from .marks import get_marks
 from .matching import MOVIE_TYPES, retro_class
 
+IMDB_TYPE_DE = {
+    "movie": "Kinofilm", "tvMovie": "TV-Film",
+    "tvSeries": "TV-Serie", "tvMiniSeries": "Miniserie",
+}
+
 GENRES_DE = {
     "Action": "Action", "Adventure": "Abenteuer", "Animation": "Animation",
     "Biography": "Biografie", "Comedy": "Komödie", "Crime": "Krimi",
@@ -31,7 +36,7 @@ SELECT es.channel_id, es.start_ts, s.show_key, s.show_name,
        e.stop_ts, e.title, e.sub_title,
        COALESCE(c.name, es.channel_id) AS channel,
        t.title_type, t.primary_title, t.original_title,
-       t.start_year, t.end_year, t.genres, t.avg_rating, t.num_votes
+       t.start_year, t.end_year, t.runtime_min, t.genres, t.avg_rating, t.num_votes
 FROM event_show es
 JOIN epg_shows s ON s.id = es.show_id
 JOIN show_match sm ON sm.show_id = es.show_id
@@ -44,6 +49,19 @@ WHERE sm.tconst IS NOT NULL AND sm.status IN (%s)
 
 def genre_de(g: str) -> str:
     return GENRES_DE.get(g, g)
+
+
+def imdb_type_de(t: str | None) -> str:
+    return IMDB_TYPE_DE.get(t, t or "–")
+
+
+def imdb_source_date(con: sqlite3.Connection) -> str | None:
+    """Datenstand der IMDb-Datasets (source_date aus imdb.meta)."""
+    try:
+        row = con.execute("SELECT value FROM imdb.meta WHERE key = 'source_date'").fetchone()
+    except sqlite3.Error:
+        return None
+    return row["value"] if row else None
 
 
 def _kind(title_type: str | None) -> str:
@@ -91,6 +109,7 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
                 "tconst": tc, "title": r["show_name"], "_titles": Counter(),
                 "imdb_title": r["primary_title"], "original_title": r["original_title"],
                 "year": r["start_year"], "end_year": r["end_year"], "type": r["title_type"],
+                "imdb_type": r["title_type"], "runtime": r["runtime_min"],
                 "kind": _kind(r["title_type"]), "genres": genres, "genres_de": [genre_de(g) for g in genres],
                 "genres_raw": r["genres"] or "", "rating": r["avg_rating"], "votes": r["num_votes"],
                 "status": r["status"],

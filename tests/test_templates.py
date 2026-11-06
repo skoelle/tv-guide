@@ -4,8 +4,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, load_catalog,
-                            parse_filters, running_airings)
+from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, imdb_type_de,
+                            load_catalog, parse_filters, running_airings)
 from tvguide.categories import label as category_label
 from tvguide.db import connect
 from tvguide.status import collect, fmt_num, fmt_size, fmt_ts
@@ -21,6 +21,7 @@ def _env(tz="Europe/Berlin"):
     env.filters["size"] = fmt_size
     env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, tz, fmt)
     env.globals["genre_de"] = genre_de
+    env.globals["imdb_type_de"] = imdb_type_de
     env.globals["category_label"] = category_label
     env.globals["decade_label"] = lambda d: f"{d}er" if d >= 2000 else f"{str(d)[2:]}er"
     env.globals["with_sort"] = lambda f, v: {**f, "sort": v}
@@ -110,3 +111,25 @@ def test_browse_title_links_to_work(cfg):
     assert 'name="upcoming"' in html
     assert "Genre ausschließen" in html
     assert 'name="genre_not"' in html
+
+
+def test_work_shows_runtime_type_and_source_date(cfg):
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [],
+    }
+    ctx = {
+        "w": work, "groups": [], "mark": None, "review_shows": [],
+        "imdb_source_date": "2026-11-05", "nav": _nav(""), "version": "x",
+        "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert "TV-Serie" in html
+    assert "Folgenlänge" in html
+    assert "60 Min." in html
+    assert "IMDb-Datenstand" in html
+    assert "2026-11-05" in html

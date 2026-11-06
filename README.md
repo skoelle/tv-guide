@@ -84,7 +84,7 @@ Manual control: a work classified as **Format** can be kept as a **film/series**
 
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
-The work detail shows both the EPG title and the IMDb title plus the IMDb ID and, when available, a link to the work's TMDB page. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB link disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
+The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, data date, and, when available, a link to the work's TMDB page. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB link disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
 
 ## 🖼️ Posters (TMDB)
 
