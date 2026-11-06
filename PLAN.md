@@ -301,7 +301,7 @@ Anmerkungen:
 - [x] Episoden werden mit Titel, Jahr, Rating und Stimmen angereichert.
 - [x] `--tconst-file` begrenzt die Anreicherung auf aktuell gematchte Werke; die Pipeline erzeugt die Liste aus `app.db`.
 - [x] Neue Tabellen `people`, `credits` und erweiterte `episodes`; `meta`/Refresh-Signatur enthält die Build-Parameter.
-- [x] Werkseite zeigt Besetzung & Stab sowie eine einklappbare Episodenliste; passende Ausstrahlungen erhalten die IMDb-Episode inline.
+- [x] Werkseite zeigt Besetzung & Stab sowie eine einklappbare Episodenliste; passende Ausstrahlungen erhalten die IMDb-Episode inline. Namen führen zu einer internen Personenseite mit Sendungen, das ↗-Icon zum IMDb-Profil.
 - [x] Config: `with_episodes`, `with_crew`, `with_cast`, `cast_limit`; Disk-Reserve auf 4 GB erhöht.
 - [x] Tests mit synthetischen `.tsv.gz`-Fixtures (kein Download), Doku aktualisiert.
 

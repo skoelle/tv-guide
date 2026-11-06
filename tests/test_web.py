@@ -9,6 +9,7 @@ pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from tvguide.db import connect  # noqa: E402
+from tvguide.matching import run_match  # noqa: E402
 from tvguide.web.app import create_app  # noqa: E402
 
 _URL_RE = re.compile(r'\b(?:href|src|action|formaction|hx-(?:get|post|put|delete|patch))="([^"]*)"')
@@ -88,6 +89,25 @@ def test_api_now(client):
 
 def test_work_unbekannt_ist_404(client):
     assert client.get("/work/tt0000000").status_code == 404
+
+
+def test_person_page_zeigt_sendungen(cfg):
+    con = connect(cfg)
+    run_match(con, cfg)
+    con.execute("UPDATE show_match SET tconst='tt0086659', status='auto'")
+    con.commit()
+    con.close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/person/nm2?at=1793538000").text
+    assert "Jane Smith" in html
+    assert "Sendung 0" in html
+    assert "Kommende Sendungen" in html
+    assert 'href="https://www.imdb.com/name/nm2/"' in html
+    assert _relative_urls(html) == []
+    past = client.get("/person/nm2?at=1793600000").text
+    assert "Vergangene Sendungen anzeigen" in past
+    assert client.get("/person/nm999").status_code == 404
+    assert client.get("/person/ungueltig").status_code == 404
 
 
 def test_status_zeigt_sync_buttons(client):

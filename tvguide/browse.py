@@ -6,6 +6,7 @@ Liest app.db (event_show, show_match, epg_shows) zusammen mit epg.db und imdb.db
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
@@ -15,6 +16,8 @@ from .categories import category as content_category
 from .config import Config
 from .marks import get_marks
 from .matching import MOVIE_TYPES, retro_class
+
+NCONST_RE = re.compile(r"^nm\d+$")
 
 IMDB_TYPE_DE = {
     "movie": "Kinofilm", "tvMovie": "TV-Film",
@@ -200,6 +203,36 @@ def _credits(raw) -> list[dict]:
             continue
         out.append({"label": CREDIT_LABELS.get(key, str(key).replace("_", " ").capitalize()),
                     "names": [str(n) for n in names if n]})
+    return out
+
+
+def person_info(con: sqlite3.Connection, nconst: str) -> dict | None:
+    """Name und Lebensdaten einer Person aus IMDb."""
+    try:
+        row = con.execute(
+            "SELECT nconst, name, birth_year, death_year FROM imdb.people WHERE nconst = ?",
+            (nconst,)).fetchone()
+    except sqlite3.Error:
+        return None
+    return dict(row) if row else None
+
+
+def person_credits(con: sqlite3.Connection, nconst: str) -> dict[str, list[dict]]:
+    """Credits einer Person, gruppiert nach tconst."""
+    try:
+        rows = con.execute(
+            "SELECT tconst, category, characters, ordering FROM imdb.credits "
+            "WHERE nconst = ? ORDER BY ordering", (nconst,)).fetchall()
+    except sqlite3.Error:
+        return {}
+    out: dict[str, list[dict]] = {}
+    for r in rows:
+        category = r["category"]
+        out.setdefault(r["tconst"], []).append({
+            "category": category,
+            "label": CREDIT_LABELS.get(category, str(category).replace("_", " ").capitalize()),
+            "role": _characters(r["characters"]),
+        })
     return out
 
 

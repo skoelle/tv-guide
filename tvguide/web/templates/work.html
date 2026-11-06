@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge, imdb_link, poster with context %}
-{% macro person_links(people) -%}
-{% for p in people %}<a href="https://www.imdb.com/name/{{ p.nconst }}/" target="_blank" rel="noopener noreferrer">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+{% from "_macros.html" import badge, imdb_link, person_link, poster with context %}
+{% macro person_links(people, at) -%}
+{% for p in people %}{{ person_link(p, at) }}{% if not loop.last %}, {% endif %}{% endfor %}
 {%- endmacro %}
 {% block title %}{{ w.title }} · TV-Guide{% endblock %}
 {% block content %}
@@ -79,12 +79,12 @@
 <div class="box" style="margin-top:1rem">
   <h2>Besetzung &amp; Stab</h2>
   <dl>
-    {% if credits.directors %}<dt>Regie</dt><dd>{{ person_links(credits.directors) }}</dd>{% endif %}
-    {% if credits.writers %}<dt>Buch</dt><dd>{{ person_links(credits.writers) }}</dd>{% endif %}
+    {% if credits.directors %}<dt>Regie</dt><dd>{{ person_links(credits.directors, at) }}</dd>{% endif %}
+    {% if credits.writers %}<dt>Buch</dt><dd>{{ person_links(credits.writers, at) }}</dd>{% endif %}
     {% if credits.cast %}
     <dt>Besetzung</dt>
     <dd>
-      {% for p in credits.cast %}<a href="https://www.imdb.com/name/{{ p.nconst }}/" target="_blank" rel="noopener noreferrer">{{ p.name }}</a>{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+      {% for p in credits.cast %}{{ person_link(p, at) }}{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
     </dd>
     {% endif %}
   </dl>

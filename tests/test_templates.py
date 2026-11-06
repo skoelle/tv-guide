@@ -243,6 +243,9 @@ def test_work_shows_cast_and_episodes(cfg):
     }
     html = _env().get_template("work.html").render(**ctx)
     assert "Besetzung &amp; Stab" in html
+    assert 'href="/person/nm1"' in html
+    assert 'href="/person/nm2"' in html
+    assert 'href="/person/nm3"' in html
     assert 'href="https://www.imdb.com/name/nm1/"' in html
     assert "John Doe" in html and "Jane Smith" in html
     assert "Actor One" in html and "Hannibal Smith" in html

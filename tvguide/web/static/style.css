@@ -28,6 +28,8 @@ dd { margin: 0; word-break: break-word; }
 .btn.soon { opacity: .5; cursor: default; }
 a { color: #1f5fa8; }
 .imdb-link { font-size: .85em; white-space: nowrap; }
+.imdb-ext { margin-left: .15rem; font-size: .8em; text-decoration: none; white-space: nowrap; }
+.imdb-ext:hover { text-decoration: underline; }
 
 .layout { display: grid; grid-template-columns: 240px 1fr; gap: 1rem; align-items: start; }
 .filters { position: sticky; top: 1rem; }

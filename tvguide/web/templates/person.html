@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import work_card with context %}
+{% macro person_work_card(w) -%}
+{% set entries = roles.get(w.tconst, []) %}
+{% set note %}{% if entries %}<span class="muted">{% for e in entries %}{{ e.label }}{% if e.role %} als {{ e.role }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</span>{% endif %}{% endset %}
+{{ work_card(w, at, note) }}
+{%- endmacro %}
+{% block title %}{{ person.name }} · TV-Guide{% endblock %}
+{% block content %}
+{% set total = (upcoming_works | length) + (past_works | length) %}
+<div class="work-head">
+  <div class="work-main">
+    <h1>{{ person.name }} <a class="imdb-ext" href="https://www.imdb.com/name/{{ person.nconst }}/"
+      target="_blank" rel="noopener noreferrer" title="IMDb-Profil in neuem Fenster öffnen"
+      aria-label="IMDb-Profil von {{ person.name }}">↗</a></h1>
+    <p class="muted">
+      {% if person.birth_year %}*{{ person.birth_year }}{% endif %}{% if person.death_year %} †{{ person.death_year }}{% endif %}{% if person.birth_year or person.death_year %} · {% endif %}{{ total }} {{ 'Sendung' if total == 1 else 'Sendungen' }} im aktuellen Katalog
+    </p>
+  </div>
+</div>
+<h2>Kommende Sendungen</h2>
+{% if upcoming_works %}
+<div class="cards">
+  {% for w in upcoming_works %}{{ person_work_card(w) }}{% endfor %}
+</div>
+{% else %}
+<p class="muted">Keine kommenden Sendungen mit {{ person.name }} im aktuellen Programm.</p>
+{% endif %}
+{% if past_works %}
+<details class="airing-details past-airings">
+  <summary class="btn">Vergangene Sendungen anzeigen ({{ past_works | length }})</summary>
+  <div class="cards" style="margin-top:.8rem">
+    {% for w in past_works %}{{ person_work_card(w) }}{% endfor %}
+  </div>
+</details>
+{% endif %}
+<p class="muted"><a href="/browse">← zurück zum Stöbern</a></p>
+{% endblock %}

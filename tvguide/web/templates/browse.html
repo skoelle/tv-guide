@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge, imdb_link, poster with context %}
+{% from "_macros.html" import work_card with context %}
 {% block title %}Stöbern · TV-Guide{% endblock %}
 {% block content %}
 {% set base = '/browse' %}
@@ -20,24 +20,7 @@
 <p class="muted">{{ total }} Werke{% if pages > 1 %} · Seite {{ page }}/{{ pages }}{% endif %}</p>
 {% if works %}
 <div class="cards">
-  {% for w in works %}
-  <details class="card box">
-    <summary>
-      {{ poster(w) }}
-      <span class="card-main">
-        <a href="/work/{{ w.tconst }}"><b>{{ w.title }}</b></a> {{ imdb_link(w.tconst) }} <span class="muted">({{ w.year or '?' }}{% if w.kind == 'serie' and w.end_year %}–{{ w.end_year }}{% endif %} · {{ category_label(w.category) }})</span><br>
-        <span class="muted">{{ w.genres_de | join(', ') }}</span> {{ badge(w.status) }}
-        {% if w.next %}<br><span class="chip">{% if w.next.start_ts >= at %}ab {{ w.next.start_ts | ts('%a %d.%m. %H:%M') }}{% else %}zuletzt {{ w.next.start_ts | ts('%d.%m. %H:%M') }}{% endif %} · {{ w.next.channel }}{% if w.upcoming > 1 %} · +{{ w.upcoming - 1 }} weitere{% else %} · nur 1 Termin{% endif %}</span>{% endif %}
-      </span>
-    </summary>
-    <table>
-      <tr><th>Termin</th><th>Sender</th><th>Titel</th></tr>
-      {% for a in w.airings %}
-      <tr><td>{{ a.start_ts | ts }}</td><td>{{ a.channel }}</td><td>{{ a.sub_title or w.title }}</td></tr>
-      {% endfor %}
-    </table>
-  </details>
-  {% endfor %}
+  {% for w in works %}{{ work_card(w, at) }}{% endfor %}
 </div>
 {% else %}<p class="muted">Keine Werke für diese Filter.</p>{% endif %}
 

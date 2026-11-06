@@ -2,6 +2,6 @@
 {% block title %}Nicht gefunden · TV-Guide{% endblock %}
 {% block content %}
 <h1>Nicht gefunden</h1>
-<p class="muted">Kein Werk zu <code>{{ tconst }}</code>. Vielleicht ist die Zuordnung noch nicht bestätigt.</p>
+<p class="muted">Kein {{ subject or 'Werk' }} zu <code>{{ tconst }}</code>.{% if not subject %} Vielleicht ist die Zuordnung noch nicht bestätigt.{% endif %}</p>
 <p><a href="/browse">Zum Stöbern</a></p>
 {% endblock %}

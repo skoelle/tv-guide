@@ -15,9 +15,10 @@ from pydantic import BaseModel
 from zoneinfo import ZoneInfo
 
 from .. import __version__
-from ..browse import (airing_summary, annotate_next, apply_filters, catalog_facets, evening_airings,
-                      find_work, genre_de, imdb_source_date, imdb_type_de, load_catalog,
-                      parse_filters, running_airings, sort_works, work_credits, work_episodes)
+from ..browse import (NCONST_RE, airing_summary, annotate_next, apply_filters, catalog_facets,
+                      evening_airings, find_work, genre_de, imdb_source_date, imdb_type_de,
+                      load_catalog, parse_filters, person_credits, person_info, running_airings,
+                      sort_works, work_credits, work_episodes)
 from ..categories import label as category_label
 from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
@@ -254,6 +255,30 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                     "at": at, "tvh_enabled": bool(api_base(cfg)),
                     "tvh_channels": tvh_channels})
         return templates.TemplateResponse(request, "work.html", ctx)
+
+    @app.get("/person/{nconst}")
+    def person_page(request: Request, nconst: str, con: Db = Depends(get_db)):
+        if not NCONST_RE.fullmatch(nconst):
+            return templates.TemplateResponse(request, "not_found.html",
+                                              {**_base(request, con, ""), "tconst": nconst,
+                                               "subject": "Personeneintrag"}, status_code=404)
+        person = person_info(con, nconst)
+        if person is None:
+            return templates.TemplateResponse(request, "not_found.html",
+                                              {**_base(request, con, ""), "tconst": nconst,
+                                               "subject": "Personeneintrag"}, status_code=404)
+        at = _at(request)
+        roles = person_credits(con, nconst)
+        works = [w for w in load_catalog(con, cfg) if w["tconst"] in roles]
+        annotate_next(works, at)
+        upcoming = sorted((w for w in works if w["upcoming"]),
+                          key=lambda w: w["next"]["start_ts"])
+        past = sorted((w for w in works if not w["upcoming"]),
+                      key=lambda w: -max((a["stop_ts"] for a in w["airings"]), default=0))
+        ctx = _base(request, con, "")
+        ctx.update({"person": person, "at": at, "roles": roles,
+                    "upcoming_works": upcoming, "past_works": past})
+        return templates.TemplateResponse(request, "person.html", ctx)
 
     @app.get("/api/now")
     def api_now(request: Request, con: Db = Depends(get_db)):
