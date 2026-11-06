@@ -1,4 +1,5 @@
 """Rendert die Templates direkt mit Jinja2 (unabhaengig von FastAPI)."""
+from dataclasses import replace
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -60,6 +61,7 @@ def test_index_renders(cfg):
         "f": f, "facets": catalog_facets(works, f, cfg), "at": AT,
         "running": running_airings(works, AT, f, cfg), "evening": evening_airings(works, AT, f, cfg),
         "nav": _nav("jetzt"), "version": "x", "qs": _qs, "toggle": _toggle,
+        "retro_from": cfg.retro_from, "retro_to": cfg.retro_to,
     }
     con.close()
     html = _env().get_template("index.html").render(**ctx)
@@ -67,6 +69,23 @@ def test_index_renders(cfg):
     assert "Läuft gerade" in html
     assert "Retro" in html
     assert "nur zukünftige" not in html
+
+
+def test_retro_hint_uses_config(cfg):
+    cfg = replace(cfg, retro_from=1970, retro_to=1989)
+    con = connect(cfg)
+    works = load_catalog(con, cfg)
+    f = parse_filters({})
+    ctx = {
+        "f": f, "facets": catalog_facets(works, f, cfg), "at": AT,
+        "running": running_airings(works, AT, f, cfg), "evening": evening_airings(works, AT, f, cfg),
+        "nav": _nav("jetzt"), "version": "x", "qs": _qs, "toggle": _toggle,
+        "retro_from": cfg.retro_from, "retro_to": cfg.retro_to,
+    }
+    con.close()
+    html = _env().get_template("index.html").render(**ctx)
+    assert "1970–1989" in html
+    assert "1980–1999" not in html
 
 
 def test_browse_title_links_to_work(cfg):
@@ -83,6 +102,7 @@ def test_browse_title_links_to_work(cfg):
         "f": f, "facets": catalog_facets([], f, cfg), "at": AT, "works": works,
         "total": 1, "page": 1, "pages": 1, "nav": _nav("stoebern"), "version": "x",
         "qs": _qs, "toggle": _toggle,
+        "retro_from": cfg.retro_from, "retro_to": cfg.retro_to,
     }
     html = _env().get_template("browse.html").render(**ctx)
     assert 'href="/work/tt1"' in html

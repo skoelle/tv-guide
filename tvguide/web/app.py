@@ -152,7 +152,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     def _base(request, con, active) -> dict:
         return {"request": request, "version": __version__, "nav": _nav(con, active),
-                "qs": _qs, "toggle": _toggle, "tz": cfg.timezone}
+                "qs": _qs, "toggle": _toggle, "tz": cfg.timezone,
+                "retro_from": cfg.retro_from, "retro_to": cfg.retro_to}
 
     @app.get("/")
     def index(request: Request, con: Db = Depends(get_db)):
