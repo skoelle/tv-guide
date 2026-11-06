@@ -179,7 +179,10 @@ def migrate(con: sqlite3.Connection) -> int:
 def connect(cfg: Config, *, run_migrations: bool = True) -> Db:
     """Oeffnet app.db (anlegen falls noetig) und haengt epg und imdb read-only an."""
     cfg.app_db.parent.mkdir(parents=True, exist_ok=True)
-    con = sqlite3.connect(_uri(cfg.app_db, "mode=rwc"), uri=True, factory=Db, timeout=10)
+    # FastAPI fuehrt synchrone Dependencies und Endpunkte in wechselnden Threadpool-Threads
+    # aus. Jede Anfrage nutzt weiterhin ihre eigene Verbindung, nur nicht parallel.
+    con = sqlite3.connect(_uri(cfg.app_db, "mode=rwc"), uri=True, factory=Db, timeout=10,
+                          check_same_thread=False)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")

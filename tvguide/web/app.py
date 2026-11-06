@@ -233,13 +233,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return w
 
     @app.get("/poster/{tconst}")
-    def poster_file(tconst: str, con: Db = Depends(get_db)):
+    def poster_file(tconst: str):
         if not TCONST_RE.fullmatch(tconst):
             return Response(status_code=404)
-        row = con.execute("SELECT image_file FROM posters WHERE tconst = ?", (tconst,)).fetchone()
-        if row is None or not row["image_file"]:
-            return Response(status_code=404)
-        path = (cfg.posters_dir / row["image_file"]).resolve()
+        path = (cfg.posters_dir / f"{tconst}.jpg").resolve()
         if cfg.posters_dir.resolve() not in path.parents or not path.is_file():
             return Response(status_code=404)
         return FileResponse(path, media_type="image/jpeg",

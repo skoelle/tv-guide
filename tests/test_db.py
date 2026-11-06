@@ -1,4 +1,5 @@
 import sqlite3
+import threading
 
 import pytest
 
@@ -51,3 +52,20 @@ def test_epg_replacement_is_picked_up(cfg):
     con = connect(cfg)
     assert con.execute("SELECT count(*) FROM epg.events").fetchone()[0] == 5
     con.close()
+
+
+def test_connection_can_be_used_from_another_thread(cfg):
+    con = connect(cfg)
+    errors: list[BaseException] = []
+
+    def query() -> None:
+        try:
+            con.execute("SELECT count(*) FROM schema_version").fetchone()
+        except BaseException as exc:  # noqa: BLE001 - im Test weiterreichen
+            errors.append(exc)
+
+    thread = threading.Thread(target=query)
+    thread.start()
+    thread.join()
+    con.close()
+    assert errors == []
