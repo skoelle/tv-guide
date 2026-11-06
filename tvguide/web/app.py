@@ -24,7 +24,7 @@ from ..db import Db, connect
 from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
 from ..matching import search_titles
 from ..posters import TCONST_RE
-from ..review import (apply_override, list_review, mark_as_format, review_count,
+from ..review import (apply_override, list_review, mark_as_format, reopen_work, review_count,
                       review_entries_for_tconst, show_key_for, undo_last)
 from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
@@ -288,6 +288,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.post("/api/marks/undo")
     def api_marks_undo(con: Db = Depends(get_db)):
         return {"removed": undo_last_mark(con)}
+
+    @app.post("/api/works/{tconst}/reopen")
+    def api_work_reopen(tconst: str, con: Db = Depends(get_db)):
+        shows = reopen_work(con, tconst)
+        if shows == 0:
+            return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
+        return {"ok": True, "tconst": tconst, "shows": shows, "review": review_count(con)}
 
     @app.post("/api/works/{tconst}/mark")
     def api_work_mark(tconst: str, mark: str, con: Db = Depends(get_db)):

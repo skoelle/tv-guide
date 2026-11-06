@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from tvguide.db import connect  # noqa: E402
 from tvguide.marks import set_mark, undo_last as undo_last_mark  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
-from tvguide.review import (apply_override, list_review, mark_as_format, review_count,  # noqa: E402
+from tvguide.review import (apply_override, list_review, mark_as_format, reopen_work, review_count,  # noqa: E402
                             review_entries_for_tconst, show_key_for, undo_last)
 from tvguide.web.app import create_app  # noqa: E402
 
@@ -268,3 +268,58 @@ def test_mark_as_format_und_undo(cfg):
     assert undo_last_mark(con) == "tt0086659"
     assert review_count(con) == 1
     con.close()
+
+
+def test_work_page_zeigt_imdb_titel_und_tmdb_link(cfg):
+    con = _review_show(cfg, tconst="tt0086659")
+    con.execute(
+        "INSERT INTO posters (tconst, tmdb_id, media_type, poster_path, image_file, status, fetched_at) "
+        "VALUES ('tt0086659', 821, 'tv', '/x.jpg', NULL, 'ok', '2026-11-06T00:00:00Z')")
+    con.commit()
+    con.close()
+    html = TestClient(create_app(cfg)).get("/work/tt0086659").text
+    assert "IMDb-Titel" in html
+    assert "The A-Team" in html
+    assert 'href="https://www.themoviedb.org/tv/821"' in html
+    assert "TMDB-Seite" in html
+
+
+def test_work_page_zuordnung_entfernen_button(cfg):
+    con = connect(cfg)
+    run_match(con, cfg)
+    con.execute("UPDATE show_match SET status='confirmed', tconst='tt0086659' "
+                "WHERE show_id=(SELECT id FROM epg_shows WHERE show_key='sendung 0')")
+    con.commit()
+    con.close()
+    html = TestClient(create_app(cfg)).get("/work/tt0086659").text
+    assert "Zuordnung entfernen" in html
+    assert 'hx-post="/api/works/tt0086659/reopen"' in html
+    assert "Zuordnung prüfen" not in html
+    assert _relative_urls(html) == []
+
+
+def test_reopen_work(cfg):
+    con = _review_show(cfg, tconst="tt0086659")
+    apply_override(con, "sendung 0", "tt0086659")
+    assert review_count(con) == 0
+    assert reopen_work(con, "tt0086659") == 1
+    row = con.execute(
+        """SELECT sm.status, sm.tconst, sm.method FROM show_match sm
+           WHERE sm.show_id=(SELECT id FROM epg_shows WHERE show_key='sendung 0')""").fetchone()
+    assert tuple(row) == ("review", None, "reopen")
+    assert con.execute("SELECT count(*) FROM overrides").fetchone()[0] == 0
+    assert review_count(con) == 1
+    assert reopen_work(con, "tt0000000") == 0
+    con.close()
+
+
+def test_api_work_reopen(cfg):
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/works/tt0086659/reopen", follow_redirects=False)
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+    assert r.json()["shows"] == 1
+    assert r.json()["review"] == 1
+    assert client.get("/work/tt0086659").status_code == 404
+    assert client.post("/api/works/tt0000000/reopen").status_code == 404

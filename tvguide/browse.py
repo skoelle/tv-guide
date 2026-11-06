@@ -30,7 +30,8 @@ SELECT es.channel_id, es.start_ts, s.show_key, s.show_name,
        sm.status, sm.tconst, sm.score,
        e.stop_ts, e.title, e.sub_title,
        COALESCE(c.name, es.channel_id) AS channel,
-       t.title_type, t.start_year, t.end_year, t.genres, t.avg_rating, t.num_votes
+       t.title_type, t.primary_title, t.original_title,
+       t.start_year, t.end_year, t.genres, t.avg_rating, t.num_votes
 FROM event_show es
 JOIN epg_shows s ON s.id = es.show_id
 JOIN show_match sm ON sm.show_id = es.show_id
@@ -88,6 +89,7 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
             genres = [g for g in (r["genres"] or "").split(",") if g]
             w = works[tc] = {
                 "tconst": tc, "title": r["show_name"], "_titles": Counter(),
+                "imdb_title": r["primary_title"], "original_title": r["original_title"],
                 "year": r["start_year"], "end_year": r["end_year"], "type": r["title_type"],
                 "kind": _kind(r["title_type"]), "genres": genres, "genres_de": [genre_de(g) for g in genres],
                 "genres_raw": r["genres"] or "", "rating": r["avg_rating"], "votes": r["num_votes"],
@@ -105,17 +107,22 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
             "stop_ts": r["stop_ts"], "sub_title": r["sub_title"], "title": r["title"],
         })
     poster_tconsts: set[str] = set()
+    poster_links: dict[str, str] = {}
     try:
         for row in con.execute(
-                "SELECT tconst, image_file FROM posters WHERE image_file IS NOT NULL"):
-            if (cfg.posters_dir / row["image_file"]).exists():
+                "SELECT tconst, image_file, tmdb_id, media_type FROM posters"):
+            if row["image_file"] and (cfg.posters_dir / row["image_file"]).exists():
                 poster_tconsts.add(row["tconst"])
+            if row["tmdb_id"] and row["media_type"]:
+                poster_links[row["tconst"]] = (
+                    f"https://www.themoviedb.org/{row['media_type']}/{row['tmdb_id']}")
     except sqlite3.Error:
         pass
     for w in works.values():
         w["title"] = w["_titles"].most_common(1)[0][0]
         w["airings"].sort(key=lambda a: a["start_ts"])
         w["poster"] = w["tconst"] in poster_tconsts
+        w["tmdb_url"] = poster_links.get(w["tconst"])
         w.pop("_titles", None)
     result = list(works.values())
     _CACHE["key"] = key

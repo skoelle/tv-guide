@@ -15,7 +15,10 @@
       <dl>
         <dt>Genres</dt><dd>{{ w.genres_de | join(', ') or '–' }}</dd>
         <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
-        <dt>IMDb</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
+        <dt>IMDb-Titel</dt><dd>{{ imdb_link(w.tconst, w.imdb_title or w.title) }}</dd>
+        {% if w.original_title and w.original_title != w.imdb_title %}<dt>Originaltitel</dt><dd>{{ w.original_title }}</dd>{% endif %}
+        <dt>IMDb-ID</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
+        {% if w.tmdb_url %}<dt>TMDB</dt><dd><a href="{{ w.tmdb_url }}" target="_blank" rel="noopener noreferrer">TMDB-Seite ↗</a></dd>{% endif %}
         <dt>Termine</dt><dd>{{ w.airings | length }}</dd>
       </dl>
     </div>
@@ -44,6 +47,16 @@
     </details>
   </div>
   {% endfor %}
+</div>
+{% endif %}
+{% if not review_shows %}
+<div class="box" style="margin-top:1rem">
+  <h2>Zuordnung</h2>
+  <p class="muted">Falsch automatisch zugeordnet? Die Zuordnung entfernen legt alle Shows dieses
+    Werks ohne IMDb-Treffer zurück ins Review. Poster und TMDB-Link verschwinden mit dem Werk.</p>
+  <button class="btn" type="button" hx-post="/api/works/{{ w.tconst }}/reopen" hx-swap="none"
+          hx-confirm="Zuordnung für alle Shows dieses Werks entfernen und erneut ins Review legen?"
+          hx-on::after-request="if(event.detail.successful) location.href='/review'">Zuordnung entfernen</button>
 </div>
 {% endif %}
 <div class="box" style="margin-top:1rem">

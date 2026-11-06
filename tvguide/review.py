@@ -140,6 +140,29 @@ def apply_override(con: sqlite3.Connection, show_key: str, tconst: str | None, n
     con.commit()
 
 
+def reopen_work(con: sqlite3.Connection, tconst: str) -> int:
+    """Loest die Zuordnung eines Werks und legt alle Shows zurueck ins Review.
+
+    Die Overrides werden entfernt, damit ein spaeterer Refresh die alte
+    Zuordnung nicht wiederherstellt. Gibt die Anzahl betroffener Shows zurueck.
+    """
+    rows = con.execute(
+        """SELECT s.show_key, sm.show_id FROM show_match sm
+           JOIN epg_shows s ON s.id = sm.show_id
+           WHERE sm.tconst = ?""", (tconst,)).fetchall()
+    if not rows:
+        return 0
+    now = _now()
+    for row in rows:
+        con.execute("DELETE FROM overrides WHERE show_key = ?", (row["show_key"],))
+        con.execute(
+            """UPDATE show_match SET tconst = NULL, status = 'review', score = NULL,
+                 method = 'reopen', reason = NULL, updated_at = ? WHERE show_id = ?""",
+            (now, row["show_id"]))
+    con.commit()
+    return len(rows)
+
+
 def undo_last(con: sqlite3.Connection) -> str | None:
     """Macht die letzte Entscheidung rueckgaengig. Gibt den show_key zurueck."""
     row = con.execute("SELECT * FROM override_log ORDER BY id DESC LIMIT 1").fetchone()

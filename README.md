@@ -60,13 +60,14 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 |---|---|
 | `/` | Now: "running now" and "tonight" with a filter bar |
 | `/browse` | Browse: cards per work, filter chips, sorting, pagination |
-| `/work/{tconst}` | Work detail with all airings and review actions for uncertain matches |
+| `/work/{tconst}` | Work detail with IMDb title, TMDB link, all airings, and review actions |
 | `/review` | Review open matches: confirm, reject, pick another title, undo |
 | `/searches` | Saved searches: hits, "new", edit, delete, refresh |
 | `/status` | Data status |
 | `/api/now`, `/api/browse`, `/api/works/{tconst}`, `/api/review`, `/api/searches`, `/api/jobs`, `/api/status` | JSON |
 | `/poster/{tconst}` | Locally cached TMDB poster |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review actions for HTMX (JSON, no redirect) |
+| `POST /api/works/{tconst}/reopen` | Remove a match for all shows of a work and put them back into Review |
 | `/partials/jobs` | HTMX fragment with the sync job status |
 
 ## 🎬 Content categories
@@ -82,6 +83,8 @@ Browse and Now show **Film + Serie** by default; the **Format** chip reveals the
 Manual control: a work classified as **Format** can be kept as a **film/series** (this pulls an automatically detected format back); other works can be marked as **Format**. The last manual mark can be undone on the Review page. Marks are stored per IMDb title in `content_marks` and take precedence over the automatic genre classification.
 
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
+
+The work detail shows both the EPG title and the IMDb title plus the IMDb ID and, when available, a link to the work's TMDB page. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB link disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
 
 ## 🖼️ Posters (TMDB)
 
