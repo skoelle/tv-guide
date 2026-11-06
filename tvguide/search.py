@@ -18,7 +18,7 @@ LIST_KEYS = ("type", "genre")
 VALID_TYPES = {"film", "serie"}
 VALID_STATUS = {"sicher", "unsicher"}
 VALID_CATEGORIES = {"film", "serie", "format"}
-FILTER_KEYS = {"type", "category", "decade", "group", "genre", "retro", "q"}
+FILTER_KEYS = {"type", "category", "decade", "group", "genre", "retro", "upcoming", "q"}
 
 
 def _now() -> str:
@@ -77,6 +77,7 @@ def normalize_filter(data, cfg: Config) -> dict:
         "group": group,
         "genre": sorted(_as_list(data.get("genre"))) if data.get("genre") else None,
         "retro": bool(data.get("retro")),
+        "upcoming": bool(data.get("upcoming")),
         "q": (data.get("q") or "").strip(),
     }
 
@@ -92,6 +93,7 @@ def effective_filters(filter_json: dict, include_review: bool) -> dict:
         "genre": set(filter_json["genre"]) if filter_json.get("genre") else None,
         "status": status,
         "retro": bool(filter_json.get("retro")),
+        "upcoming": bool(filter_json.get("upcoming")),
         "q": filter_json.get("q") or "",
         "sort": "termin",
         "page": 1,
@@ -113,6 +115,8 @@ def filter_to_query(filter_json: dict) -> str:
         parts.append("genre=" + ",".join(sorted(filter_json["genre"])))
     if filter_json.get("retro"):
         parts.append("retro=1")
+    if filter_json.get("upcoming"):
+        parts.append("upcoming=1")
     if filter_json.get("q"):
         parts.append("q=" + quote(filter_json["q"]))
     return "&".join(parts)
@@ -134,14 +138,18 @@ def describe(filter_json: dict, include_review: bool) -> str:
         bits.append(", ".join(filter_json["genre"]))
     if filter_json.get("retro"):
         bits.append("Retro")
+    if filter_json.get("upcoming"):
+        bits.append("nur zukünftige Termine")
     if filter_json.get("q"):
         bits.append(f'„{filter_json["q"]}"')
     bits.append("auch unsichere Treffer" if include_review else "nur sichere Treffer")
     return " · ".join(bits)
 
 
-def matched_works(con: sqlite3.Connection, cfg: Config, filter_json: dict, include_review: bool) -> list[dict]:
-    return apply_filters(load_catalog(con, cfg), effective_filters(filter_json, include_review), cfg)
+def matched_works(con: sqlite3.Connection, cfg: Config, filter_json: dict, include_review: bool,
+                  at: int | None = None) -> list[dict]:
+    at = at if at is not None else int(datetime.now(timezone.utc).timestamp())
+    return apply_filters(load_catalog(con, cfg), effective_filters(filter_json, include_review), cfg, at)
 
 
 def _row_filter(row) -> dict:

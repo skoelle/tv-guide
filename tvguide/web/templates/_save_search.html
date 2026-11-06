@@ -7,6 +7,7 @@
     <input type="hidden" name="genre" value="{{ (f.genre or []) | join(',') }}">
     <input type="hidden" name="group" value="{{ f.group or '' }}">
     <input type="hidden" name="retro" value="{{ '1' if f.retro else '' }}">
+    <input type="hidden" name="upcoming" value="{{ '1' if f.upcoming else '' }}">
     <input type="hidden" name="q" value="{{ f.q }}">
     <p><input type="search" name="name" placeholder="Name der Suche" required></p>
     <p>

@@ -66,6 +66,7 @@ def test_index_renders(cfg):
     assert "Jetzt" in html
     assert "Läuft gerade" in html
     assert "Retro" in html
+    assert "nur zukünftige" not in html
 
 
 def test_browse_title_links_to_work(cfg):
@@ -85,3 +86,5 @@ def test_browse_title_links_to_work(cfg):
     }
     html = _env().get_template("browse.html").render(**ctx)
     assert 'href="/work/tt1"' in html
+    assert "nur zukünftige" in html
+    assert 'name="upcoming"' in html

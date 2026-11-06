@@ -28,3 +28,9 @@
   {{ tchip(f, base, 'retro', none, 'Retro', none, f.retro) }}
   <span class="small">Filme + abgeschlossene Serien 1980–1999</span>
 </div>
+{% if show_upcoming is defined and show_upcoming %}
+<div class="fgroup">
+  {{ tchip(f, base, 'upcoming', none, 'nur zukünftige', facets.upcoming, f.upcoming) }}
+  <span class="small">Termine ab jetzt</span>
+</div>
+{% endif %}

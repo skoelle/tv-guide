@@ -10,8 +10,8 @@ from tvguide.db import connect  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import apply_override  # noqa: E402
 from tvguide.search import (create_search, delete_search, effective_filters,  # noqa: E402
-                            get_search, hits_for, list_searches, matched_works, normalize_filter,
-                            run_searches, update_search)
+                            filter_to_query, get_search, hits_for, list_searches, matched_works,
+                            normalize_filter, run_searches, update_search)
 from tvguide.web.app import create_app  # noqa: E402
 
 
@@ -26,7 +26,7 @@ def test_normalize_filter_validiert(cfg):
     assert normalize_filter({"type": "film,serie", "category": "format", "decade": "1980,1990",
                              "retro": "1"}, cfg) == {
         "type": ["film", "serie"], "category": ["format"], "decade": [1980, 1990],
-        "group": None, "genre": None, "retro": True, "q": ""}
+        "group": None, "genre": None, "retro": True, "upcoming": False, "q": ""}
     with pytest.raises(ValueError):
         normalize_filter({"unbekannt": 1}, cfg)
     with pytest.raises(ValueError):
@@ -41,6 +41,21 @@ def test_effective_filters_status():
     fj = {"type": None, "decade": None, "group": None, "genre": None, "retro": False, "q": ""}
     assert effective_filters(fj, False)["status"] == {"sicher"}
     assert effective_filters(fj, True)["status"] == {"sicher", "unsicher"}
+
+
+def test_upcoming_filter_json(cfg):
+    fj = normalize_filter({"upcoming": True}, cfg)
+    assert fj["upcoming"] is True
+    assert effective_filters(fj, False)["upcoming"] is True
+    assert "upcoming=1" in filter_to_query(fj)
+
+
+def test_upcoming_matched_works(cfg):
+    con = _confirmed(cfg)
+    fj = normalize_filter({"upcoming": True}, cfg)
+    assert len(matched_works(con, cfg, fj, False, at=1793538000)) == 1
+    assert matched_works(con, cfg, fj, False, at=1793538000 + 10**9) == []
+    con.close()
 
 
 def test_crud(cfg):

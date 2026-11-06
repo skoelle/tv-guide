@@ -59,6 +59,29 @@ def test_parse_filters_werte():
     assert f["retro"] is True and f["page"] == 3
 
 
+def test_parse_filters_upcoming():
+    assert parse_filters({})["upcoming"] is False
+    assert parse_filters({"upcoming": "1"})["upcoming"] is True
+
+
+def test_matches_upcoming(cfg):
+    f = {**parse_filters({}), "upcoming": True}
+    past = _w("tt1", airings=[_airing("X", AT - 100), _airing("X", AT - 50)])
+    future = _w("tt2", airings=[_airing("X", AT - 100), _airing("X", AT)])
+    running = _w("tt3", airings=[_airing("X", AT - 10)])
+    assert not matches(past, f, cfg, AT)
+    assert matches(future, f, cfg, AT)
+    assert not matches(running, f, cfg, AT)
+    assert matches(past, parse_filters({}), cfg, AT)
+
+
+def test_facets_upcoming(cfg):
+    works = [_w("tt1", airings=[_airing("X", AT - 100)]),
+             _w("tt2", airings=[_airing("X", AT + 100)])]
+    fac = catalog_facets(works, parse_filters({}), cfg, AT)
+    assert fac["upcoming"] == 1
+
+
 def test_matches_dimensionen(cfg):
     f = parse_filters({})
     film80 = _w(year=1985, type_="movie", genres=("Action",))

@@ -64,6 +64,8 @@ def _qs(f: dict) -> str:
         parts.append("status=" + ",".join(sorted(f["status"])))
     if f["retro"]:
         parts.append("retro=1")
+    if f.get("upcoming"):
+        parts.append("upcoming=1")
     if f["q"]:
         parts.append("q=" + quote(f["q"]))
     if f["sort"] and f["sort"] != "termin":
@@ -90,6 +92,8 @@ def _toggle(f: dict, key: str, value=None) -> dict:
         new["group"] = None if f["group"] == value else value
     elif key == "retro":
         new["retro"] = not f["retro"]
+    elif key == "upcoming":
+        new["upcoming"] = not f.get("upcoming")
     return new
 
 
@@ -157,7 +161,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         works = load_catalog(con, cfg)
         ctx = _base(request, con, "jetzt")
         ctx.update({
-            "f": f, "facets": catalog_facets(works, f, cfg), "at": at,
+            "f": f, "facets": catalog_facets(works, f, cfg, at), "at": at,
             "running": running_airings(works, at, f, cfg),
             "evening": evening_airings(works, at, f, cfg),
         })
@@ -168,7 +172,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         at = _at(request)
         f = parse_filters(request.query_params)
         works = load_catalog(con, cfg)
-        selected = sort_works(apply_filters(works, f, cfg), f, at)
+        selected = sort_works(apply_filters(works, f, cfg, at), f, at)
         total = len(selected)
         per_page = 60
         pages = max(1, (total + per_page - 1) // per_page)
@@ -176,7 +180,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         f = {**f, "page": page}
         shown = annotate_next(selected[(page - 1) * per_page: page * per_page], at)
         ctx = _base(request, con, "stoebern")
-        ctx.update({"f": f, "facets": catalog_facets(works, f, cfg), "at": at,
+        ctx.update({"f": f, "facets": catalog_facets(works, f, cfg, at), "at": at,
                     "works": shown, "total": total, "page": page, "pages": pages})
         return templates.TemplateResponse(request, "browse.html", ctx)
 
@@ -218,7 +222,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     def api_browse(request: Request, con: Db = Depends(get_db)):
         at = _at(request)
         f = parse_filters(request.query_params)
-        works = sort_works(apply_filters(load_catalog(con, cfg), f, cfg), f, at)
+        works = sort_works(apply_filters(load_catalog(con, cfg), f, cfg, at), f, at)
         return {"total": len(works),
                 "works": [{k: w[k] for k in ("tconst", "title", "year", "end_year", "type", "kind",
                                              "category", "genres", "rating", "votes", "status", "retro",
@@ -360,11 +364,12 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.post("/searches")
     def searches_create(name: str = Form(""), category: str = Form(""), type: str = Form(""),
                         decade: str = Form(""), genre: str = Form(""), q: str = Form(""),
-                        group: str = Form(""), retro: str = Form(""),
+                        group: str = Form(""), retro: str = Form(""), upcoming: str = Form(""),
                         include_review: str = Form(None), notify: str = Form(None),
                         con: Db = Depends(get_db)):
         filt = {"type": type, "category": category, "decade": decade, "genre": genre, "q": q,
-                "group": group or None, "retro": retro in ("1", "on", "true")}
+                "group": group or None, "retro": retro in ("1", "on", "true"),
+                "upcoming": upcoming in ("1", "on", "true")}
         try:
             create_search(con, cfg, name, filt, include_review=include_review is not None,
                           notify=notify is not None)

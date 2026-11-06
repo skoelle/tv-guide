@@ -67,6 +67,13 @@ def test_browse_seite(client):
     assert "Stöbern" in r.text
 
 
+def test_browse_upcoming_filter(client):
+    r = client.get("/browse?upcoming=1&at=1793538000")
+    assert r.status_code == 200
+    assert "nur zukünftige" in r.text
+    assert "upcoming=1" in r.text
+
+
 def test_api_browse_leer(client):
     r = client.get("/api/browse")
     assert r.status_code == 200

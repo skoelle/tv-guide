@@ -152,13 +152,14 @@ def parse_filters(params) -> dict:
         "genre": lst("genre"),
         "status": status,
         "retro": params.get("retro") in ("1", "true", "on"),
+        "upcoming": params.get("upcoming") in ("1", "true", "on"),
         "q": (params.get("q") or "").strip(),
         "sort": params.get("sort") or "termin",
         "page": max(1, int(params.get("page") or 1) if str(params.get("page") or "1").isdigit() else 1),
     }
 
 
-def matches(w: dict, f: dict, cfg: Config) -> bool:
+def matches(w: dict, f: dict, cfg: Config, at: int | None = None) -> bool:
     if f.get("category") and w.get("category", "serie") not in f["category"]:
         return False
     if f["type"] and w["kind"] not in f["type"]:
@@ -173,6 +174,10 @@ def matches(w: dict, f: dict, cfg: Config) -> bool:
         return False
     if f["retro"] and w["retro"] not in ("film", "serie_abgeschlossen"):
         return False
+    if f.get("upcoming"):
+        now = at if at is not None else int(datetime.now().timestamp())
+        if not any(a["start_ts"] >= now for a in w["airings"]):
+            return False
     if f["group"]:
         members = set(cfg.channel_groups.get(f["group"], []))
         if not any(a["channel"] in members for a in w["airings"]):
@@ -184,8 +189,8 @@ def matches(w: dict, f: dict, cfg: Config) -> bool:
     return True
 
 
-def apply_filters(works: list[dict], f: dict, cfg: Config) -> list[dict]:
-    return [w for w in works if matches(w, f, cfg)]
+def apply_filters(works: list[dict], f: dict, cfg: Config, at: int | None = None) -> list[dict]:
+    return [w for w in works if matches(w, f, cfg, at)]
 
 
 def next_ts(w: dict, at: int) -> int:
@@ -203,11 +208,11 @@ def sort_works(works: list[dict], f: dict, at: int) -> list[dict]:
     return sorted(works, key=lambda w: (next_ts(w, at), w["title"].lower()))
 
 
-def catalog_facets(works: list[dict], f: dict, cfg: Config) -> dict:
+def catalog_facets(works: list[dict], f: dict, cfg: Config, at: int | None = None) -> dict:
     """Zaehler je Filtrewert, berechnet ohne die jeweils eigene Dimension."""
     def count(overrides):
         ff = {**f, **overrides}
-        return sum(1 for w in works if matches(w, ff, cfg))
+        return sum(1 for w in works if matches(w, ff, cfg, at))
 
     decades = sorted({w["year"] // 10 * 10 for w in works if w["year"]})
     genres = sorted({g for w in works for g in w["genres"]})
@@ -218,6 +223,7 @@ def catalog_facets(works: list[dict], f: dict, cfg: Config) -> dict:
         "genre": {g: count({"genre": {g}}) for g in genres},
         "status": {v: count({"status": {v}}) for v in ("sicher", "unsicher")},
         "group": {g: count({"group": g}) for g in cfg.channel_groups},
+        "upcoming": count({"upcoming": True}),
     }
 
 
@@ -231,7 +237,7 @@ def _day_bounds(at: int, cfg: Config) -> tuple[int, int]:
 def running_airings(works: list[dict], at: int, f: dict, cfg: Config) -> list[dict]:
     out = []
     for w in works:
-        if not matches(w, f, cfg):
+        if not matches(w, f, cfg, at):
             continue
         for a in w["airings"]:
             if a["start_ts"] <= at < a["stop_ts"]:
@@ -246,7 +252,7 @@ def evening_airings(works: list[dict], at: int, f: dict, cfg: Config) -> list[di
     window_start = max(evening_start, day0)
     out = []
     for w in works:
-        if not matches(w, f, cfg):
+        if not matches(w, f, cfg, at):
             continue
         for a in w["airings"]:
             if window_start <= a["start_ts"] < day1:
