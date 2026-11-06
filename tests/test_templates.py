@@ -251,10 +251,35 @@ def test_work_shows_cast_and_episodes(cfg):
     assert 'href="https://www.imdb.com/name/nm1/"' in html
     assert "John Doe" in html and "Jane Smith" in html
     assert "Actor One" in html and "Hannibal Smith" in html
+    assert '<ul class="cast-list">' in html
     assert html.index("Actor One") < html.index("Regie &amp; Buch anzeigen")
     assert "Episodenliste anzeigen" in html
     assert "Episode Two" in html and "8.1" in html
     assert "1 von 1" in html
+
+
+def test_work_cast_ohne_rolle_bleibt_inline(cfg):
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [],
+    }
+    credits = {
+        "directors": [], "writers": [],
+        "cast": [{"nconst": "nm3", "name": "Actor One", "role": ""},
+                 {"nconst": "nm4", "name": "Actor Two", "role": ""}],
+    }
+    ctx = {
+        "w": work, "groups": [], "credits": credits,
+        "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert '<ul class="cast-list">' not in html
+    assert 'href="/person/nm3"' in html and 'href="/person/nm4"' in html
+    assert "Actor One" in html and "Actor Two" in html
 
 
 def test_airing_groups_trennt_vergangene():

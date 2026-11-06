@@ -52,7 +52,13 @@
       {% if credits and credits.cast %}
       <dt>Besetzung</dt>
       <dd>
-        {% for p in credits.cast %}{{ person_link(p, at) }}{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% if credits.cast | selectattr('role') | list %}
+        <ul class="cast-list">
+          {% for p in credits.cast %}<li>{{ person_link(p, at) }}{% if p.role %} als {{ p.role }}{% endif %}</li>{% endfor %}
+        </ul>
+        {% else %}
+        {% for p in credits.cast %}{{ person_link(p, at) }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% endif %}
       </dd>
       {% endif %}
       <dt>IMDb-Titel</dt><dd>{{ imdb_link(w.tconst, w.imdb_title or w.title) }}</dd>

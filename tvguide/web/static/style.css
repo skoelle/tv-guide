@@ -72,6 +72,7 @@ th { color: #666; font-weight: 600; }
 .credit-details { margin-top: .7rem; }
 .credit-details summary { cursor: pointer; color: #666; font-size: .9rem; }
 .credit-details dl { margin-top: .5rem; }
+.cast-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .15rem; }
 .past-airings { margin-top: .8rem; }
 
 .box.full { margin-top: 1rem; }
