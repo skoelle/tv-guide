@@ -60,6 +60,12 @@ th { color: #666; font-weight: 600; }
 .work-head { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1rem; }
 .work-main { flex: 1; min-width: 0; }
 .card table { margin-top: .6rem; }
+.work-epg { margin-bottom: 1rem; }
+.work-epg .airing-day { margin: 1.2rem 0 .4rem; font-size: 1rem; }
+.work-sources { margin-top: 1rem; }
+.airing-details { margin-top: .3rem; }
+.airing-details summary { cursor: pointer; }
+.airing-details dl { margin-top: .3rem; }
 
 .box.full { margin-top: 1rem; }
 .sync-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .8rem; }

@@ -4,8 +4,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, imdb_type_de,
-                            load_catalog, parse_filters, running_airings)
+from tvguide.browse import (airing_summary, annotate_next, catalog_facets, evening_airings, genre_de,
+                            imdb_type_de, load_catalog, parse_filters, running_airings)
 from tvguide.categories import label as category_label
 from tvguide.db import connect
 from tvguide.status import collect, fmt_num, fmt_size, fmt_ts
@@ -168,3 +168,40 @@ def test_work_shows_tmdb_box(cfg):
     assert "TMDB-ID" in html
     assert "TMDB-Datenstand" in html
     assert 'href="https://www.themoviedb.org/tv/821"' in html
+
+
+def test_work_shows_epg_box_und_details(cfg):
+    airing = {
+        "channel": "Kabel Eins", "channel_id": "c1", "start_ts": AT,
+        "stop_ts": AT + 3600, "sub_title": "Folge 1", "title": "Das A-Team",
+        "description": "Ein Kommando hilft Menschen in Not.",
+        "categories": ["Action", "Drama"], "fsk": "12", "prod_date": "1983",
+        "episodes": ["Staffel 1, Folge 2"], "star_rating": "3/5",
+        "credits": [{"label": "Regie", "names": ["John Doe"]}],
+    }
+    work = {
+        "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",
+        "original_title": None, "year": 1983, "end_year": 1987, "kind": "serie",
+        "imdb_type": "tvSeries", "runtime": 60, "category": "serie",
+        "genres": ["Action"], "genres_de": ["Action"], "status": "auto",
+        "rating": 7.4, "votes": 90000, "poster": False, "tmdb_url": None,
+        "airings": [airing],
+    }
+    ctx = {
+        "w": work, "groups": [{"label": "So, 01.11.2026", "airings": [airing]}],
+        "epg": airing_summary([airing]), "mark": None, "review_shows": [],
+        "imdb_source_date": "2026-11-05", "tmdb_info": None,
+        "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("work.html").render(**ctx)
+    assert "EPG · Ausstrahlungen" in html
+    assert "Kabel Eins" in html
+    assert "Kategorien" in html
+    assert "Action, Drama" in html
+    assert "FSK" in html and "12" in html
+    assert "Produktionsjahr" in html
+    assert "Staffel 1, Folge 2" in html
+    assert "Regie" in html and "John Doe" in html
+    assert "Ein Kommando hilft Menschen in Not." in html
+    assert 'class="grid work-sources"' in html
+    assert "<h2>IMDb</h2>" in html

@@ -2,8 +2,8 @@ from dataclasses import replace
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, matches,
-                            next_ts, parse_filters, running_airings, sort_works)
+from tvguide.browse import (airing_summary, annotate_next, catalog_facets, evening_airings, genre_de,
+                            matches, next_ts, parse_filters, running_airings, sort_works)
 from tvguide.categories import category as content_category
 
 AT = 1793538000  # 2026-11-01 13:00 UTC / 14:00 Berlin
@@ -164,3 +164,22 @@ def test_running_und_evening(cfg):
     f = parse_filters({})
     assert [x["airing"]["start_ts"] for x in running_airings([work], AT, f, cfg)] == [AT - 600]
     assert [x["airing"]["start_ts"] for x in evening_airings([work], AT, f, cfg)] == [evening]
+
+
+def test_airing_summary_fasst_epg_zusammen():
+    a = {"channel": "Kabel Eins", "start_ts": AT, "stop_ts": AT + 3600,
+         "categories": ["Action", "Drama"], "fsk": "12", "prod_date": "1983",
+         "episodes": ["Staffel 1, Folge 2"], "description": "Kurz"}
+    b = {"channel": "TELE 5", "start_ts": AT + 7200, "stop_ts": AT + 10800,
+         "categories": ["Action"], "fsk": "12", "prod_date": "1984",
+         "episodes": [], "description": "Eine deutlich längere Beschreibung"}
+    summary = airing_summary([a, b])
+    assert summary["n_channels"] == 2
+    assert summary["channels"] == ["Kabel Eins", "TELE 5"]
+    assert summary["first"] == AT and summary["last"] == AT + 10800
+    assert summary["categories"] == ["Action", "Drama"]
+    assert summary["fsk"] == ["12"]
+    assert summary["prod_dates"] == ["1983", "1984"]
+    assert summary["episodes"] == ["Staffel 1, Folge 2"]
+    assert summary["description"] == "Eine deutlich längere Beschreibung"
+    assert airing_summary([]) == {}

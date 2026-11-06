@@ -15,9 +15,9 @@ from pydantic import BaseModel
 from zoneinfo import ZoneInfo
 
 from .. import __version__
-from ..browse import (annotate_next, apply_filters, catalog_facets, evening_airings, find_work,
-                      genre_de, imdb_source_date, imdb_type_de, load_catalog, parse_filters,
-                      running_airings, sort_works)
+from ..browse import (airing_summary, annotate_next, apply_filters, catalog_facets, evening_airings,
+                      find_work, genre_de, imdb_source_date, imdb_type_de, load_catalog,
+                      parse_filters, running_airings, sort_works)
 from ..categories import label as category_label
 from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
@@ -224,7 +224,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         if tmdb_info is None and w.get("tmdb_url"):
             tmdb_info = {"url": w["tmdb_url"]}
         ctx = _base(request, con, "")
-        ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
+        ctx.update({"w": w, "groups": groups, "epg": airing_summary(w["airings"]),
+                    "mark": get_marks(con).get(tconst),
                     "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
                     "tmdb_info": tmdb_info,
                     "at": _at(request), "tvh_enabled": bool(api_base(cfg)),

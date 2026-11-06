@@ -5,6 +5,7 @@ Liest app.db (event_show, show_match, epg_shows) zusammen mit epg.db und imdb.db
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
@@ -33,7 +34,8 @@ GENRES_DE = {
 _CATALOG_SQL = """
 SELECT es.channel_id, es.start_ts, s.show_key, s.show_name,
        sm.status, sm.tconst, sm.score,
-       e.stop_ts, e.title, e.sub_title,
+       e.stop_ts, e.title, e.sub_title, e.description, e.categories,
+       e.rating AS epg_rating, e.prod_date, e.episode_num, e.credits, e.star_rating,
        COALESCE(c.name, es.channel_id) AS channel,
        t.title_type, t.primary_title, t.original_title,
        t.start_year, t.end_year, t.runtime_min, t.genres, t.avg_rating, t.num_votes
@@ -62,6 +64,69 @@ def imdb_source_date(con: sqlite3.Connection) -> str | None:
     except sqlite3.Error:
         return None
     return row["value"] if row else None
+
+
+def _json_load(raw, default):
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def _json_list(raw) -> list[str]:
+    value = _json_load(raw, [])
+    if not isinstance(value, list):
+        return []
+    return [str(v) for v in value if v is not None and str(v).strip()]
+
+
+def _episode_labels(raw) -> list[str]:
+    """Macht aus <episode-num> lesbare Staffel-/Folgenangaben."""
+    out: list[str] = []
+    for item in _json_load(raw, []):
+        if not isinstance(item, dict):
+            out.append(str(item))
+            continue
+        system = item.get("system") or ""
+        value = (item.get("value") or "").strip()
+        if not value:
+            continue
+        if system == "xmltv_ns":
+            parts = value.split(".")
+            bits = []
+            for idx, name in enumerate(("Staffel", "Folge", "Teil")):
+                if idx >= len(parts) or not parts[idx]:
+                    continue
+                number = parts[idx].split("/")[0]
+                if number.isdigit():
+                    bits.append(f"{name} {int(number) + 1}")
+            if bits:
+                out.append(", ".join(bits))
+                continue
+        out.append(value)
+    return out
+
+
+CREDIT_LABELS = {
+    "director": "Regie", "writer": "Buch", "actor": "Darsteller",
+    "presenter": "Moderation", "composer": "Musik", "producer": "Produktion",
+    "narrator": "Sprecher", "guest": "Gast",
+}
+
+
+def _credits(raw) -> list[dict]:
+    data = _json_load(raw, {})
+    if not isinstance(data, dict):
+        return []
+    out = []
+    for key, names in data.items():
+        if not isinstance(names, list) or not names:
+            continue
+        out.append({"label": CREDIT_LABELS.get(key, str(key).replace("_", " ").capitalize()),
+                    "names": [str(n) for n in names if n]})
+    return out
 
 
 def _kind(title_type: str | None) -> str:
@@ -124,6 +189,10 @@ def load_catalog(con: sqlite3.Connection, cfg: Config, statuses: tuple[str, ...]
         w["airings"].append({
             "channel": r["channel"], "channel_id": r["channel_id"], "start_ts": r["start_ts"],
             "stop_ts": r["stop_ts"], "sub_title": r["sub_title"], "title": r["title"],
+            "description": r["description"] or "", "categories": _json_list(r["categories"]),
+            "fsk": r["epg_rating"] or "", "prod_date": r["prod_date"] or "",
+            "episodes": _episode_labels(r["episode_num"]), "credits": _credits(r["credits"]),
+            "star_rating": r["star_rating"] or "",
         })
     poster_tconsts: set[str] = set()
     poster_links: dict[str, str] = {}
@@ -290,6 +359,40 @@ def annotate_next(works: list[dict], at: int) -> list[dict]:
         w["next"] = upcoming[0] if upcoming else (w["airings"][-1] if w["airings"] else None)
         w["upcoming"] = len(upcoming)
     return works
+
+
+def airing_summary(airings: list[dict]) -> dict:
+    """Fasst die EPG-Daten aller Termine eines Werks zusammen."""
+    if not airings:
+        return {}
+    channels = sorted({a["channel"] for a in airings if a.get("channel")})
+    categories: list[str] = []
+    fsk: list[str] = []
+    prod_dates: list[str] = []
+    episodes: list[str] = []
+    for a in airings:
+        for c in a.get("categories", []):
+            if c not in categories:
+                categories.append(c)
+        if a.get("fsk") and a["fsk"] not in fsk:
+            fsk.append(a["fsk"])
+        if a.get("prod_date") and a["prod_date"] not in prod_dates:
+            prod_dates.append(a["prod_date"])
+        for e in a.get("episodes", []):
+            if e not in episodes:
+                episodes.append(e)
+    description = max((a.get("description") or "" for a in airings), key=len, default="")
+    return {
+        "channels": channels,
+        "n_channels": len(channels),
+        "first": min(a["start_ts"] for a in airings),
+        "last": max(a["stop_ts"] for a in airings),
+        "categories": categories,
+        "fsk": fsk,
+        "prod_dates": prod_dates,
+        "episodes": episodes,
+        "description": description,
+    }
 
 
 def find_work(works: list[dict], tconst: str) -> dict | None:
