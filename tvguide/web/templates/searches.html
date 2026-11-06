@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Suchen · TV-Guide{% endblock %}
+{% block title %}Suchprofile · TV-Guide{% endblock %}
 {% block content %}
-<h1>Suchen</h1>
+<h1>Suchprofile</h1>
 <form method="post" action="/searches/run" style="margin-bottom:1rem">
   <button class="btn" type="submit">Treffer jetzt aktualisieren</button>
 </form>
 
-{% if not searches %}<p class="muted">Noch keine gespeicherten Suchen. Lege sie in „Jetzt" oder „Stöbern" über „Als Suche speichern" an.</p>{% endif %}
+{% if not searches %}<p class="muted">Noch keine Suchprofile. Lege sie in „Jetzt" oder „Stöbern" über „Als Suche speichern" an.</p>{% endif %}
 
 {% for s in searches %}
 <div class="box" style="margin-bottom:1rem">
