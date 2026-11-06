@@ -49,11 +49,26 @@
       <dt>{{ 'Folgenlänge' if w.kind == 'serie' else 'Laufzeit' }}</dt>
       <dd>{% if w.runtime %}{{ w.runtime }} Min.{% else %}–{% endif %}</dd>
       <dt>Rating</dt><dd>{% if w.rating %}{{ '%.1f' | format(w.rating) }} ({{ w.votes | num }} Stimmen){% else %}–{% endif %}</dd>
+      {% if credits and credits.cast %}
+      <dt>Besetzung</dt>
+      <dd>
+        {% for p in credits.cast %}{{ person_link(p, at) }}{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
+      </dd>
+      {% endif %}
       <dt>IMDb-Titel</dt><dd>{{ imdb_link(w.tconst, w.imdb_title or w.title) }}</dd>
       {% if w.original_title and w.original_title != w.imdb_title %}<dt>Originaltitel</dt><dd>{{ w.original_title }}</dd>{% endif %}
       <dt>IMDb-ID</dt><dd>{{ imdb_link(w.tconst, w.tconst) }}</dd>
       {% if imdb_source_date %}<dt>IMDb-Datenstand</dt><dd>{{ imdb_source_date }}</dd>{% endif %}
     </dl>
+    {% if credits and (credits.directors or credits.writers) %}
+    <details class="credit-details">
+      <summary>Regie &amp; Buch anzeigen</summary>
+      <dl>
+        {% if credits.directors %}<dt>Regie</dt><dd>{{ person_links(credits.directors, at) }}</dd>{% endif %}
+        {% if credits.writers %}<dt>Buch</dt><dd>{{ person_links(credits.writers, at) }}</dd>{% endif %}
+      </dl>
+    </details>
+    {% endif %}
   </div>
   {% if tmdb_info %}
   <div class="box">
@@ -75,21 +90,6 @@
   </div>
   {% endif %}
 </div>
-{% if credits and (credits.directors or credits.writers or credits.cast) %}
-<div class="box" style="margin-top:1rem">
-  <h2>Besetzung &amp; Stab</h2>
-  <dl>
-    {% if credits.directors %}<dt>Regie</dt><dd>{{ person_links(credits.directors, at) }}</dd>{% endif %}
-    {% if credits.writers %}<dt>Buch</dt><dd>{{ person_links(credits.writers, at) }}</dd>{% endif %}
-    {% if credits.cast %}
-    <dt>Besetzung</dt>
-    <dd>
-      {% for p in credits.cast %}{{ person_link(p, at) }}{% if p.role %} als {{ p.role }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
-    </dd>
-    {% endif %}
-  </dl>
-</div>
-{% endif %}
 {% if episodes and episodes.total %}
 <div class="box" style="margin-top:1rem">
   <h2>Episoden</h2>

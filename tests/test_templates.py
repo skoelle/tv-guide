@@ -242,13 +242,16 @@ def test_work_shows_cast_and_episodes(cfg):
         "nav": _nav(""), "version": "x", "qs": _qs, "toggle": _toggle,
     }
     html = _env().get_template("work.html").render(**ctx)
-    assert "Besetzung &amp; Stab" in html
+    assert "Besetzung &amp; Stab" not in html
+    assert "Regie &amp; Buch anzeigen" in html
+    assert '<details class="credit-details">' in html
     assert 'href="/person/nm1"' in html
     assert 'href="/person/nm2"' in html
     assert 'href="/person/nm3"' in html
     assert 'href="https://www.imdb.com/name/nm1/"' in html
     assert "John Doe" in html and "Jane Smith" in html
     assert "Actor One" in html and "Hannibal Smith" in html
+    assert html.index("Actor One") < html.index("Regie &amp; Buch anzeigen")
     assert "Episodenliste anzeigen" in html
     assert "Episode Two" in html and "8.1" in html
     assert "1 von 1" in html

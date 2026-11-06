@@ -69,6 +69,9 @@ th { color: #666; font-weight: 600; }
 .airing-details { margin-top: .3rem; }
 .airing-details summary { cursor: pointer; }
 .airing-details dl { margin-top: .3rem; }
+.credit-details { margin-top: .7rem; }
+.credit-details summary { cursor: pointer; color: #666; font-size: .9rem; }
+.credit-details dl { margin-top: .5rem; }
 .past-airings { margin-top: .8rem; }
 
 .box.full { margin-top: 1rem; }
