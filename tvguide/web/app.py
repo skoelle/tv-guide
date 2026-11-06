@@ -218,10 +218,13 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             groups[-1]["airings"].append(a)
         review_shows = (review_entries_for_tconst(con, cfg, tconst)
                         if w["status"] == "review" else [])
+        channels = {a["channel_id"]: a["channel"] for a in w["airings"]}
+        tvh_channels = sorted(channels.items(), key=lambda item: item[1].lower())
         ctx = _base(request, con, "")
         ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
                     "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
-                    "at": _at(request), "tvh_enabled": bool(api_base(cfg))})
+                    "at": _at(request), "tvh_enabled": bool(api_base(cfg)),
+                    "tvh_channels": tvh_channels})
         return templates.TemplateResponse(request, "work.html", ctx)
 
     @app.get("/api/now")
@@ -329,27 +332,32 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"ok": False, "error": "invalid mark"}, status_code=400)
         return {"ok": True, "tconst": tconst, "mark": mark}
 
-    def _work_airing(con, tconst: str, channel_id: str, start_ts: int):
+    def _work_airing(con, tconst: str, channel_id: str, start_ts: int | None):
         w = find_work(load_catalog(con, cfg), tconst)
-        if w is None:
-            return None, None
+        if w is None or start_ts is None:
+            return w, None
         airing = next((a for a in w["airings"]
                        if str(a["channel_id"]) == channel_id and int(a["start_ts"]) == start_ts), None)
         return w, airing
 
     @app.post("/api/works/{tconst}/record-series")
-    def api_work_record_series(tconst: str, channel_id: str = Form(...), start_ts: int = Form(...),
+    def api_work_record_series(tconst: str, channel_id: str = Form(""), start_ts: int | None = Form(None),
                                con: Db = Depends(get_db)):
         w, airing = _work_airing(con, tconst, channel_id, start_ts)
         if w is None:
             return JSONResponse({"ok": False, "error": "Werk nicht gefunden."}, status_code=404)
-        if airing is None:
-            return JSONResponse({"ok": False, "error": "Termin nicht gefunden."}, status_code=400)
         if w["kind"] != "serie":
             return JSONResponse({"ok": False, "error": "Serien-Timer nur für Serien."}, status_code=400)
         try:
-            result = TvheadendClient(cfg).record_series(
-                airing["channel_id"], airing["title"], airing["start_ts"], airing["stop_ts"])
+            if start_ts is None:
+                if channel_id and not any(str(a["channel_id"]) == channel_id for a in w["airings"]):
+                    return JSONResponse({"ok": False, "error": "Unbekannter Sender."}, status_code=400)
+                result = TvheadendClient(cfg).record_series_title(w["title"], channel_id)
+            else:
+                if not channel_id or airing is None:
+                    return JSONResponse({"ok": False, "error": "Termin nicht gefunden."}, status_code=400)
+                result = TvheadendClient(cfg).record_series(
+                    airing["channel_id"], airing["title"], airing["start_ts"], airing["stop_ts"])
         except TvheadendError as exc:
             return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
         return {"ok": True, **result}

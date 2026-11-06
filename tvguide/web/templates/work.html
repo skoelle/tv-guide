@@ -79,6 +79,25 @@
             hx-swap="none" hx-on::after-request="location.reload()">Markierung entfernen</button>{% endif %}
   </p>
 </div>
+{% if tvh_enabled and w.kind == 'serie' %}
+<div class="box" style="margin-top:1rem">
+  <h2>TVHeadend-Serien-Timer</h2>
+  <p class="muted">Serien-Timer unabhängig von aktuellen Terminen anlegen – zum Beispiel, falls die Serie wieder kommt.</p>
+  <form hx-post="/api/works/{{ w.tconst }}/record-series" hx-swap="none"
+        hx-confirm="Serien-Timer für „{{ w.title }}“ in TVHeadend anlegen?"
+        hx-on::after-request="tvhRecordResult(event)">
+    <label for="tvh-channel-{{ w.tconst }}">Sender</label>
+    <select id="tvh-channel-{{ w.tconst }}" name="channel_id">
+      <option value="">Alle Sender</option>
+      {% for channel_id, channel_name in tvh_channels %}
+      <option value="{{ channel_id }}">{{ channel_name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit">Serien-Timer anlegen</button>
+  </form>
+</div>
+{% endif %}
+{% if tvh_enabled %}<p id="tvh-record-result" class="muted" role="status"></p>{% endif %}
 {% for g in groups %}
 <h2>{{ g.label }}</h2>
 <table>
@@ -114,7 +133,6 @@
 </table>
 {% endfor %}
 {% if tvh_enabled %}
-<p id="tvh-record-result" class="muted" role="status"></p>
 <script>
 function tvhRecordResult(evt) {
   const el = document.getElementById('tvh-record-result');
@@ -127,6 +145,10 @@ function tvhRecordResult(evt) {
       el.textContent = data.created
         ? 'Einzelaufnahme wurde in TVHeadend angelegt.'
         : 'Dieser Termin ist bereits für die Aufnahme eingeplant.';
+    } else if (data.scope === 'all') {
+      el.textContent = data.created
+        ? 'Serien-Timer für alle Sender wurde in TVHeadend angelegt.'
+        : 'Für diese Serie gibt es bereits einen Serien-Timer für alle Sender.';
     } else {
       el.textContent = data.created
         ? 'Serien-Timer wurde in TVHeadend angelegt.'

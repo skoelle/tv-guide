@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 
 import pytest
@@ -135,6 +136,57 @@ def test_record_event_meldet_fehlschlag_ohne_uuid(cfg):
     })
     with pytest.raises(TvheadendError, match="nicht angelegt"):
         client.record_event("c1", "Das A-Team", 1793538000, 1793541600)
+
+
+def test_record_series_title_alle_sender(cfg):
+    client = FakeClient(cfg, {
+        "dvr/autorec/grid": {"entries": []},
+        "dvr/config/grid": {"entries": [{"uuid": "cfg1"}]},
+        "dvr/autorec/create": {"uuid": ["auto1"]},
+    })
+    result = client.record_series_title("Das A-Team")
+    assert result == {"kind": "series", "scope": "all", "created": True, "autorec_uuid": "auto1"}
+    call = next(params for path, params in client.calls if path == "dvr/autorec/create")
+    conf = json.loads(call["conf"])
+    assert conf["title"] == "^Das\\ A\\-Team$"
+    assert conf["channel"] == ""
+    assert conf["config_name"] == "cfg1"
+
+
+def test_record_series_title_sender(cfg):
+    client = FakeClient(cfg, {
+        "dvr/autorec/grid": {"entries": []},
+        "dvr/config/grid": {"entries": [{"uuid": "cfg1"}]},
+        "dvr/autorec/create": {"uuid": ["auto1"]},
+    })
+    result = client.record_series_title("Das A-Team", "c1")
+    assert result == {"kind": "series", "scope": "channel", "created": True, "autorec_uuid": "auto1"}
+    call = next(params for path, params in client.calls if path == "dvr/autorec/create")
+    assert json.loads(call["conf"])["channel"] == "c1"
+
+
+def test_record_series_title_nutzt_vorhandene_regel(cfg):
+    client = FakeClient(cfg, {
+        "dvr/autorec/grid": {"entries": [
+            {"uuid": "auto0", "title": "Das A-Team", "channel": ""},
+            {"uuid": "auto2", "title": "Das A-Team", "channel": "c1"},
+        ]},
+    })
+    result = client.record_series_title("Das A-Team")
+    assert result == {"kind": "series", "scope": "all", "created": False, "autorec_uuid": "auto0"}
+    assert all(path != "dvr/autorec/create" for path, _ in client.calls)
+
+
+def test_record_series_title_sender_ist_nicht_alle_sender(cfg):
+    client = FakeClient(cfg, {
+        "dvr/autorec/grid": {"entries": [
+            {"uuid": "auto2", "title": "Das A-Team", "channel": "c1"},
+        ]},
+        "dvr/config/grid": {"entries": [{"uuid": "cfg1"}]},
+        "dvr/autorec/create": {"uuid": ["auto1"]},
+    })
+    result = client.record_series_title("Das A-Team")
+    assert result["created"] is True
 
 
 def test_record_series_nutzt_konfiguriertes_dvr_profil(cfg):

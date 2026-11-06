@@ -101,6 +101,44 @@ def test_work_page_serien_timer_button(cfg):
     assert "Serie aufnehmen" not in past
 
 
+def test_work_page_serien_timer_ohne_zukunft(cfg):
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/work/tt0086659?at=1793600000").text
+    assert "TVHeadend-Serien-Timer" in html
+    assert "Alle Sender" in html
+    assert "Serien-Timer anlegen" in html
+    assert "Serie aufnehmen" not in html
+
+
+def test_record_series_title_api(cfg, monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, _cfg):
+            pass
+
+        def record_series_title(self, title, channel_id=""):
+            calls.append((title, channel_id))
+            return {"kind": "series", "scope": "all" if not channel_id else "channel",
+                    "created": True, "autorec_uuid": "auto1"}
+
+    monkeypatch.setattr("tvguide.web.app.TvheadendClient", FakeClient)
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/works/tt0086659/record-series", data={"channel_id": ""})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "kind": "series", "scope": "all", "created": True,
+                        "autorec_uuid": "auto1"}
+    r = client.post("/api/works/tt0086659/record-series", data={"channel_id": "c1"})
+    assert r.status_code == 200
+    assert r.json()["scope"] == "channel"
+    assert calls == [("Sendung 0", ""), ("Sendung 0", "c1")]
+    r = client.post("/api/works/tt0086659/record-series", data={"channel_id": "unbekannt"})
+    assert r.status_code == 400
+    assert r.json()["error"] == "Unbekannter Sender."
+
+
 def test_record_series_api(cfg, monkeypatch):
     calls = []
 
@@ -155,6 +193,7 @@ def test_work_page_film_einzelaufnahme(cfg):
     assert "Film aufnehmen" in html
     assert 'hx-post="/api/works/tt0086659/record-event"' in html
     assert "Serie aufnehmen" not in html
+    assert "TVHeadend-Serien-Timer" not in html
 
 
 def test_record_event_api(cfg, monkeypatch):

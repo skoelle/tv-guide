@@ -199,6 +199,37 @@ class TvheadendClient:
                 return uuid
         return None
 
+    def _autorec_entries(self) -> list[dict]:
+        try:
+            return _entries(self._request("dvr/autorec/grid", {"limit": "1000"}))
+        except TvheadendError:
+            return []
+
+    def _title_matches_pattern(self, pattern: str, title: str) -> bool:
+        try:
+            return bool(re.fullmatch(pattern, title, re.IGNORECASE))
+        except re.error:
+            return pattern.strip("^$").lower() == title.lower()
+
+    def find_existing_autorec_title(self, title: str, channel_id: str = "") -> str | None:
+        title = title.strip()
+        if not title:
+            return None
+        for entry in self._autorec_entries():
+            pattern = str(entry.get("title") or "").strip()
+            if not pattern or not self._title_matches_pattern(pattern, title):
+                continue
+            channel = str(entry.get("channel") or "")
+            if channel_id:
+                if channel != channel_id:
+                    continue
+            elif channel:
+                continue
+            uuid = _first_uuid(entry)
+            if uuid:
+                return uuid
+        return None
+
     def create_series_timer(self, event: dict, config_uuid: str) -> str | None:
         event_id = event.get("eventId")
         if event_id is None:
@@ -206,6 +237,25 @@ class TvheadendClient:
         data = self._request(
             "dvr/autorec/create_by_series",
             {"event_id": str(event_id), "config_uuid": config_uuid},
+        )
+        if isinstance(data, dict) and data.get("error"):
+            raise TvheadendError(str(data["error"]))
+        uuid = _first_uuid(data)
+        if not uuid:
+            raise TvheadendError("TVHeadend hat den Serien-Timer nicht angelegt.")
+        return uuid
+
+    def create_series_rule(self, title: str, channel_id: str, config_uuid: str) -> str | None:
+        conf = {
+            "enabled": 1,
+            "name": title,
+            "title": f"^{re.escape(title)}$",
+            "channel": channel_id,
+            "config_name": config_uuid,
+        }
+        data = self._request(
+            "dvr/autorec/create",
+            {"conf": json.dumps(conf, ensure_ascii=False)},
         )
         if isinstance(data, dict) and data.get("error"):
             raise TvheadendError(str(data["error"]))
@@ -259,3 +309,15 @@ class TvheadendClient:
         uuid = self.create_event_timer(event, config_uuid)
         return {"kind": "event", "created": True, "event_id": event.get("eventId"),
                 "dvr_uuid": uuid}
+
+    def record_series_title(self, title: str, channel_id: str = "") -> dict:
+        title = title.strip()
+        if not title:
+            raise TvheadendError("Kein Serientitel vorhanden.")
+        existing = self.find_existing_autorec_title(title, channel_id)
+        scope = "channel" if channel_id else "all"
+        if existing:
+            return {"kind": "series", "scope": scope, "created": False, "autorec_uuid": existing}
+        config_uuid = self.resolve_dvr_config()
+        uuid = self.create_series_rule(title, channel_id, config_uuid)
+        return {"kind": "series", "scope": scope, "created": True, "autorec_uuid": uuid}

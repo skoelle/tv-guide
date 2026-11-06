@@ -69,7 +69,7 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `/poster/{tconst}` | Locally cached TMDB poster |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review actions for HTMX (JSON, no redirect) |
 | `POST /api/works/{tconst}/reopen` | Remove a match for all shows of a work and put them back into Review |
-| `POST /api/works/{tconst}/record-series` | Create a TVHeadend series timer for a series airing (JSON) |
+| `POST /api/works/{tconst}/record-series` | Create a TVHeadend series timer for an airing or a title (JSON) |
 | `POST /api/works/{tconst}/record-event` | Create a TVHeadend single recording for a film airing (JSON) |
 | `/partials/jobs` | HTMX fragment with the sync job status |
 
@@ -97,6 +97,8 @@ On the work detail page, every future airing has a recording button:
 - **Film** → **"Film aufnehmen"** creates a **single recording** for exactly that airing.
 
 Both use the TVHeadend JSON API and the selected airing's channel. The button is hidden when no TVHeadend base URL can be derived. A series timer records all future airings matching the title on that channel; a film recording only covers the chosen broadcast.
+
+For series, the work detail also has a **TVHeadend series timer** box that works without any future airing. Choose **all channels** or one of the series' known channels and create a title-based Autorec. This is useful when a series is currently not scheduled but may return. The rule matches the exact EPG title (case-insensitive) on the selected channel scope. If the series is no longer present anywhere in `epg.db`, there is no work page; use TVHeadend directly in that case.
 
 ```toml
 [tvheadend]
