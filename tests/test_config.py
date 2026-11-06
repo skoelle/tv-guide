@@ -41,6 +41,24 @@ def test_missing_explicit_file(tmp_path):
         load_config(tmp_path / "gibt-es-nicht.toml")
 
 
+def test_tvheadend_options(tmp_path):
+    f = tmp_path / "config.toml"
+    f.write_text('''
+[epg]
+url = "http://tvh:9981/xmltv/channels"
+user = "epg-user"
+
+[tvheadend]
+url = "http://tvh:9981/api/"
+user = "dvr-user"
+dvr_config = "Mein Profil"
+''')
+    cfg = load_config(f)
+    assert cfg.tvh_url == "http://tvh:9981/api"
+    assert cfg.tvh_user == "dvr-user"
+    assert cfg.tvh_dvr_config == "Mein Profil"
+
+
 def test_poster_paths_and_defaults(tmp_path):
     f = tmp_path / "config.toml"
     f.write_text('''

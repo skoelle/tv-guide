@@ -13,7 +13,8 @@ Suchen mit E-Mail-Benachrichtigung.
 
 ### 1.1 Nicht-Ziele
 
-- Keine Aufnahmesteuerung (kein DVR-Zugriff, keine Timer).
+- Aufnahmesteuerung nur optional als Serien-Timer (TVHeadend-Autorec) aus der Werk-Detailansicht;
+  keine Einzelaufnahmen und keine eigene Timer-Verwaltung.
 - Kein öffentlicher Zugriff, keine Mehrbenutzerverwaltung. Ein Login gibt es nicht;
   im Heimnetz steht optional ein Reverse Proxy mit Authentifizierung (z. B. Authelia) davor.
 - Kein Scraping von IMDb oder anderen Webseiten.
@@ -222,8 +223,10 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
   einschließlich „Genre ausschließen“, Zuordnung, Retro, nur zukünftige Termine), Sortierung,
   Paginierung; Format standardmäßig ausgeblendet.
 - **Werk-Detail:** Poster, Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
-  bei unsicheren Zuordnungen eine Review-Box (Kandidaten bestätigen, „Kein Treffer“,
-  anderer Titel). Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei
+  pro zukünftigem Termin ein Button „Serie aufnehmen“, der über die TVHeadend-JSON-API
+  einen Serien-Timer (Autorec) für Titel und Sender anlegt. Bei unsicheren Zuordnungen
+  eine Review-Box (Kandidaten bestätigen, „Kein Treffer“, anderer Titel).
+  Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei
   Film/Serie, „Als Film/Serie behalten“ bei Format, „Markierung entfernen“ nur bei
   manueller Markierung.
 - **Review:** nur Film/Serie; Vorschläge bestätigen, „Kein Treffer“, anderer Titel,
@@ -244,6 +247,7 @@ Reverse Proxy wird nicht unterstützt.
 | `GET /api/works/{tconst}` | Werk inkl. Kategorie und Terminen |
 | `GET /poster/{tconst}` | lokal gecachtes TMDB-Poster (sonst 404) |
 | `POST /api/works/{tconst}/mark?mark=format\|keep\|none` | manuelle Kategorie |
+| `POST /api/works/{tconst}/record-series` | TVHeadend-Serien-Timer für einen Termin (`channel_id`, `start_ts`) |
 | `GET /api/review`, `POST /api/review/{show_id\|show_key}` | Review |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review-Aktionen für HTMX (JSON, kein Redirect) |
 | `POST /api/review/format?show_key=…` | Show als Format markieren |
@@ -282,6 +286,7 @@ tv-guide/
   tvguide/
     config.py db.py normalize.py cleaning.py matching.py categories.py marks.py
     browse.py review.py search.py refresh.py pipeline.py jobs.py scheduler.py status.py posters.py
+    tvheadend.py (JSON-API-Client für Serien-Timer)
     notify/ (__init__, email, digest)
     web/ (app.py, templates/, static/ inkl. htmx und Favicon)
   tests/ (inkl. golden/)

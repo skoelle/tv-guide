@@ -31,6 +31,7 @@ from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
 from ..status import collect, fmt_num, fmt_size, fmt_ts
+from ..tvheadend import TvheadendClient, TvheadendError, api_base
 
 HERE = Path(__file__).parent
 
@@ -219,8 +220,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
                         if w["status"] == "review" else [])
         ctx = _base(request, con, "")
         ctx.update({"w": w, "groups": groups, "mark": get_marks(con).get(tconst),
-                    "review_shows": review_shows,
-                    "imdb_source_date": imdb_source_date(con)})
+                    "review_shows": review_shows, "imdb_source_date": imdb_source_date(con),
+                    "at": _at(request), "tvh_enabled": bool(api_base(cfg))})
         return templates.TemplateResponse(request, "work.html", ctx)
 
     @app.get("/api/now")
@@ -327,6 +328,23 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         else:
             return JSONResponse({"ok": False, "error": "invalid mark"}, status_code=400)
         return {"ok": True, "tconst": tconst, "mark": mark}
+
+    @app.post("/api/works/{tconst}/record-series")
+    def api_work_record_series(tconst: str, channel_id: str = Form(...), start_ts: int = Form(...),
+                               con: Db = Depends(get_db)):
+        w = find_work(load_catalog(con, cfg), tconst)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "Werk nicht gefunden."}, status_code=404)
+        airing = next((a for a in w["airings"]
+                       if str(a["channel_id"]) == channel_id and int(a["start_ts"]) == start_ts), None)
+        if airing is None:
+            return JSONResponse({"ok": False, "error": "Termin nicht gefunden."}, status_code=400)
+        try:
+            result = TvheadendClient(cfg).record_series(
+                airing["channel_id"], airing["title"], airing["start_ts"], airing["stop_ts"])
+        except TvheadendError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+        return {"ok": True, **result}
 
     @app.post("/review/{show_key}/confirm")
     def review_confirm(show_key: str, tconst: str = Form(...), con: Db = Depends(get_db)):

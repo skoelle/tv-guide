@@ -32,6 +32,10 @@ class Config:
     epg_url: str = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
     epg_user: str = ""
     epg_prune_days: int = 0
+    # TVHeadend-Aufnahmen (Serien-Timer) ueber die JSON-API
+    tvh_url: str = ""
+    tvh_user: str = ""
+    tvh_dvr_config: str = ""
     imdb_raw_dir: Path | None = None
     imdb_types: str = "movie,tvMovie,tvSeries,tvMiniSeries"
     imdb_min_votes: int = 0
@@ -119,6 +123,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
     imdb = raw.get("imdb", {})
     schedule = raw.get("schedule", {})
     posters = raw.get("posters", {})
+    tvheadend = raw.get("tvheadend", {})
 
     return Config(
         base_dir=base,
@@ -143,6 +148,9 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         epg_url=str(epg.get("url", "http://docker-host-nas.fritz.box:9981/xmltv/channels")),
         epg_user=str(epg.get("user", "") or ""),
         epg_prune_days=int(epg.get("prune_days", 0) or 0),
+        tvh_url=str(tvheadend.get("url", "") or "").rstrip("/"),
+        tvh_user=str(tvheadend.get("user", "") or ""),
+        tvh_dvr_config=str(tvheadend.get("dvr_config", "") or ""),
         imdb_raw_dir=_resolve(base, imdb.get("raw_dir", "data/imdb_raw")),
         imdb_types=str(imdb.get("types", "movie,tvMovie,tvSeries,tvMiniSeries")),
         imdb_min_votes=int(imdb.get("min_votes", 0) or 0),

@@ -82,6 +82,61 @@ def test_work_page_zeigt_review_box(cfg):
     assert 'target="_blank"' in partial
 
 
+def test_work_page_serien_timer_button(cfg):
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/work/tt0086659?at=1793538000").text
+    assert "Serie aufnehmen" in html
+    assert 'hx-post="/api/works/tt0086659/record-series"' in html
+    assert 'hx-vals=\'{"channel_id": "c1", "start_ts": 1793538000}\'' in html
+    past = client.get("/work/tt0086659?at=1793600000").text
+    assert "Serie aufnehmen" not in past
+
+
+def test_record_series_api(cfg, monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, _cfg):
+            pass
+
+        def record_series(self, channel_id, title, start_ts, stop_ts):
+            calls.append((channel_id, title, start_ts, stop_ts))
+            return {"created": True, "event_id": 7, "autorec_uuid": "auto1"}
+
+    monkeypatch.setattr("tvguide.web.app.TvheadendClient", FakeClient)
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/works/tt0086659/record-series",
+                    data={"channel_id": "c1", "start_ts": "1793538000"})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "created": True, "event_id": 7, "autorec_uuid": "auto1"}
+    assert calls == [("c1", "Sendung 0", 1793538000, 1793541600)]
+
+
+def test_record_series_api_fehler(cfg, monkeypatch):
+    from tvguide.tvheadend import TvheadendError
+
+    class FakeClient:
+        def __init__(self, _cfg):
+            pass
+
+        def record_series(self, *_args):
+            raise TvheadendError("TVHeadend nicht erreichbar")
+
+    monkeypatch.setattr("tvguide.web.app.TvheadendClient", FakeClient)
+    _review_show(cfg, tconst="tt0086659").close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/works/tt0086659/record-series",
+                    data={"channel_id": "c1", "start_ts": "1793538000"})
+    assert r.status_code == 502
+    assert r.json()["error"] == "TVHeadend nicht erreichbar"
+    assert client.post("/api/works/tt0086659/record-series",
+                       data={"channel_id": "c2", "start_ts": "1793538000"}).status_code == 400
+    assert client.post("/api/works/tt0000000/record-series",
+                       data={"channel_id": "c1", "start_ts": "1793538000"}).status_code == 404
+
+
 def test_work_page_kategorie_buttons(cfg):
     _review_show(cfg, tconst="tt0086659").close()
     client = TestClient(create_app(cfg))

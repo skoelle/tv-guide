@@ -48,6 +48,13 @@ url = "http://docker-host-nas.fritz.box:9981/xmltv/channels"
 user = ""                    # Passwort kommt aus TVGUIDE_TVH_PASSWORD
 prune_days = 0               # 0 = nie
 
+# Serien-Timer aus der Werk-Detailansicht. Das Passwort kommt aus
+# TVGUIDE_TVH_PASSWORD; der Benutzer braucht DVR-/Recorder-Rechte.
+[tvheadend]
+url = ""                     # leer = aus [epg].url ableiten
+user = ""                    # leer = [epg].user verwenden
+dvr_config = ""              # DVR-Profilname oder UUID, leer = Standardprofil
+
 [imdb]
 raw_dir = "data/imdb_raw"    # Rohdatensatz, gross; im data-Volume
 types = "movie,tvMovie,tvSeries,tvMiniSeries"

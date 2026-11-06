@@ -82,15 +82,47 @@
 {% for g in groups %}
 <h2>{{ g.label }}</h2>
 <table>
-  <tr><th>Zeit</th><th>Sender</th><th>Titel</th></tr>
+  <tr><th>Zeit</th><th>Sender</th><th>Titel</th>{% if tvh_enabled %}<th>Aufnahme</th>{% endif %}</tr>
   {% for a in g.airings %}
   <tr>
     <td>{{ a.start_ts | ts('%H:%M') }}–{{ a.stop_ts | ts('%H:%M') }}</td>
     <td>{{ a.channel }}</td>
     <td>{{ a.sub_title or a.title }}</td>
+    {% if tvh_enabled %}
+    <td>
+      {% if a.start_ts >= at %}
+      <button class="btn" type="button"
+              hx-post="/api/works/{{ w.tconst }}/record-series"
+              hx-vals='{"channel_id": "{{ a.channel_id }}", "start_ts": {{ a.start_ts }}}'
+              hx-swap="none"
+              hx-confirm="Serien-Timer für „{{ w.title }}“ auf {{ a.channel }} in TVHeadend anlegen?"
+              hx-on::after-request="tvhRecordResult(event)">Serie aufnehmen</button>
+      {% else %}<span class="muted">vorbei</span>{% endif %}
+    </td>
+    {% endif %}
   </tr>
   {% endfor %}
 </table>
 {% endfor %}
+{% if tvh_enabled %}
+<p id="tvh-record-result" class="muted" role="status"></p>
+<script>
+function tvhRecordResult(evt) {
+  const el = document.getElementById('tvh-record-result');
+  if (!el) return;
+  let data = {};
+  try { data = JSON.parse(evt.detail.xhr.responseText || '{}'); } catch (err) { data = {}; }
+  if (evt.detail.successful && data.ok) {
+    el.className = 'tag ok';
+    el.textContent = data.created
+      ? 'Serien-Timer wurde in TVHeadend angelegt.'
+      : 'Für diese Serie gibt es bereits einen Serien-Timer.';
+  } else {
+    el.className = 'tag bad';
+    el.textContent = data.error || 'Serien-Timer konnte nicht angelegt werden.';
+  }
+}
+</script>
+{% endif %}
 <p class="muted"><a href="/browse">← zurück zum Stöbern</a></p>
 {% endblock %}
