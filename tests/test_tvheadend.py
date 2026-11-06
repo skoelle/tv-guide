@@ -77,7 +77,7 @@ def test_record_series_legt_timer_an(cfg):
         "dvr/autorec/create_by_series": {"uuid": ["auto1"]},
     })
     result = client.record_series("c1", "Das A-Team", 1793538000, 1793541600)
-    assert result == {"created": True, "event_id": 7, "autorec_uuid": "auto1"}
+    assert result == {"kind": "series", "created": True, "event_id": 7, "autorec_uuid": "auto1"}
     create = [params for path, params in client.calls if path == "dvr/autorec/create_by_series"]
     assert create == [{"event_id": "7", "config_uuid": "cfg1"}]
 
@@ -91,7 +91,7 @@ def test_record_series_nutzt_vorhandenen_timer(cfg):
         ]},
     })
     result = client.record_series("c1", "Das A-Team", 1793538000, 1793541600)
-    assert result == {"created": False, "event_id": 7, "autorec_uuid": "auto0"}
+    assert result == {"kind": "series", "created": False, "event_id": 7, "autorec_uuid": "auto0"}
     assert all(path != "dvr/autorec/create_by_series" for path, _ in client.calls)
 
 
@@ -104,6 +104,37 @@ def test_record_series_meldet_fehlschlag_ohne_uuid(cfg):
     })
     with pytest.raises(TvheadendError, match="nicht angelegt"):
         client.record_series("c1", "Das A-Team", 1793538000, 1793541600)
+
+
+def test_record_event_legt_einzelaufnahme_an(cfg):
+    client = FakeClient(cfg, {
+        "epg/events/grid": {"entries": [_event()]},
+        "dvr/config/grid": {"entries": [{"uuid": "cfg1"}]},
+        "dvr/entry/create_by_event": {"uuid": "dvr1"},
+    })
+    result = client.record_event("c1", "Das A-Team", 1793538000, 1793541600)
+    assert result == {"kind": "event", "created": True, "event_id": 7, "dvr_uuid": "dvr1"}
+    create = [params for path, params in client.calls if path == "dvr/entry/create_by_event"]
+    assert create == [{"event_id": "7", "config_uuid": "cfg1"}]
+
+
+def test_record_event_nutzt_vorhandene_aufnahme(cfg):
+    client = FakeClient(cfg, {
+        "epg/events/grid": {"entries": [_event(dvrUuid="dvr0", dvrState="scheduled")]},
+    })
+    result = client.record_event("c1", "Das A-Team", 1793538000, 1793541600)
+    assert result == {"kind": "event", "created": False, "event_id": 7, "dvr_uuid": "dvr0"}
+    assert all(path != "dvr/entry/create_by_event" for path, _ in client.calls)
+
+
+def test_record_event_meldet_fehlschlag_ohne_uuid(cfg):
+    client = FakeClient(cfg, {
+        "epg/events/grid": {"entries": [_event()]},
+        "dvr/config/grid": {"entries": [{"uuid": "cfg1"}]},
+        "dvr/entry/create_by_event": {},
+    })
+    with pytest.raises(TvheadendError, match="nicht angelegt"):
+        client.record_event("c1", "Das A-Team", 1793538000, 1793541600)
 
 
 def test_record_series_nutzt_konfiguriertes_dvr_profil(cfg):

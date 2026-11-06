@@ -11,7 +11,7 @@ Details: `SPEC.md` (what) and `PLAN.md` (how).
 - 🎯 **Match** shows against IMDb data, with a review queue for uncertain matches
 - 🎬 **Film, Serie, Format** — fiction stays visible, non-fiction formats are hidden by default
 - 🖼️ **TMDB posters**, cached locally and shown in Now, Browse, and work details
-- 📺 **Series timers** in TVHeadend directly from a work's detail page
+- 📺 **TVHeadend recordings**: series timers for series, single recordings for films
 - 🔎 **Saved searches** with validated filters and hit tracking
 - 📧 **Email digest** for new hits, retried automatically on failure
 - ⏰ **Automatic sync** for EPG (hourly) and IMDb (weekly)
@@ -69,7 +69,8 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `/poster/{tconst}` | Locally cached TMDB poster |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review actions for HTMX (JSON, no redirect) |
 | `POST /api/works/{tconst}/reopen` | Remove a match for all shows of a work and put them back into Review |
-| `POST /api/works/{tconst}/record-series` | Create a TVHeadend series timer for an airing (JSON) |
+| `POST /api/works/{tconst}/record-series` | Create a TVHeadend series timer for a series airing (JSON) |
+| `POST /api/works/{tconst}/record-event` | Create a TVHeadend single recording for a film airing (JSON) |
 | `/partials/jobs` | HTMX fragment with the sync job status |
 
 ## 🎬 Content categories
@@ -88,9 +89,14 @@ Uncertain matches can also be resolved directly on the work page: confirm the cu
 
 The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, data date, and, when available, a link to the work's TMDB page. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB link disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
 
-## 📺 TVHeadend series timers
+## 📺 TVHeadend recordings
 
-On the work detail page, every future airing has a **"Serie aufnehmen"** button. It creates a TVHeadend **Autorec** (series timer) for the EPG title on that airing's channel via the TVHeadend JSON API. Single-episode recordings are intentionally not offered. The button is hidden when no TVHeadend base URL can be derived.
+On the work detail page, every future airing has a recording button:
+
+- **Serie** → **"Serie aufnehmen"** creates a TVHeadend **Autorec** for the EPG title on that airing's channel.
+- **Film** → **"Film aufnehmen"** creates a **single recording** for exactly that airing.
+
+Both use the TVHeadend JSON API and the selected airing's channel. The button is hidden when no TVHeadend base URL can be derived. A series timer records all future airings matching the title on that channel; a film recording only covers the chosen broadcast.
 
 ```toml
 [tvheadend]
@@ -99,7 +105,7 @@ user = ""           # empty: use [epg].user
 dvr_config = ""     # DVR profile name/UUID, empty: default profile
 ```
 
-The password comes from `TVGUIDE_TVH_PASSWORD` (same as the EPG import). The account needs DVR/recorder permissions. TV-Guide resolves the matching EPG event, uses an existing series link when available, and falls back to an exact title match on the selected channel. If the event is no longer in TVHeadend's EPG, the page shows an error instead of recording the wrong programme.
+The password comes from `TVGUIDE_TVH_PASSWORD` (same as the EPG import). The account needs DVR/recorder permissions. TV-Guide resolves the matching EPG event, uses an existing series link when available, and falls back to an exact title match on the selected channel. If the event is no longer in TVHeadend's EPG, the page shows an error instead of recording the wrong programme. Existing series timers for the title/channel and existing single recordings are detected and not duplicated.
 
 ## 🖼️ Posters (TMDB)
 

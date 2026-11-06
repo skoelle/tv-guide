@@ -36,6 +36,14 @@ def _review_show(cfg, key="sendung 0", tconst=None):
     return con
 
 
+def _movie_show(cfg, key="sendung 0", tconst="tt0086659"):
+    con = sqlite3.connect(cfg.imdb_db)
+    con.execute("UPDATE titles SET title_type='movie' WHERE tconst=?", (tconst,))
+    con.commit()
+    con.close()
+    return _review_show(cfg, key=key, tconst=tconst)
+
+
 def test_review_count_liste_und_suche(cfg):
     con = _review_show(cfg)
     assert review_count(con) == 1
@@ -102,7 +110,7 @@ def test_record_series_api(cfg, monkeypatch):
 
         def record_series(self, channel_id, title, start_ts, stop_ts):
             calls.append((channel_id, title, start_ts, stop_ts))
-            return {"created": True, "event_id": 7, "autorec_uuid": "auto1"}
+            return {"kind": "series", "created": True, "event_id": 7, "autorec_uuid": "auto1"}
 
     monkeypatch.setattr("tvguide.web.app.TvheadendClient", FakeClient)
     _review_show(cfg, tconst="tt0086659").close()
@@ -110,8 +118,11 @@ def test_record_series_api(cfg, monkeypatch):
     r = client.post("/api/works/tt0086659/record-series",
                     data={"channel_id": "c1", "start_ts": "1793538000"})
     assert r.status_code == 200
-    assert r.json() == {"ok": True, "created": True, "event_id": 7, "autorec_uuid": "auto1"}
+    assert r.json() == {"ok": True, "kind": "series", "created": True, "event_id": 7,
+                        "autorec_uuid": "auto1"}
     assert calls == [("c1", "Sendung 0", 1793538000, 1793541600)]
+    assert client.post("/api/works/tt0086659/record-event",
+                       data={"channel_id": "c1", "start_ts": "1793538000"}).status_code == 400
 
 
 def test_record_series_api_fehler(cfg, monkeypatch):
@@ -135,6 +146,39 @@ def test_record_series_api_fehler(cfg, monkeypatch):
                        data={"channel_id": "c2", "start_ts": "1793538000"}).status_code == 400
     assert client.post("/api/works/tt0000000/record-series",
                        data={"channel_id": "c1", "start_ts": "1793538000"}).status_code == 404
+
+
+def test_work_page_film_einzelaufnahme(cfg):
+    _movie_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    html = client.get("/work/tt0086659?at=1793538000").text
+    assert "Film aufnehmen" in html
+    assert 'hx-post="/api/works/tt0086659/record-event"' in html
+    assert "Serie aufnehmen" not in html
+
+
+def test_record_event_api(cfg, monkeypatch):
+    calls = []
+
+    class FakeClient:
+        def __init__(self, _cfg):
+            pass
+
+        def record_event(self, channel_id, title, start_ts, stop_ts):
+            calls.append((channel_id, title, start_ts, stop_ts))
+            return {"kind": "event", "created": True, "event_id": 7, "dvr_uuid": "dvr1"}
+
+    monkeypatch.setattr("tvguide.web.app.TvheadendClient", FakeClient)
+    _movie_show(cfg).close()
+    client = TestClient(create_app(cfg))
+    r = client.post("/api/works/tt0086659/record-event",
+                    data={"channel_id": "c1", "start_ts": "1793538000"})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "kind": "event", "created": True, "event_id": 7,
+                        "dvr_uuid": "dvr1"}
+    assert calls == [("c1", "Sendung 0", 1793538000, 1793541600)]
+    assert client.post("/api/works/tt0086659/record-series",
+                       data={"channel_id": "c1", "start_ts": "1793538000"}).status_code == 400
 
 
 def test_work_page_kategorie_buttons(cfg):

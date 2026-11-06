@@ -329,18 +329,43 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"ok": False, "error": "invalid mark"}, status_code=400)
         return {"ok": True, "tconst": tconst, "mark": mark}
 
+    def _work_airing(con, tconst: str, channel_id: str, start_ts: int):
+        w = find_work(load_catalog(con, cfg), tconst)
+        if w is None:
+            return None, None
+        airing = next((a for a in w["airings"]
+                       if str(a["channel_id"]) == channel_id and int(a["start_ts"]) == start_ts), None)
+        return w, airing
+
     @app.post("/api/works/{tconst}/record-series")
     def api_work_record_series(tconst: str, channel_id: str = Form(...), start_ts: int = Form(...),
                                con: Db = Depends(get_db)):
-        w = find_work(load_catalog(con, cfg), tconst)
+        w, airing = _work_airing(con, tconst, channel_id, start_ts)
         if w is None:
             return JSONResponse({"ok": False, "error": "Werk nicht gefunden."}, status_code=404)
-        airing = next((a for a in w["airings"]
-                       if str(a["channel_id"]) == channel_id and int(a["start_ts"]) == start_ts), None)
         if airing is None:
             return JSONResponse({"ok": False, "error": "Termin nicht gefunden."}, status_code=400)
+        if w["kind"] != "serie":
+            return JSONResponse({"ok": False, "error": "Serien-Timer nur für Serien."}, status_code=400)
         try:
             result = TvheadendClient(cfg).record_series(
+                airing["channel_id"], airing["title"], airing["start_ts"], airing["stop_ts"])
+        except TvheadendError as exc:
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
+        return {"ok": True, **result}
+
+    @app.post("/api/works/{tconst}/record-event")
+    def api_work_record_event(tconst: str, channel_id: str = Form(...), start_ts: int = Form(...),
+                              con: Db = Depends(get_db)):
+        w, airing = _work_airing(con, tconst, channel_id, start_ts)
+        if w is None:
+            return JSONResponse({"ok": False, "error": "Werk nicht gefunden."}, status_code=404)
+        if airing is None:
+            return JSONResponse({"ok": False, "error": "Termin nicht gefunden."}, status_code=400)
+        if w["kind"] != "film":
+            return JSONResponse({"ok": False, "error": "Einzelaufnahme nur für Filme."}, status_code=400)
+        try:
+            result = TvheadendClient(cfg).record_event(
                 airing["channel_id"], airing["title"], airing["start_ts"], airing["stop_ts"])
         except TvheadendError as exc:
             return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)

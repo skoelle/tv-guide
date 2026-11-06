@@ -214,11 +214,48 @@ class TvheadendClient:
             raise TvheadendError("TVHeadend hat den Serien-Timer nicht angelegt.")
         return uuid
 
+    def create_event_timer(self, event: dict, config_uuid: str) -> str | None:
+        event_id = event.get("eventId")
+        if event_id is None:
+            raise TvheadendError("TVHeadend hat keine Event-ID geliefert.")
+        data = self._request(
+            "dvr/entry/create_by_event",
+            {"event_id": str(event_id), "config_uuid": config_uuid},
+        )
+        if isinstance(data, dict) and data.get("error"):
+            raise TvheadendError(str(data["error"]))
+        uuid = _first_uuid(data)
+        if not uuid:
+            raise TvheadendError("TVHeadend hat die Aufnahme nicht angelegt.")
+        return uuid
+
+    def _existing_recording(self, event: dict) -> str | None:
+        uuid = event.get("dvrUuid")
+        if not uuid:
+            return None
+        state = str(event.get("dvrState") or "").lower()
+        if "error" in state or state.startswith("failed"):
+            return None
+        return str(uuid)
+
     def record_series(self, channel_id: str, title: str, start_ts: int, stop_ts: int) -> dict:
         event = self.find_event(channel_id, title, start_ts, stop_ts)
         existing = self.find_existing_autorec(event)
         if existing:
-            return {"created": False, "event_id": event.get("eventId"), "autorec_uuid": existing}
+            return {"kind": "series", "created": False, "event_id": event.get("eventId"),
+                    "autorec_uuid": existing}
         config_uuid = self.resolve_dvr_config()
         uuid = self.create_series_timer(event, config_uuid)
-        return {"created": True, "event_id": event.get("eventId"), "autorec_uuid": uuid}
+        return {"kind": "series", "created": True, "event_id": event.get("eventId"),
+                "autorec_uuid": uuid}
+
+    def record_event(self, channel_id: str, title: str, start_ts: int, stop_ts: int) -> dict:
+        event = self.find_event(channel_id, title, start_ts, stop_ts)
+        existing = self._existing_recording(event)
+        if existing:
+            return {"kind": "event", "created": False, "event_id": event.get("eventId"),
+                    "dvr_uuid": existing}
+        config_uuid = self.resolve_dvr_config()
+        uuid = self.create_event_timer(event, config_uuid)
+        return {"kind": "event", "created": True, "event_id": event.get("eventId"),
+                "dvr_uuid": uuid}

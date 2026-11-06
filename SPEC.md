@@ -13,8 +13,8 @@ Suchen mit E-Mail-Benachrichtigung.
 
 ### 1.1 Nicht-Ziele
 
-- Aufnahmesteuerung nur optional als Serien-Timer (TVHeadend-Autorec) aus der Werk-Detailansicht;
-  keine Einzelaufnahmen und keine eigene Timer-Verwaltung.
+- Aufnahmesteuerung nur optional aus der Werk-Detailansicht: Serien-Timer (TVHeadend-Autorec)
+  für Serien, Einzelaufnahme für Filme; keine eigene Timer-Verwaltung.
 - Kein öffentlicher Zugriff, keine Mehrbenutzerverwaltung. Ein Login gibt es nicht;
   im Heimnetz steht optional ein Reverse Proxy mit Authentifizierung (z. B. Authelia) davor.
 - Kein Scraping von IMDb oder anderen Webseiten.
@@ -223,8 +223,9 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
   einschließlich „Genre ausschließen“, Zuordnung, Retro, nur zukünftige Termine), Sortierung,
   Paginierung; Format standardmäßig ausgeblendet.
 - **Werk-Detail:** Poster, Titel, Kategorie, Jahr, Genres, Rating, IMDb-Link, alle Termine;
-  pro zukünftigem Termin ein Button „Serie aufnehmen“, der über die TVHeadend-JSON-API
-  einen Serien-Timer (Autorec) für Titel und Sender anlegt. Bei unsicheren Zuordnungen
+  pro zukünftigem Termin ein Aufnahme-Button: bei Serien „Serie aufnehmen“ (Autorec über
+  die TVHeadend-JSON-API für Titel und Sender), bei Filmen „Film aufnehmen“ (Einzelaufnahme
+  nur dieses Termins). Bei unsicheren Zuordnungen
   eine Review-Box (Kandidaten bestätigen, „Kein Treffer“, anderer Titel).
   Kategorie-Buttons kontextabhängig: „Als Format markieren“ bei
   Film/Serie, „Als Film/Serie behalten“ bei Format, „Markierung entfernen“ nur bei
@@ -247,7 +248,8 @@ Reverse Proxy wird nicht unterstützt.
 | `GET /api/works/{tconst}` | Werk inkl. Kategorie und Terminen |
 | `GET /poster/{tconst}` | lokal gecachtes TMDB-Poster (sonst 404) |
 | `POST /api/works/{tconst}/mark?mark=format\|keep\|none` | manuelle Kategorie |
-| `POST /api/works/{tconst}/record-series` | TVHeadend-Serien-Timer für einen Termin (`channel_id`, `start_ts`) |
+| `POST /api/works/{tconst}/record-series` | TVHeadend-Serien-Timer für einen Serien-Termin (`channel_id`, `start_ts`) |
+| `POST /api/works/{tconst}/record-event` | TVHeadend-Einzelaufnahme für einen Film-Termin (`channel_id`, `start_ts`) |
 | `GET /api/review`, `POST /api/review/{show_id\|show_key}` | Review |
 | `POST /api/review/confirm`, `POST /api/review/reject`, `POST /api/review/undo` | Review-Aktionen für HTMX (JSON, kein Redirect) |
 | `POST /api/review/format?show_key=…` | Show als Format markieren |
