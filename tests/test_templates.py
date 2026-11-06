@@ -3,8 +3,9 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
-from tvguide.browse import (catalog_facets, evening_airings, genre_de, load_catalog, parse_filters,
-                            running_airings)
+from tvguide.browse import (annotate_next, catalog_facets, evening_airings, genre_de, load_catalog,
+                            parse_filters, running_airings)
+from tvguide.categories import label as category_label
 from tvguide.db import connect
 from tvguide.status import collect, fmt_num, fmt_size, fmt_ts
 from tvguide.web.app import _qs, _toggle
@@ -19,6 +20,7 @@ def _env(tz="Europe/Berlin"):
     env.filters["size"] = fmt_size
     env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, tz, fmt)
     env.globals["genre_de"] = genre_de
+    env.globals["category_label"] = category_label
     env.globals["decade_label"] = lambda d: f"{d}er" if d >= 2000 else f"{str(d)[2:]}er"
     env.globals["with_sort"] = lambda f, v: {**f, "sort": v}
     env.globals["with_page"] = lambda f, p: {**f, "page": p}
@@ -64,3 +66,22 @@ def test_index_renders(cfg):
     assert "Jetzt" in html
     assert "Läuft gerade" in html
     assert "Retro" in html
+
+
+def test_browse_title_links_to_work(cfg):
+    f = parse_filters({})
+    work = {
+        "tconst": "tt1", "title": "Werk", "year": 1985, "end_year": None,
+        "kind": "film", "category": "film", "genres": ["Action"], "genres_de": ["Action"],
+        "status": "auto", "poster": False,
+        "airings": [{"channel": "Test", "channel_id": "c1", "start_ts": AT, "stop_ts": AT + 3600,
+                     "sub_title": None, "title": "Werk"}],
+    }
+    works = annotate_next([work], AT)
+    ctx = {
+        "f": f, "facets": catalog_facets([], f, cfg), "at": AT, "works": works,
+        "total": 1, "page": 1, "pages": 1, "nav": _nav("stoebern"), "version": "x",
+        "qs": _qs, "toggle": _toggle,
+    }
+    html = _env().get_template("browse.html").render(**ctx)
+    assert 'href="/work/tt1"' in html
