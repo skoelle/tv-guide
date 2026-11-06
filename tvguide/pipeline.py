@@ -105,8 +105,21 @@ def _check_disk(path: Path) -> None:
             f"about {MIN_FREE_BYTES / 1e9:.0f} GB needed")
 
 
+def _posters(cfg: Config, log) -> str:
+    if not cfg.poster_enabled:
+        return ""
+    from .posters import run_posters_job
+
+    try:
+        return run_posters_job(cfg, log=log, prune=True)
+    except Exception as exc:  # noqa: BLE001 - Poster duerfen den IMDb-Job nicht scheitern lassen
+        msg = f"posters: failed ({type(exc).__name__}: {exc})"
+        log(msg)
+        return msg
+
+
 def run_imdb_job(cfg: Config, log=print) -> str:
-    """Baut `imdb.db` aus den IMDb-Datasets und refresht anschliessend."""
+    """Baut `imdb.db` aus den IMDb-Datasets, refresht und holt fehlende Poster."""
     raw = cfg.imdb_raw_dir or (cfg.app_db.parent / "imdb_raw")
     raw.mkdir(parents=True, exist_ok=True)
     _check_disk(raw)
@@ -121,7 +134,9 @@ def run_imdb_job(cfg: Config, log=print) -> str:
         cmd += ["--with-episodes"]
     log(f"host={socket.gethostname()} free={shutil.disk_usage(raw).free / 1e9:.1f} GB")
     _run_stream(cmd, log)
-    return "IMDb build done; " + _refresh(cfg, log)
+    message = "IMDb build done; " + _refresh(cfg, log)
+    posters = _posters(cfg, log)
+    return f"{message}; {posters}" if posters else message
 
 
 def run_refresh_job(cfg: Config, log=print) -> str:

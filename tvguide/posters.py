@@ -330,12 +330,12 @@ def fetch_posters(con: sqlite3.Connection, cfg: Config, *, force: bool = False,
     return stats
 
 
-def run_posters_job(cfg: Config, log=print) -> str:
+def run_posters_job(cfg: Config, log=print, *, prune: bool = False) -> str:
     from .db import connect
 
     con = connect(cfg)
     try:
-        stats = fetch_posters(con, cfg, log=log)
+        stats = fetch_posters(con, cfg, prune=prune, log=log)
     finally:
         con.close()
     return (f"posters: {stats['downloaded']} geladen, {stats['missing']} ohne Poster, "

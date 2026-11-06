@@ -85,3 +85,54 @@ def test_refresh_force(cfg):
     refresh(con, cfg)
     assert refresh(con, cfg, force=True)["changed"] is True
     con.close()
+
+
+def _patch_imdb_job(monkeypatch, poster_job):
+    from tvguide import pipeline, posters
+
+    monkeypatch.setattr(pipeline, "_check_disk", lambda path: None)
+    monkeypatch.setattr(pipeline, "_run_stream", lambda cmd, log, display=None: None)
+    monkeypatch.setattr(pipeline, "_refresh", lambda cfg, log: "refresh: unchanged")
+    monkeypatch.setattr(posters, "run_posters_job", poster_job)
+
+
+def test_imdb_job_fetches_posters(cfg, monkeypatch):
+    from tvguide import pipeline
+
+    calls = []
+
+    def fake_posters(cfg, log=print, *, prune=False):
+        calls.append(prune)
+        return "posters: 1 geladen"
+
+    _patch_imdb_job(monkeypatch, fake_posters)
+    message = pipeline.run_imdb_job(cfg, log=lambda line: None)
+
+    assert calls == [True]
+    assert message == "IMDb build done; refresh: unchanged; posters: 1 geladen"
+
+
+def test_imdb_job_skips_posters_when_disabled(cfg, monkeypatch):
+    from tvguide import pipeline
+
+    cfg.poster_enabled = False
+
+    def fake_posters(cfg, log=print, *, prune=False):
+        raise AssertionError("poster job must not run")
+
+    _patch_imdb_job(monkeypatch, fake_posters)
+    message = pipeline.run_imdb_job(cfg, log=lambda line: None)
+
+    assert message == "IMDb build done; refresh: unchanged"
+
+
+def test_imdb_job_survives_poster_error(cfg, monkeypatch):
+    from tvguide import pipeline
+
+    def fake_posters(cfg, log=print, *, prune=False):
+        raise RuntimeError("tmdb down")
+
+    _patch_imdb_job(monkeypatch, fake_posters)
+    message = pipeline.run_imdb_job(cfg, log=lambda line: None)
+
+    assert message == "IMDb build done; refresh: unchanged; posters: failed (RuntimeError: tmdb down)"
