@@ -8,23 +8,28 @@
             {% if job_running %}disabled{% endif %}>Fehlende Poster holen</button>
     {% if job_running %}<span class="tag ok">läuft …</span>{% endif %}
   </div>
+  {% if running %}
+  <div class="job-running">
+    <h3>Läuft: {{ 'EPG+IMDb' if running.kind == 'epg_chain' else running.kind }} <span class="muted">seit {{ running.started_at | dt }}</span></h3>
+    {% if running.log_tail %}<pre class="joblog">{{ running.log_tail }}</pre>{% endif %}
+  </div>
+  {% endif %}
   {% if jobs %}
   <div class="jobs-scroll">
     <table class="jobs">
       <tr><th>Job</th><th>Status</th><th>Start</th><th>Ende</th><th>Meldung</th></tr>
       {% for j in jobs %}
-      <tr>
+      <tr class="job-row" hx-get="/partials/jobs/{{ j.id }}" hx-target="#job-detail" hx-swap="innerHTML"
+          title="Details anzeigen">
         <td>{{ 'EPG+IMDb' if j.kind == 'epg_chain' else j.kind }}</td>
         <td><span class="tag {{ 'bad' if j.status == 'error' else ('ok' if j.status == 'ok' else '') }}">{{ j.status }}</span></td>
-        <td>{{ j.started_at }}</td>
-        <td>{{ j.finished_at or '–' }}</td>
+        <td>{{ j.started_at | dt }}</td>
+        <td>{{ (j.finished_at | dt) if j.finished_at else '–' }}</td>
         <td class="muted">{{ j.message or '' }}</td>
       </tr>
       {% endfor %}
     </table>
   </div>
-  {% set last = jobs[0] %}
-  {% if last.log_tail %}<pre class="joblog">{{ last.log_tail }}</pre>{% endif %}
   {% else %}
   <p class="muted">Noch keine Import-/Build-Läufe.</p>
   {% endif %}

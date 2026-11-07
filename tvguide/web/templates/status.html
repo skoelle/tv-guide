@@ -20,8 +20,10 @@
       <dt>Sendungen</dt><dd>{{ s.epg.events | num }}</dd>
       <dt>Zeitraum</dt><dd>{{ s.epg.first_start | ts }} bis {{ s.epg.last_stop | ts }}</dd>
       {% if s.epg.last_import %}
-      <dt>Letzter Import</dt><dd>{{ s.epg.last_import.finished_at }}<br><span class="muted">{{ s.epg.last_import.events_new | num }} neu, {{ s.epg.last_import.events_changed | num }} geändert</span></dd>
+      <dt>Letzter Import</dt><dd>{{ s.epg.last_import.finished_at | dt }}<br><span class="muted">{{ s.epg.last_import.events_new | num }} neu, {{ s.epg.last_import.events_changed | num }} geändert, {{ s.epg.last_import.events_pruned | num }} entfernt</span></dd>
       {% endif %}
+      <dt>Letzter Import mit Änderungen</dt>
+      <dd>{% if s.epg.last_changed_import %}{{ s.epg.last_changed_import.finished_at | dt }}<br><span class="muted">{{ s.epg.last_changed_import.events_new | num }} neu, {{ s.epg.last_changed_import.events_changed | num }} geändert, {{ s.epg.last_changed_import.events_pruned | num }} entfernt</span>{% else %}<span class="muted">noch keiner</span>{% endif %}</dd>
       {% endif %}
     </dl>
   </section>
@@ -64,6 +66,7 @@
     {% if schedule_enabled %}· EPG regelmäßig · IMDb nach dem ersten EPG-Wechsel pro Tag{% endif %}
   </p>
   {% include "_jobs.html" %}
+  <div id="job-detail" class="job-detail"></div>
 </section>
 
 <p class="muted">Konfiguration: {{ s.config_file or 'Standardwerte' }} · Zeitzone {{ s.timezone }} · <a href="/api/status">JSON</a></p>

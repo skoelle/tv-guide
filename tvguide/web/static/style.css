@@ -82,6 +82,15 @@ th { color: #666; font-weight: 600; }
 .jobs-scroll { overflow-x: auto; }
 pre.joblog { background: #111; color: #d6ffd6; padding: .6rem; border-radius: 6px; overflow: auto; max-height: 220px; font-size: .78rem; }
 table.jobs td, table.jobs th { font-size: .85rem; word-break: break-word; }
+table.jobs tr.job-row { cursor: pointer; }
+table.jobs tr.job-row:hover { background: rgba(31, 42, 55, .06); }
+.job-running { border: 1px solid #b9d7b9; background: #f2faf2; border-radius: 6px; padding: .6rem .8rem; margin-bottom: .8rem; }
+.job-running h3 { margin: 0 0 .4rem; font-size: .95rem; }
+.job-detail { margin-top: .8rem; }
+.job-detail-box { border-top: 1px solid #ddd; padding-top: .8rem; }
+.job-detail-box h3 { margin: 0 0 .4rem; font-size: .95rem; }
+.job-detail-box dl { margin: 0 0 .6rem; }
+.job-detail-box pre.joblog { max-height: 420px; }
 
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; }

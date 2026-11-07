@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -33,7 +33,8 @@ def collect(con: Db, cfg: Config) -> dict:
     imdb_ok = con.attached.get("imdb") in ("ok", "immutable")
 
     epg: dict = {"state": con.attached.get("epg"), "file": _file_info(cfg.epg_db),
-                 "channels": None, "events": None, "first_start": None, "last_stop": None, "last_import": None}
+                 "channels": None, "events": None, "first_start": None, "last_stop": None,
+                 "last_import": None, "last_changed_import": None}
     if epg_ok:
         epg.update(
             channels=_one(con, "SELECT count(*) FROM epg.channels"),
@@ -41,15 +42,22 @@ def collect(con: Db, cfg: Config) -> dict:
             first_start=_one(con, "SELECT min(start_ts) FROM epg.events"),
             last_stop=_one(con, "SELECT max(stop_ts) FROM epg.events"),
         )
-        last = None
+        last = last_changed = None
         try:
             last = con.execute(
-                "SELECT finished_at, source, events_total, events_new, events_changed "
+                "SELECT finished_at, source, events_total, events_new, events_changed, events_pruned "
                 "FROM epg.imports WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            last_changed = con.execute(
+                "SELECT finished_at, source, events_total, events_new, events_changed, events_pruned "
+                "FROM epg.imports WHERE finished_at IS NOT NULL "
+                "AND (events_new > 0 OR events_changed > 0 OR events_pruned > 0) "
+                "ORDER BY id DESC LIMIT 1"
             ).fetchone()
         except sqlite3.Error:
             pass
         epg["last_import"] = dict(last) if last else None
+        epg["last_changed_import"] = dict(last_changed) if last_changed else None
 
     imdb: dict = {"state": con.attached.get("imdb"), "file": _file_info(cfg.imdb_db),
                   "titles": None, "names": None, "episodes": None,
@@ -108,6 +116,18 @@ def fmt_ts(ts: int | None, tz: str, fmt: str = "%d.%m.%Y %H:%M") -> str:
     return datetime.fromtimestamp(int(ts), ZoneInfo(tz)).strftime(fmt)
 
 
+def fmt_iso(value: str | None, tz: str, fmt: str = "%d.%m.%Y %H:%M") -> str:
+    if not value:
+        return "-"
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return str(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo(tz)).strftime(fmt)
+
+
 def fmt_num(n) -> str:
     if n is None:
         return "-"
@@ -139,7 +159,16 @@ def render_text(s: dict) -> str:
         L.append(f"  Zeitraum:   {fmt_ts(e['first_start'], tz)} bis {fmt_ts(e['last_stop'], tz)}")
         li = e.get("last_import")
         if li:
-            L.append(f"  Letzter Import: {li['finished_at']} ({fmt_num(li['events_new'])} neu, {fmt_num(li['events_changed'])} geaendert)")
+            L.append(f"  Letzter Import: {fmt_iso(li['finished_at'], tz)} "
+                     f"({fmt_num(li['events_new'])} neu, {fmt_num(li['events_changed'])} geaendert, "
+                     f"{fmt_num(li['events_pruned'])} entfernt)")
+        lc = e.get("last_changed_import")
+        if lc:
+            L.append(f"  Letzter Import mit Aenderungen: {fmt_iso(lc['finished_at'], tz)} "
+                     f"({fmt_num(lc['events_new'])} neu, {fmt_num(lc['events_changed'])} geaendert, "
+                     f"{fmt_num(lc['events_pruned'])} entfernt)")
+        else:
+            L.append("  Letzter Import mit Aenderungen: noch keiner")
     L.append("")
 
     L.append(f"IMDb ({i['file']['path']}) [{i['state']}]")

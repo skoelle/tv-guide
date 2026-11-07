@@ -14,7 +14,9 @@ from pathlib import Path
 from .config import Config
 
 KINDS = ("epg", "epg_chain", "imdb", "posters", "refresh")
+JOBS_LIMIT = 24
 _LOG_TAIL_BYTES = 4000
+_DETAIL_LOG_BYTES = 20000
 _LOCK = threading.Lock()
 
 
@@ -30,7 +32,7 @@ def get_job(con: sqlite3.Connection, job_id: int):
     return con.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
 
 
-def _tail(path: str | None) -> str:
+def _tail(path: str | None, max_bytes: int = _LOG_TAIL_BYTES) -> str:
     if not path:
         return ""
     p = Path(path)
@@ -40,20 +42,31 @@ def _tail(path: str | None) -> str:
         with open(p, "rb") as f:
             f.seek(0, 2)
             size = f.tell()
-            f.seek(max(0, size - _LOG_TAIL_BYTES))
+            f.seek(max(0, size - max_bytes))
             return f.read().decode("utf-8", errors="replace")
     except OSError:
         return ""
 
 
-def recent_jobs(con: sqlite3.Connection, limit: int = 10) -> list[dict]:
+def _with_log(row, max_bytes: int) -> dict:
+    d = dict(row)
+    d["log_tail"] = _tail(d.get("log_path"), max_bytes)
+    return d
+
+
+def recent_jobs(con: sqlite3.Connection, limit: int = JOBS_LIMIT) -> list[dict]:
     rows = con.execute("SELECT * FROM jobs ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
-    out = []
-    for r in rows:
-        d = dict(r)
-        d["log_tail"] = _tail(d.get("log_path"))
-        out.append(d)
-    return out
+    return [dict(r) for r in rows]
+
+
+def running_job_detail(con: sqlite3.Connection) -> dict | None:
+    row = running_job(con)
+    return _with_log(row, _LOG_TAIL_BYTES) if row is not None else None
+
+
+def job_detail(con: sqlite3.Connection, job_id: int) -> dict | None:
+    row = get_job(con, job_id)
+    return _with_log(row, _DETAIL_LOG_BYTES) if row is not None else None
 
 
 def recover_stale(con: sqlite3.Connection) -> int:

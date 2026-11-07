@@ -72,3 +72,23 @@ def test_recover_stale(cfg):
     row = con.execute("SELECT status FROM jobs ORDER BY id DESC LIMIT 1").fetchone()
     assert row[0] == "error"
     con.close()
+
+
+def test_recent_jobs_limit_and_detail(cfg, tmp_path):
+    log = tmp_path / "job.log"
+    log.write_text("zeile 1\nzeile 2\n", encoding="utf-8")
+    con = connect(cfg)
+    for i in range(30):
+        con.execute("INSERT INTO jobs (kind, status, started_at, finished_at, message, log_path)"
+                    " VALUES ('epg','ok','x','y','done',?)", (str(log) if i == 29 else None,))
+    con.commit()
+
+    recent = jobs.recent_jobs(con)
+    assert len(recent) == jobs.JOBS_LIMIT == 24
+    assert "log_tail" not in recent[0]
+
+    newest = recent[0]["id"]
+    detail = jobs.job_detail(con, newest)
+    assert detail is not None
+    assert "zeile 2" in detail["log_tail"]
+    con.close()

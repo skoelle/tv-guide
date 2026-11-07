@@ -123,6 +123,44 @@ def test_jobs_api_und_partial(client):
     assert client.get("/partials/jobs").status_code == 200
 
 
+def test_status_zeigt_letzten_import_mit_aenderungen(client):
+    assert "Letzter Import mit Änderungen" in client.get("/status").text
+
+
+def test_job_detail_zeigt_log(client, cfg, tmp_path):
+    log = tmp_path / "job.log"
+    log.write_text("hallo log", encoding="utf-8")
+    con = connect(cfg)
+    cur = con.execute(
+        "INSERT INTO jobs (kind, status, started_at, finished_at, message, log_path)"
+        " VALUES ('epg','ok','x','y','fertig',?)", (str(log),))
+    con.commit()
+    job_id = cur.lastrowid
+    con.close()
+
+    r = client.get(f"/partials/jobs/{job_id}")
+    assert r.status_code == 200
+    assert "hallo log" in r.text
+    assert client.get(f"/api/jobs/{job_id}/log").text == "hallo log"
+    assert client.get("/partials/jobs/9999").status_code == 404
+    assert "hallo log" not in client.get("/status").text
+
+
+def test_laufender_job_zeigt_log_oben(client, cfg, tmp_path):
+    log = tmp_path / "job.log"
+    log.write_text("live log", encoding="utf-8")
+    con = connect(cfg)
+    con.execute(
+        "INSERT INTO jobs (kind, status, started_at, log_path)"
+        " VALUES ('epg','running','x',?)", (str(log),))
+    con.commit()
+    con.close()
+
+    r = client.get("/status")
+    assert "Läuft:" in r.text
+    assert "live log" in r.text
+
+
 def test_job_api_startet(client, cfg, monkeypatch):
     from tvguide import jobs
 

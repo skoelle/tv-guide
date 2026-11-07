@@ -1,0 +1,16 @@
+<div class="job-detail-box">
+  <h3>{{ 'EPG+IMDb' if job.kind == 'epg_chain' else job.kind }}
+    <span class="tag {{ 'bad' if job.status == 'error' else ('ok' if job.status == 'ok' else '') }}">{{ job.status }}</span>
+  </h3>
+  <dl>
+    <dt>Start</dt><dd>{{ job.started_at | dt }}</dd>
+    <dt>Ende</dt><dd>{{ (job.finished_at | dt) if job.finished_at else '–' }}</dd>
+    {% if job.message %}<dt>Meldung</dt><dd>{{ job.message }}</dd>{% endif %}
+  </dl>
+  {% if job.log_tail %}
+  <pre class="joblog">{{ job.log_tail }}</pre>
+  <p><a class="btn" href="/api/jobs/{{ job.id }}/log">Vollständiges Log herunterladen</a></p>
+  {% else %}
+  <p class="muted">Kein Log vorhanden.</p>
+  {% endif %}
+</div>

@@ -9,7 +9,7 @@ from tvguide.browse import (airing_summary, annotate_next, catalog_facets, eveni
                             imdb_type_de, load_catalog, parse_filters, running_airings)
 from tvguide.categories import label as category_label
 from tvguide.db import connect
-from tvguide.status import collect, fmt_num, fmt_size, fmt_ts
+from tvguide.status import collect, fmt_iso, fmt_num, fmt_size, fmt_ts
 from tvguide.web.app import _airing_groups, _qs, _toggle
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "tvguide" / "web" / "templates"
@@ -21,6 +21,7 @@ def _env(tz="Europe/Berlin"):
     env.filters["num"] = fmt_num
     env.filters["size"] = fmt_size
     env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, tz, fmt)
+    env.filters["dt"] = lambda value, fmt="%d.%m.%Y %H:%M": fmt_iso(value, tz, fmt)
     env.globals["genre_de"] = genre_de
     env.globals["imdb_type_de"] = imdb_type_de
     env.globals["category_label"] = category_label

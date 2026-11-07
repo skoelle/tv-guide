@@ -72,6 +72,8 @@ Use `--config /path/config.toml` (before or after the command) or `TVGUIDE_CONFI
 | `POST /api/works/{tconst}/record-series` | Create a TVHeadend series timer for an airing or a title (JSON) |
 | `POST /api/works/{tconst}/record-event` | Create a TVHeadend single recording for a film airing (JSON) |
 | `/partials/jobs` | HTMX fragment with the sync job status |
+| `/partials/jobs/{id}` | HTMX fragment with the details and log tail of one job |
+| `/api/jobs/{id}/log` | Full log file of a job as plain text |
 
 ## 🎬 Content categories
 
@@ -154,7 +156,7 @@ The container can keep EPG and IMDb up to date by itself:
 
 - **EPG** is checked every `[schedule].epg_every_minutes` (default hourly). The import is cheap and only triggers a re-match when the XMLTV content (SHA1) changed.
 - **IMDb** is rebuilt after the first EPG content change of each calendar day (server timezone). The same chain then re-matches and fetches missing posters; failures are logged and do not fail the IMDb job. Further EPG changes on the same day only re-run the match. Without an EPG change there is no IMDb rebuild.
-- The `/status` page has the buttons **"EPG jetzt importieren"**, **"IMDb jetzt neu bauen"** and **"Fehlende Poster holen"**. They call `POST /api/jobs/{kind}` (JSON, no redirect) via HTMX. Manual EPG imports do not start the chain; use the IMDb button for that. Only one job runs at a time; the page polls the job status and shows the last log lines.
+- The `/status` page has the buttons **"EPG jetzt importieren"**, **"IMDb jetzt neu bauen"** and **"Fehlende Poster holen"**. They call `POST /api/jobs/{kind}` (JSON, no redirect) via HTMX. Manual EPG imports do not start the chain; use the IMDb button for that. Only one job runs at a time; the page polls the job status, shows the last 24 jobs, and displays the log of the running job at the top. Finished jobs open their details and log tail on click; the full log can be downloaded from there.
 - The scheduler lives inside the web container (single process, background thread). State (`last_epg_run`, `last_epg_chain_date`) is kept in `app_meta`, so it survives restarts. Jobs interrupted by a restart are marked as `error` and retried on the next schedule.
 
 Relevant config/env:

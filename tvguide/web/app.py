@@ -23,7 +23,8 @@ from ..categories import label as category_label
 from ..marks import delete_mark, get_marks, recent as recent_marks, set_mark, undo_last as undo_last_mark
 from ..config import Config, load_config
 from ..db import Db, connect
-from ..jobs import get_job, recent_jobs, recover_stale, running_job, start_job
+from ..jobs import (get_job, job_detail, recent_jobs, recover_stale, running_job, running_job_detail,
+                    start_job)
 from ..matching import search_titles
 from ..posters import TCONST_RE, cached_find_summary
 from ..review import (apply_override, list_review, mark_as_format, reopen_work, review_count,
@@ -31,7 +32,7 @@ from ..review import (apply_override, list_review, mark_as_format, reopen_work, 
 from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
-from ..status import collect, fmt_num, fmt_size, fmt_ts
+from ..status import collect, fmt_iso, fmt_num, fmt_size, fmt_ts
 from ..tvheadend import TvheadendClient, TvheadendError, api_base
 
 HERE = Path(__file__).parent
@@ -158,6 +159,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     templates.env.filters["num"] = fmt_num
     templates.env.filters["size"] = fmt_size
     templates.env.filters["ts"] = lambda ts, fmt="%d.%m.%Y %H:%M": fmt_ts(ts, cfg.timezone, fmt)
+    templates.env.filters["dt"] = lambda value, fmt="%d.%m.%Y %H:%M": fmt_iso(value, cfg.timezone, fmt)
     templates.env.globals["genre_de"] = genre_de
     templates.env.globals["imdb_type_de"] = imdb_type_de
     templates.env.globals["category_label"] = category_label
@@ -559,6 +561,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"error": "not found"}, status_code=404)
         return {"search": s, "hits": hits_for(con, search_id)}
 
+    def _jobs_ctx(con: Db) -> dict:
+        running = running_job_detail(con)
+        return {"jobs": recent_jobs(con), "job_running": running is not None, "running": running}
+
     @app.post("/api/jobs/{kind}")
     def api_jobs_start(kind: str, con: Db = Depends(get_db)):
         if kind not in ("epg", "imdb", "posters"):
@@ -569,8 +575,15 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/partials/jobs")
     def jobs_partial(request: Request, con: Db = Depends(get_db)):
         ctx = _base(request, con, "status")
-        ctx.update({"jobs": recent_jobs(con), "job_running": running_job(con) is not None})
+        ctx.update(_jobs_ctx(con))
         return templates.TemplateResponse(request, "_jobs.html", ctx)
+
+    @app.get("/partials/jobs/{job_id}")
+    def job_detail_partial(request: Request, job_id: int, con: Db = Depends(get_db)):
+        job = job_detail(con, job_id)
+        if job is None:
+            return Response(status_code=404)
+        return templates.TemplateResponse(request, "_job_detail.html", {"job": job})
 
     @app.get("/api/jobs")
     def api_jobs(con: Db = Depends(get_db)):
@@ -578,18 +591,24 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.get("/api/jobs/{job_id}")
     def api_job(job_id: int, con: Db = Depends(get_db)):
-        job = get_job(con, job_id)
+        job = job_detail(con, job_id)
         if job is None:
             return JSONResponse({"error": "not found"}, status_code=404)
-        return dict(job)
+        return job
+
+    @app.get("/api/jobs/{job_id}/log")
+    def api_job_log(job_id: int, con: Db = Depends(get_db)):
+        job = get_job(con, job_id)
+        if job is None or not job["log_path"] or not Path(job["log_path"]).is_file():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return FileResponse(job["log_path"], media_type="text/plain", filename=f"job_{job_id}.log")
 
     @app.get("/status")
     def status_page(request: Request, con: Db = Depends(get_db)):
         data = collect(con, cfg)
         ctx = _base(request, con, "status")
         ctx["s"] = data
-        ctx["jobs"] = recent_jobs(con)
-        ctx["job_running"] = running_job(con) is not None
+        ctx.update(_jobs_ctx(con))
         ctx["schedule_enabled"] = cfg.schedule_enabled
         return templates.TemplateResponse(request, "status.html", ctx)
 
