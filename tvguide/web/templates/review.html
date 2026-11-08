@@ -12,9 +12,9 @@
 </form>
 
 {% if marks %}
-<div class="box" style="margin-bottom:1rem">
-  <h2>Manuelle Format-Markierungen</h2>
-  <table>
+<details class="box" style="margin-bottom:1rem">
+  <summary class="btn">Manuelle Format-Markierungen ({{ marks | length }})</summary>
+  <table style="margin-top:.6rem">
     <tr><th>Titel</th><th>Markierung</th><th>Seit</th></tr>
     {% for m in marks %}
     <tr>
@@ -26,7 +26,7 @@
   </table>
   <button class="btn" type="button" hx-post="/api/marks/undo" hx-swap="none"
           hx-on::after-request="location.reload()">Letzte Markierung rückgängig</button>
-</div>
+</details>
 {% endif %}
 
 <div id="review-list"

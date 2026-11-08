@@ -8,6 +8,7 @@ pytest.importorskip("httpx")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from tvguide.db import connect  # noqa: E402
+from tvguide.marks import set_mark  # noqa: E402
 from tvguide.matching import run_match  # noqa: E402
 from tvguide.review import (apply_overrides, review_count, review_group_count, review_groups,  # noqa: E402
                             undo_last)
@@ -91,12 +92,18 @@ def test_api_group_confirm_und_reject(cfg):
 
 def test_group_http_fallback_und_template(cfg):
     _three_reviews(cfg).close()
+    con = connect(cfg)
+    set_mark(con, "tt9999999", "format")
+    con.close()
     client = TestClient(create_app(cfg))
     html = client.get("/review").text
     assert "3 Shows" in html
     assert "Einzelne Shows bearbeiten" in html
     assert 'action="/review/group/confirm"' in html
     assert 'action="/review/group/reject"' in html
+    assert "Manuelle Format-Markierungen (1)" in html
+    mark_start = html.index('<details class="box"')
+    assert " open" not in html[mark_start:html.index("</details>", mark_start)]
 
     r = client.post("/review/group/confirm",
                     data={"show_keys": "sendung 0,sendung 1,sendung 2", "tconst": "tt0086659"},
