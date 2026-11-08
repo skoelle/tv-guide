@@ -20,7 +20,7 @@
 <p class="muted">{{ total }} Werke{% if pages > 1 %} · Seite {{ page }}/{{ pages }}{% endif %}</p>
 {% if works %}
 <div class="cards">
-  {% for w in works %}{{ work_card(w, at) }}{% endfor %}
+  {% for w in works %}{{ work_card(w, at, future_only=f.upcoming) }}{% endfor %}
 </div>
 {% else %}<p class="muted">Keine Werke für diese Filter.</p>{% endif %}
 

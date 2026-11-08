@@ -115,6 +115,36 @@ def test_browse_title_links_to_work(cfg):
     assert 'name="genre_not"' in html
 
 
+def test_browse_upcoming_filter_hides_past_airings(cfg):
+    past = {"channel": "Test", "channel_id": "c1", "start_ts": AT - 7200, "stop_ts": AT - 3600,
+            "sub_title": "Alte Folge", "title": "Werk"}
+    future = {"channel": "Test", "channel_id": "c1", "start_ts": AT + 3600, "stop_ts": AT + 7200,
+              "sub_title": "Neue Folge", "title": "Werk"}
+    work = {
+        "tconst": "tt1", "title": "Werk", "year": 1985, "end_year": None,
+        "kind": "film", "category": "film", "genres": ["Action"], "genres_de": ["Action"],
+        "status": "auto", "poster": False, "airings": [past, future],
+    }
+
+    def render(f):
+        works = annotate_next([{**work, "airings": list(work["airings"])}], AT)
+        ctx = {
+            "f": f, "facets": catalog_facets([], f, cfg), "at": AT, "works": works,
+            "total": 1, "page": 1, "pages": 1, "nav": _nav("stoebern"), "version": "x",
+            "qs": _qs, "toggle": _toggle,
+            "retro_from": cfg.retro_from, "retro_to": cfg.retro_to,
+        }
+        return _env().get_template("browse.html").render(**ctx)
+
+    upcoming_html = render(parse_filters({"upcoming": "1"}))
+    assert "Neue Folge" in upcoming_html
+    assert "Alte Folge" not in upcoming_html
+
+    all_html = render(parse_filters({}))
+    assert "Neue Folge" in all_html
+    assert "Alte Folge" in all_html
+
+
 def test_work_shows_runtime_type_and_source_date(cfg):
     work = {
         "tconst": "tt0086659", "title": "Das A-Team", "imdb_title": "The A-Team",

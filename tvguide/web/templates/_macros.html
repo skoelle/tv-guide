@@ -30,7 +30,7 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro work_card(w, at, note='') -%}
+{% macro work_card(w, at, note='', future_only=false) -%}
 <details class="card box">
   <summary>
     {{ poster(w) }}
@@ -44,7 +44,9 @@
   <table>
     <tr><th>Termin</th><th>Sender</th><th>Titel</th></tr>
     {% for a in w.airings %}
+    {% if not future_only or a.start_ts >= at %}
     <tr><td>{{ a.start_ts | ts }}</td><td>{{ a.channel }}</td><td>{{ a.sub_title or w.title }}</td></tr>
+    {% endif %}
     {% endfor %}
   </table>
 </details>
