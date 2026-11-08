@@ -23,6 +23,8 @@ franchise_bonus = 0.15
 franchise_mismatch_penalty = 0.15
 suffix_penalty = 0.15
 combined_name_bonus = 0.25   # alle Titel-Teile sind exakte Aliase desselben Werks
+original_prefix_bonus = 0.25 # Originaltitel als Praefix, Rest ist kein IMDb-Name
+single_exact_bonus = 0.10    # exakter Film-Volltreffer mit nur einem Kandidaten
 
 [retro]
 from_year = 1980

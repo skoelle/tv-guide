@@ -161,10 +161,21 @@ def skip_reason(s: dict, cfg: Config) -> str | None:
 
 def lookup(con: sqlite3.Connection, norm: str, limit: int = 40):
     return con.execute(
-        """SELECT DISTINCT t.tconst, t.title_type, t.primary_title, t.start_year, t.end_year,
-                  t.runtime_min, t.num_votes, t.avg_rating, t.genres
+        """SELECT DISTINCT t.tconst, t.title_type, t.primary_title, t.original_title,
+                  t.start_year, t.end_year, t.runtime_min, t.num_votes, t.avg_rating, t.genres
            FROM imdb.title_names n JOIN imdb.titles t ON t.tconst = n.tconst
            WHERE n.norm = ? ORDER BY t.num_votes DESC LIMIT ?""", (norm, limit)).fetchall()
+
+
+def _runtime_fit(dur: int, runtime: int | None) -> bool:
+    return bool(runtime and dur and 0.9 <= dur / runtime <= 1.7)
+
+
+def _is_original_or_primary(norm: str, row) -> bool:
+    if norm == normalize(row["primary_title"]):
+        return True
+    original = row["original_title"]
+    return bool(original and norm == normalize(original))
 
 
 def _reconstructed_tconsts(con: sqlite3.Connection, title: str) -> set[str]:
@@ -294,6 +305,7 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
     full_norm = normalize(title)
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
     reconstructed = _reconstructed_tconsts(con, title)
+    parts = [normalize(part) for part in title_parts(title) if normalize(part)]
     base: list[tuple] = []
     for text, norm, kind in candidates(title):
         for row in lookup(con, norm):
@@ -306,6 +318,22 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
                 bonus = 0.15
                 sc += bonus
             base.append((sc, row, text, kind, signals, bonus, norm))
+    single_candidate = len({item[1]["tconst"] for item in base}) == 1
+    rest_unknown: bool | None = None
+    adjusted: list[tuple] = []
+    for sc, row, text, kind, signals, bonus, norm in base:
+        if row["title_type"] in MOVIE_TYPES and _runtime_fit(dur, row["runtime_min"]):
+            if kind == "prefix1" and len(parts) > 1 and _is_original_or_primary(norm, row):
+                if rest_unknown is None:
+                    rest_unknown = all(not lookup(con, part) for part in parts[1:])
+                if rest_unknown:
+                    sc += cfg.original_prefix_bonus
+                    signals["original_prefix"] = cfg.original_prefix_bonus
+            if kind == "full" and single_candidate and _is_original_or_primary(norm, row):
+                sc += cfg.single_exact_bonus
+                signals["single_exact"] = cfg.single_exact_bonus
+        adjusted.append((sc, row, text, kind, signals, bonus, norm))
+    base = adjusted
     # Ein exakter Volltreffer auf eine Serie ist staerker als ein Serien-Praefix
     # (z. B. "In aller Freundschaft - Die jungen Aerzte" ist ein eigenes Spin-off).
     full_series = any(kind == "full" and row["title_type"] in ("tvSeries", "tvMiniSeries")

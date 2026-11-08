@@ -71,6 +71,75 @@ def test_match_show_reconstructs_title_from_aliases(cfg):
     assert res["reason"]["signals"]["combined_name"] == cfg.combined_name_bonus
 
 
+def test_match_show_uses_original_title_prefix_with_subtitle(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("tt32580848", "tvMovie", "A Vintage Christmas", "A Christmas Post",
+         2024, None, 89, "Romance", 6.0, 618))
+    con.executemany(
+        "INSERT INTO title_names VALUES (?,?,?,?,?,?)",
+        [("tt32580848", "A Vintage Christmas", "a vintage christmas", "primary", None, None),
+         ("tt32580848", "A Christmas Post", "a christmas post", "original", None, None)])
+    con.commit()
+    con.close()
+
+    con = connect(cfg)
+    s = _show("A Christmas Post - Die vergessenen Weihnachtswünsche", [105])
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["best"]["tconst"] == "tt32580848"
+    assert res["status"] == "auto"
+    assert res["reason"]["signals"]["original_prefix"] == cfg.original_prefix_bonus
+
+
+def test_match_show_single_exact_film_ignores_low_votes(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("tt0157287", "tvMovie", "Abgehauen", "Abgehauen",
+         1998, None, 90, "Biography,Drama", 6.4, 49))
+    con.executemany(
+        "INSERT INTO title_names VALUES (?,?,?,?,?,?)",
+        [("tt0157287", "Abgehauen", "abgehauen", "primary", None, None),
+         ("tt0157287", "Abgehauen", "abgehauen", "aka", None, None)])
+    con.commit()
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Abgehauen", [90])
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["best"]["tconst"] == "tt0157287"
+    assert res["status"] == "auto"
+    assert res["reason"]["signals"]["single_exact"] == cfg.single_exact_bonus
+
+
+def test_match_show_single_exact_needs_unique_candidate(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("tt0157287", "tvMovie", "Abgehauen", "Abgehauen",
+         1998, None, 90, "Biography,Drama", 6.4, 49))
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("tt0999999", "tvMovie", "Abgehauen", "Abgehauen",
+         1998, None, 90, "Drama", 6.0, 10))
+    con.executemany(
+        "INSERT INTO title_names VALUES (?,?,?,?,?,?)",
+        [("tt0157287", "Abgehauen", "abgehauen", "primary", None, None),
+         ("tt0999999", "Abgehauen", "abgehauen", "primary", None, None)])
+    con.commit()
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Abgehauen", [90])
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["status"] == "review"
+    assert "single_exact" not in res["reason"]["signals"]
+
+
 def test_retro_class(cfg):
     class R(dict):
         def __getitem__(self, k):

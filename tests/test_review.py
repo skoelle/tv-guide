@@ -369,6 +369,7 @@ def test_review_html_nutzt_htmx(cfg):
     assert 'hx-post="/api/review/reject"' in html
     assert 'hx-post="/api/review/undo"' in html
     assert 'name="show_key" value="sendung 0"' in html
+    assert "EPG: Sendung 0" in html
     assert 'id="review-list"' in html
     assert _relative_urls(html) == []
 

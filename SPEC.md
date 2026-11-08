@@ -140,8 +140,10 @@ Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nu
    Name, Typ/Laufzeit, Serienerkennung, Laufzeitverhältnis, Stimmen, Jahr, Ambiguität,
    Franchise (wiederkehrender Präfix/Suffix), Suffix-Penalty und spezifischer Serien-Präfix.
    Sind alle Teile eines zusammengesetzten EPG-Titels exakte IMDb-Namen desselben Werks,
-   gibt es einen `combined_name`-Bonus. Ein exakter Volltreffer auf eine Serie hat Vorrang
-   vor einem Präfix.
+   gibt es einen `combined_name`-Bonus. Ein exakter Film-Volltreffer mit nur einem
+   Kandidaten (`single_exact`) sowie ein Originaltitel als Präfix mit nicht-IMDb-Untertitel
+   (`original_prefix`) werden zusätzlich gestärkt. Ein exakter Volltreffer auf eine Serie
+   hat Vorrang vor einem Präfix.
 7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
    sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
 8. **Overrides** gelten immer zuerst. Review-Einträge werden für die Anzeige nach

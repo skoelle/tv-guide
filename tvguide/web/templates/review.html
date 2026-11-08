@@ -46,6 +46,9 @@
     {{ s.show_count }} Show{% if s.show_count != 1 %}s{% endif %} · {{ s.events }} Termine
     {% for a in s.samples %} · {{ a.channel }}, {{ a.start_ts | ts }}–{{ a.stop_ts | ts('%H:%M') }}{% if a.sub_title %} „{{ a.sub_title }}"{% endif %}{% endfor %}
   </p>
+  {% if s.show_count == 1 %}
+  <p class="muted">EPG: {{ s.show_names[0] }}</p>
+  {% endif %}
   {% if s.show_count > 1 %}
   <details>
     <summary class="btn">{{ s.show_count }} EPG-Namen anzeigen</summary>
