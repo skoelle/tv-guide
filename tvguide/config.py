@@ -20,6 +20,12 @@ class Config:
     timezone: str = "Europe/Berlin"
     auto_threshold: float = 1.0
     review_threshold: float = 0.6
+    # Serien-Franchises: wiederkehrender Praefix/Suffix (z. B. "Tatort - ...").
+    franchise_auto: bool = True
+    franchise_min_shows: int = 3
+    franchise_bonus: float = 0.15
+    franchise_mismatch_penalty: float = 0.15
+    suffix_penalty: float = 0.15
     retro_from: int = 1980
     retro_to: int = 1999
     retro_end_max: int = 2009
@@ -58,6 +64,9 @@ class Config:
     poster_request_delay: float = 0.3
     channel_groups: dict[str, list[str]] = field(default_factory=dict)
     smtp: dict = field(default_factory=dict)
+    # Read-only Diagnose-API. Ohne Token sind die Endpunkte deaktiviert.
+    support_token: str = ""
+    support_sql_enabled: bool = False
     source: Path | None = None  # geladene Konfigurationsdatei, falls vorhanden
 
     @property
@@ -138,6 +147,11 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         timezone=server.get("timezone", "Europe/Berlin"),
         auto_threshold=float(matching.get("auto_threshold", 1.0)),
         review_threshold=float(matching.get("review_threshold", 0.6)),
+        franchise_auto=bool(matching.get("franchise_auto", True)),
+        franchise_min_shows=int(matching.get("franchise_min_shows", 3) or 3),
+        franchise_bonus=float(matching.get("franchise_bonus", 0.15)),
+        franchise_mismatch_penalty=float(matching.get("franchise_mismatch_penalty", 0.15)),
+        suffix_penalty=float(matching.get("suffix_penalty", 0.15)),
         retro_from=int(retro.get("from_year", 1980)),
         retro_to=int(retro.get("to_year", 1999)),
         retro_end_max=int(retro.get("end_max", 2009)),
@@ -172,5 +186,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         poster_request_delay=float(posters.get("request_delay", 0.3)),
         channel_groups={k: list(v) for k, v in raw.get("channel_groups", {}).items()},
         smtp=dict(raw.get("smtp", {})),
+        support_token=os.environ.get("TVGUIDE_SUPPORT_TOKEN", "").strip(),
+        support_sql_enabled=_env_bool("TVGUIDE_SUPPORT_SQL", False),
         source=cfg_file,
     )

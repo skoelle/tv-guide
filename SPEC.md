@@ -137,10 +137,13 @@ Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nu
 4. **Vorfilter (Skip)** aus `[skip]`: Kategorien, Titel, `skip_short`, `skip_block`.
 5. **Kandidaten** (voller Titel, Präfixe, Suffix) und exakter `title_names.norm`-Lookup.
 6. **Bewerten** (Summe gewichteter Signale, Details siehe `tvguide/matching.py`):
-   Name, Typ/Laufzeit, Serienerkennung, Laufzeitverhältnis, Stimmen, Jahr, Ambiguität.
+   Name, Typ/Laufzeit, Serienerkennung, Laufzeitverhältnis, Stimmen, Jahr, Ambiguität,
+   Franchise (wiederkehrender Präfix/Suffix), Suffix-Penalty und spezifischer Serien-Präfix.
+   Ein exakter Volltreffer auf eine Serie hat Vorrang vor einem Präfix.
 7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
    sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
-8. **Overrides** gelten immer zuerst.
+8. **Overrides** gelten immer zuerst. Review-Einträge werden für die Anzeige nach
+   `tconst` gruppiert; eine Entscheidung gilt für alle Shows der Gruppe.
 9. **Kategorie** (siehe 5.3) wird aus dem besten Kandidaten abgeleitet (bzw. durch
    `content_marks` überschrieben).
 
@@ -176,16 +179,19 @@ Documentary, Music, Sport, Short) und dem Fenster `retro_from`–`retro_to`:
   Ein bloßer Rebuild mit gleichem Datenstand löst kein Re-Matching aus.
 - `load_shows` und der Werk-Katalog sind pro Prozess gecacht; die Signatur umfasst
   `content_marks`, damit manuelle Kategorien sofort wirken.
+- Review-Gruppen fassen mehrere Shows mit demselben `tconst` zusammen. Sammel-Overrides
+  teilen eine `batch_id`; „rückgängig“ macht die ganze Gruppe rückgängig.
 
 ### 5.6 Ergebnisse des Prototyps (Referenz)
 | Kennzahl | Wert |
 |---|---|
 | Betrachtete Sendungen | 28.676 (von 49.669) |
 | Eindeutige Titel | 4.298 |
-| auto / review / none | 1.425 / 631 / 1.556 Titel |
+| auto / review / none | 1.704 / 357 / 1.551 Titel |
 
-Nach Kategorien (Show-Ebene, Stand 2026-11): Review 631 = Doku 165, Magazin 54, Show 62,
-Serie 230, Film 120. Review zeigt seit M10 nur Film + Serie (in den Echtdaten 350 statt 631).
+Nach Kategorien (Show-Ebene, Stand 2026-11): Review 357 = Doku, Magazin, Show, Serie und Film.
+Doku-Filme (`tvMovie`/`movie` mit `Documentary`) bleiben als Film sichtbar; Review zeigt
+weiterhin nur Film + Serie, aber ohne die früheren Serien-Franchise-Duplikate.
 
 ## 6. Filter und gespeicherte Suchen
 

@@ -104,6 +104,36 @@ def candidates(title):
     return res
 
 
+def _split_parts(title):
+    prefixes, suffixes = set(), set()
+    for _text, norm, kind in candidates(title):
+        if kind.startswith("prefix"):
+            prefixes.add(norm)
+        elif kind == "suffix":
+            suffixes.add(norm)
+    return prefixes, suffixes
+
+
+def assign_franchises(shows, min_shows):
+    """Erkennt wiederkehrende Praefixe/Suffixe (z. B. Tatort, Alpha Retro)."""
+    part_counts = Counter()
+    parts = {}
+    for key, s in shows.items():
+        pref_all, suff_all = _split_parts(s["title"])
+        pref = {n for n in pref_all if len(n) >= 3}
+        suff = {n for n in suff_all if len(n) >= 3}
+        parts[key] = (pref, suff)
+        part_counts.update(pref)
+        part_counts.update(suff)
+    for key, s in shows.items():
+        pref, suff = parts[key]
+        choices = [(n, "prefix") for n in pref] + [(n, "suffix") for n in suff]
+        best = max(choices, key=lambda x: (part_counts[x[0]], len(x[0])), default=None)
+        if best is None or part_counts[best[0]] < min_shows:
+            continue
+        s["franchise"] = {"kind": best[1], "norm": best[0], "count": part_counts[best[0]]}
+
+
 def read_ignore(path):
     exact, regs = set(), []
     if not path:
@@ -142,7 +172,8 @@ def load_shows(epg, ignore):
         s = shows.get(key)
         if s is None:
             s = shows[key] = {"title": clean or r["title"], "raw": Counter(), "n": 0, "durs": [], "chs": Counter(),
-                              "cats": Counter(), "subs": set(), "desc": "", "next": None, "yhint": None}
+                              "cats": Counter(), "subs": set(), "desc": "", "next": None, "yhint": None,
+                              "franchise": None}
         s["raw"][r["title"]] += 1
         s["n"] += 1
         s["durs"].append(max(0, (r["stop_ts"] - r["start_ts"]) // 60))
@@ -237,24 +268,59 @@ def score(cand_norm, kind, full_norm, row, dur, n_events, n_subs, desc):
         years = {int(y) for y in YEAR_IN_DESC.findall(desc or "")}
         if row["start_year"] in years:
             adj += 0.1
-    return name + adj
+    return name + adj, name
 
 
-def match_show(con, s, auto_thr, review_thr):
+def apply_franchise(sc, name, kind, norm, row, s, args):
+    franchise = s.get("franchise")
+    if not franchise:
+        return sc
+    is_series = row["title_type"] in ("tvSeries", "tvMiniSeries")
+    kind_matches = kind.startswith("prefix") if franchise["kind"] == "prefix" else kind == "suffix"
+    is_franchise = kind_matches and norm == franchise["norm"]
+    if is_franchise and is_series:
+        if name < 0.85:
+            sc += 0.85 - name
+        sc += args.franchise_bonus
+    elif not is_franchise and (kind.startswith("prefix") or kind == "suffix"):
+        sc -= args.franchise_mismatch_penalty
+    if kind == "suffix" and not (is_franchise and is_series):
+        sc -= args.suffix_penalty
+    return sc
+
+
+def match_show(con, s, args):
     title = s["title"]
     full_norm = normalize(title)
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
-    scored = {}
+    base = []
     for text, norm, kind in candidates(title):
         for row in lookup(con, norm):
-            sc = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]), s["desc"])
+            sc, name = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]), s["desc"])
             if s["yhint"] and row["start_year"] == s["yhint"]:
                 sc += 0.15
-            key = row["tconst"]
-            if key not in scored or sc > scored[key][0]:
-                scored[key] = (sc, row, text, kind)
-    if any(v[3] != "suffix" for v in scored.values()):
-        scored = {k: v for k, v in scored.items() if v[3] != "suffix"}
+            base.append((sc, row, text, kind, norm, name))
+    full_series = any(kind == "full" and row["title_type"] in ("tvSeries", "tvMiniSeries")
+                      and sc >= args.review for sc, row, _text, kind, _norm, _name in base)
+    franchise = s.get("franchise")
+    specific_series = False
+    if franchise and franchise["kind"] == "prefix":
+        specific_series = any(
+            kind.startswith("prefix") and row["title_type"] in ("tvSeries", "tvMiniSeries")
+            and norm != franchise["norm"] and norm.startswith(franchise["norm"] + " ")
+            and sc >= args.review
+            for sc, row, _text, kind, norm, _name in base)
+    block_franchise = full_series or specific_series
+    scored = {}
+    for sc, row, text, kind, norm, name in base:
+        if (not full_series and kind.startswith("prefix")
+                and row["title_type"] in ("tvSeries", "tvMiniSeries")):
+            sc += 0.1 * len(norm.split()) / max(1, len(full_norm.split()))
+        if not block_franchise:
+            sc = apply_franchise(sc, name, kind, norm, row, s, args)
+        key = row["tconst"]
+        if key not in scored or sc > scored[key][0]:
+            scored[key] = (sc, row, text, kind)
     ranked = sorted(scored.values(), key=lambda x: -x[0])
     if not ranked:
         return dict(status="none", score=0.0, best=None, alt=None, cand="", kind="", dur=dur)
@@ -262,7 +328,7 @@ def match_show(con, s, auto_thr, review_thr):
     sc = best[0]
     if len(ranked) > 1 and best[0] - ranked[1][0] < 0.05 and ranked[1][1]["tconst"] != best[1]["tconst"]:
         sc -= 0.15
-    status = "auto" if sc >= auto_thr else "review" if sc >= review_thr else "none"
+    status = "auto" if sc >= args.auto else "review" if sc >= args.review else "none"
     return dict(status=status, score=sc, best=best[1], alt=ranked[1][1] if len(ranked) > 1 else None,
                 cand=best[2], kind=best[3], dur=dur)
 
@@ -294,15 +360,24 @@ def main():
     ap.add_argument("--ignore-channels", help="Textdatei mit Sendernamen (je Zeile, 're:' fuer Regex, # Kommentar)")
     ap.add_argument("--auto", type=float, default=1.0, help="Schwelle fuer auto (Score, Default 1.0)")
     ap.add_argument("--review", type=float, default=0.6, help="Schwelle fuer review (Default 0.6)")
+    ap.add_argument("--no-franchise-auto", action="store_true",
+                    help="Serien-Franchises (Tatort, Alpha Retro, ...) nicht bevorzugen")
+    ap.add_argument("--franchise-min-shows", type=int, default=3)
+    ap.add_argument("--franchise-bonus", type=float, default=0.15)
+    ap.add_argument("--franchise-mismatch-penalty", type=float, default=0.15)
+    ap.add_argument("--suffix-penalty", type=float, default=0.15)
     ap.add_argument("--retro-from", type=int, default=1980)
     ap.add_argument("--retro-to", type=int, default=1999)
     ap.add_argument("--retro-end-max", type=int, default=2009, help="Serie gilt als abgeschlossen-retro bis end_year")
     args = ap.parse_args()
+    args.franchise_auto = not args.no_franchise_auto
 
     t0 = time.time()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     shows, chan_total, ignored, n_events_all = load_shows(args.epg, read_ignore(args.ignore_channels))
+    if args.franchise_auto:
+        assign_franchises(shows, args.franchise_min_shows)
     imdb = sqlite3.connect(f"file:{args.imdb}?mode=ro", uri=True)
     imdb.row_factory = sqlite3.Row
     print(f"{n_events_all} Sendungen, {ignored} von ignorierten Sendern, {len(shows)} bereinigte Titel, matche ...", file=sys.stderr)
@@ -313,7 +388,7 @@ def main():
         if reason:
             results.append((s, dict(status=reason, score=0.0, best=None, alt=None, cand="", kind="", dur=0)))
         else:
-            results.append((s, match_show(imdb, s, args.auto, args.review)))
+            results.append((s, match_show(imdb, s, args)))
         if (i + 1) % 2000 == 0:
             print(f"  {i + 1}/{len(shows)}", file=sys.stderr)
 

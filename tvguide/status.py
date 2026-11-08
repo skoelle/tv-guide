@@ -10,7 +10,7 @@ from . import __version__
 from .config import Config
 from .db import Db
 from .posters import poster_stats
-from .review import review_count
+from .review import review_count, review_group_count
 
 
 def _one(con: sqlite3.Connection, sql: str, params: tuple = ()):
@@ -86,6 +86,7 @@ def collect(con: Db, cfg: Config) -> dict:
         "overrides": _one(con, "SELECT count(*) FROM overrides"),
         "searches": _one(con, "SELECT count(*) FROM saved_searches"),
         "review_open": review_count(con),
+        "review_open_groups": review_group_count(con, cfg),
         "posters": poster_stats(con),
     }
 

@@ -9,8 +9,9 @@
     <td>{{ c.year or '–' }}{% if c.end_year %}–{{ c.end_year }}{% endif %}</td>
     <td>{{ 'Film' if c.type in ('movie','tvMovie') else 'Serie' }}</td>
     <td>
-      <form method="post" action="/review/{{ show_key }}/confirm">
+      <form method="post" action="{{ '/review/group/confirm' if show_keys else '/review/' ~ show_key ~ '/confirm' }}">
         <input type="hidden" name="show_key" value="{{ show_key }}">
+        {% if show_keys %}<input type="hidden" name="show_keys" value="{{ show_keys }}">{% endif %}
         <input type="hidden" name="tconst" value="{{ c.tconst }}">
         <button class="btn" type="submit" hx-post="/api/review/confirm" hx-include="closest form"
                 hx-target="closest .review-item" hx-swap="delete"{% if scope == 'work' %}

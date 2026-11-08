@@ -26,6 +26,8 @@ services:
       TVGUIDE_TVH_PASSWORD: "${TVGUIDE_TVH_PASSWORD:-}"
       TVGUIDE_TMDB_READ_TOKEN: "${TVGUIDE_TMDB_READ_TOKEN:-}"
       TVGUIDE_TMDB_API_KEY: "${TVGUIDE_TMDB_API_KEY:-}"
+      TVGUIDE_SUPPORT_TOKEN: "${TVGUIDE_SUPPORT_TOKEN:-}"
+      TVGUIDE_SUPPORT_SQL: "${TVGUIDE_SUPPORT_SQL:-0}"
       TVGUIDE_SCHEDULE_ENABLED: "true"
     labels:
       - com.centurylinklabs.watchtower.enable=true

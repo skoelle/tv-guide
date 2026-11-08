@@ -125,6 +125,11 @@ MIGRATIONS: list[str] = [
         fetched_at TEXT NOT NULL
     );
     """,
+    # Version 8: Review-Gruppen (Sammel-Overrides) gemeinsam rueckgaengig machen
+    """
+    ALTER TABLE override_log ADD COLUMN batch_id TEXT;
+    CREATE INDEX idx_override_log_batch ON override_log(batch_id);
+    """,
 ]
 
 
@@ -176,17 +181,40 @@ def migrate(con: sqlite3.Connection) -> int:
     return len(MIGRATIONS) if version < len(MIGRATIONS) else version
 
 
-def connect(cfg: Config, *, run_migrations: bool = True) -> Db:
-    """Oeffnet app.db (anlegen falls noetig) und haengt epg und imdb read-only an."""
+def connect(cfg: Config, *, run_migrations: bool = True, readonly: bool = False) -> Db:
+    """Oeffnet app.db (anlegen falls noetig) und haengt epg und imdb read-only an.
+
+    Mit ``readonly=True`` wird app.db nur lesend geoeffnet (Support-API) und es
+    laufen keine Migrationen.
+    """
+    if readonly and not cfg.app_db.exists():
+        raise FileNotFoundError(cfg.app_db)
     cfg.app_db.parent.mkdir(parents=True, exist_ok=True)
     # FastAPI fuehrt synchrone Dependencies und Endpunkte in wechselnden Threadpool-Threads
     # aus. Jede Anfrage nutzt weiterhin ihre eigene Verbindung, nur nicht parallel.
-    con = sqlite3.connect(_uri(cfg.app_db, "mode=rwc"), uri=True, factory=Db, timeout=10,
-                          check_same_thread=False)
+    mode = "mode=ro" if readonly else "mode=rwc"
+    try:
+        con = sqlite3.connect(_uri(cfg.app_db, mode), uri=True, factory=Db, timeout=10,
+                              check_same_thread=False)
+        if readonly:
+            con.execute("SELECT count(*) FROM sqlite_master").fetchone()
+    except sqlite3.Error:
+        if not readonly:
+            raise
+        # WAL-Datenbanken brauchen fuer mode=ro gelegentlich Schreibzugriff auf -shm.
+        try:
+            con.close()
+        except (NameError, sqlite3.Error):
+            pass
+        con = sqlite3.connect(_uri(cfg.app_db, "mode=rw"), uri=True, factory=Db, timeout=10,
+                              check_same_thread=False)
     con.row_factory = sqlite3.Row
-    con.execute("PRAGMA journal_mode=WAL")
+    if readonly:
+        con.execute("PRAGMA query_only=ON")
+    else:
+        con.execute("PRAGMA journal_mode=WAL")
     con.execute("PRAGMA foreign_keys=ON")
-    if run_migrations:
+    if run_migrations and not readonly:
         migrate(con)
     con.attached = {
         "epg": attach_readonly(con, "epg", cfg.epg_db),

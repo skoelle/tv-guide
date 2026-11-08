@@ -16,6 +16,12 @@ timezone = "Europe/Berlin"
 [matching]
 auto_threshold = 1.0         # Score ab hier: auto
 review_threshold = 0.6       # Score ab hier: review
+# Wiederkehrende Serien-Praefixe/-Suffixe (z. B. "Tatort - ...") staerker bewerten.
+franchise_auto = true
+franchise_min_shows = 3      # ab so vielen Shows gilt ein Praefix/Suffix als Franchise
+franchise_bonus = 0.15
+franchise_mismatch_penalty = 0.15
+suffix_penalty = 0.15
 
 [retro]
 from_year = 1980

@@ -48,13 +48,49 @@ def read_ignore(path: str | Path | None) -> tuple[set[str], list[re.Pattern]]:
 _SHOWS_CACHE: dict = {}
 
 
+def _split_parts(title: str) -> tuple[set[str], set[str]]:
+    prefixes, suffixes = set(), set()
+    for _text, norm, kind in candidates(title):
+        if kind.startswith("prefix"):
+            prefixes.add(norm)
+        elif kind == "suffix":
+            suffixes.add(norm)
+    return prefixes, suffixes
+
+
+def _assign_franchises(shows: dict[str, dict], cfg: Config) -> None:
+    """Erkennt wiederkehrende Praefixe/Suffixe ueber alle Shows.
+
+    Beispiel: ``Tatort - ...`` kommt oft vor -> Praefix ``tatort`` ist die
+    Franchise. Bei ``Schneewittchen - Der Usedom-Krimi`` kommt der Suffix
+    haeufiger vor und gewinnt.
+    """
+    part_counts: Counter = Counter()
+    parts: dict[str, tuple[set[str], set[str]]] = {}
+    for key, s in shows.items():
+        pref_all, suff_all = _split_parts(s["title"])
+        pref = {n for n in pref_all if len(n) >= 3}
+        suff = {n for n in suff_all if len(n) >= 3}
+        parts[key] = (pref, suff)
+        part_counts.update(pref)
+        part_counts.update(suff)
+    for key, s in shows.items():
+        pref, suff = parts[key]
+        choices = [(n, "prefix") for n in pref] + [(n, "suffix") for n in suff]
+        best = max(choices, key=lambda x: (part_counts[x[0]], len(x[0])), default=None)
+        if best is None or part_counts[best[0]] < cfg.franchise_min_shows:
+            continue
+        s["franchise"] = {"kind": best[1], "norm": best[0], "count": part_counts[best[0]]}
+
+
 def load_shows(con: sqlite3.Connection, cfg: Config) -> tuple[dict, Counter, int, int]:
     """Gruppiert EPG-Sendungen zu Shows. Gibt (shows, chan_total, ignoriert, gesamt) zurueck.
 
     Das Ergebnis wird pro Prozess gecacht (Schluessel: Pfad und mtime der epg.db)."""
     def _mt(p):
         return p.stat().st_mtime_ns if p.exists() else None
-    cache_key = (str(cfg.epg_db), _mt(cfg.epg_db), _mt(cfg.ignore_channels_file))
+    cache_key = (str(cfg.epg_db), _mt(cfg.epg_db), _mt(cfg.ignore_channels_file),
+                 cfg.franchise_auto, cfg.franchise_min_shows)
     if _SHOWS_CACHE.get("key") == cache_key:
         return _SHOWS_CACHE["val"]
     exact, regs = read_ignore(cfg.ignore_channels_file)
@@ -77,7 +113,8 @@ def load_shows(con: sqlite3.Connection, cfg: Config) -> tuple[dict, Counter, int
         if s is None:
             s = shows[key] = {"key": key, "title": clean or r["title"], "raw": Counter(), "n": 0,
                               "durs": [], "chs": Counter(), "cats": Counter(), "subs": set(),
-                              "desc": "", "next": None, "yhint": None, "events": []}
+                              "desc": "", "next": None, "yhint": None, "events": [],
+                              "franchise": None}
         s["raw"][r["title"]] += 1
         s["n"] += 1
         s["durs"].append(max(0, (r["stop_ts"] - r["start_ts"]) // 60))
@@ -95,6 +132,10 @@ def load_shows(con: sqlite3.Connection, cfg: Config) -> tuple[dict, Counter, int
         if s["next"] is None or r["start_ts"] < s["next"]:
             s["next"] = r["start_ts"]
         s["events"].append((r["channel_id"], r["start_ts"], r["sub_title"]))
+
+    if cfg.franchise_auto:
+        _assign_franchises(shows, cfg)
+
     result = (shows, chan_total, ignored, len(rows))
     _SHOWS_CACHE["key"] = cache_key
     _SHOWS_CACHE["val"] = result
@@ -191,13 +232,40 @@ def score(cand_norm: str, kind: str, full_norm: str, row, dur: int, n_events: in
     return name + adj, signals
 
 
+def _apply_franchise(sc: float, signals: dict, kind: str, norm: str, row,
+                     s: dict, cfg: Config) -> tuple[float, dict]:
+    """Passt einen Kandidaten an die erkannte Serien-Franchise an."""
+    franchise = s.get("franchise")
+    if not franchise:
+        return sc, signals
+    is_series = row["title_type"] in ("tvSeries", "tvMiniSeries")
+    kind_matches = kind.startswith("prefix") if franchise["kind"] == "prefix" else kind == "suffix"
+    is_franchise = kind_matches and norm == franchise["norm"]
+    if is_franchise and is_series:
+        name = signals.get("name", 0.0)
+        if name < 0.85:
+            boost = 0.85 - name
+            sc += boost
+            signals["franchise_name"] = round(boost, 6)
+            signals["name"] = 0.85
+        sc += cfg.franchise_bonus
+        signals["franchise_bonus"] = cfg.franchise_bonus
+    elif not is_franchise and (kind.startswith("prefix") or kind == "suffix"):
+        sc -= cfg.franchise_mismatch_penalty
+        signals["franchise_mismatch"] = -cfg.franchise_mismatch_penalty
+    if kind == "suffix" and not (is_franchise and is_series):
+        sc -= cfg.suffix_penalty
+        signals["suffix_penalty"] = -cfg.suffix_penalty
+    return sc, signals
+
+
 def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple]:
     """Alle Kandidaten eines Shows, nach Score absteigend. Tupel:
     (score, row, text, kind, signals, year_title_bonus)."""
     title = s["title"]
     full_norm = normalize(title)
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
-    scored: dict[str, tuple] = {}
+    base: list[tuple] = []
     for text, norm, kind in candidates(title):
         for row in lookup(con, norm):
             sc, signals = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]), s["desc"])
@@ -205,26 +273,100 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
             if s["yhint"] and row["start_year"] == s["yhint"]:
                 bonus = 0.15
                 sc += bonus
-            key = row["tconst"]
-            if key not in scored or sc > scored[key][0]:
-                scored[key] = (sc, row, text, kind, signals, bonus)
-    if any(v[3] != "suffix" for v in scored.values()):
-        scored = {k: v for k, v in scored.items() if v[3] != "suffix"}
+            base.append((sc, row, text, kind, signals, bonus, norm))
+    # Ein exakter Volltreffer auf eine Serie ist staerker als ein Serien-Praefix
+    # (z. B. "In aller Freundschaft - Die jungen Aerzte" ist ein eigenes Spin-off).
+    full_series = any(kind == "full" and row["title_type"] in ("tvSeries", "tvMiniSeries")
+                      and sc >= cfg.review_threshold
+                      for sc, row, _text, kind, _signals, _bonus, _norm in base)
+    franchise = s.get("franchise")
+    specific_series = False
+    if franchise and franchise["kind"] == "prefix":
+        specific_series = any(
+            kind.startswith("prefix") and row["title_type"] in ("tvSeries", "tvMiniSeries")
+            and norm != franchise["norm"] and norm.startswith(franchise["norm"] + " ")
+            and sc >= cfg.review_threshold
+            for sc, row, _text, kind, _signals, _bonus, norm in base)
+    block_franchise = full_series or specific_series
+    scored: dict[str, tuple] = {}
+    for sc, row, text, kind, signals, bonus, norm in base:
+        if (not full_series and kind.startswith("prefix")
+                and row["title_type"] in ("tvSeries", "tvMiniSeries")):
+            words_c = len(norm.split())
+            words_f = max(1, len(full_norm.split()))
+            spec = round(0.1 * words_c / words_f, 6)
+            sc += spec
+            signals["series_prefix_specific"] = spec
+        if not block_franchise:
+            sc, signals = _apply_franchise(sc, signals, kind, norm, row, s, cfg)
+        key = row["tconst"]
+        if key not in scored or sc > scored[key][0]:
+            scored[key] = (sc, row, text, kind, signals, bonus)
     return sorted(scored.values(), key=lambda x: -x[0])
+
+
+def _ambiguity_penalty(ranked: list[tuple], idx: int = 0) -> float:
+    """Abzug nur fuer den besten Kandidaten, wenn der zweite sehr nah liegt."""
+    if idx != 0 or len(ranked) < 2:
+        return 0.0
+    best, second = ranked[0], ranked[1]
+    if best[0] - second[0] < 0.05 and best[1]["tconst"] != second[1]["tconst"]:
+        return -0.15
+    return 0.0
+
+
+def _status_for(score_value: float, cfg: Config) -> str:
+    if score_value >= cfg.auto_threshold:
+        return "auto"
+    if score_value >= cfg.review_threshold:
+        return "review"
+    return "none"
+
+
+def finalize_ranked(ranked: list[tuple], cfg: Config) -> list[dict]:
+    """Wendet Ambiguitaets-Abzug und Status auf eine Rangliste an.
+
+    Die internen Schluessel (``_row``, ``_raw_score``, ``_final_score``,
+    ``_bonus``) werden von ``candidate_details`` entfernt.
+    """
+    out = []
+    for idx, (sc, row, text, kind, signals, bonus) in enumerate(ranked):
+        penalty = _ambiguity_penalty(ranked, idx)
+        final_score = sc + penalty
+        out.append({
+            "_row": row, "_raw_score": sc, "_final_score": final_score, "_bonus": bonus,
+            "tconst": row["tconst"], "title": row["primary_title"], "year": row["start_year"],
+            "end_year": row["end_year"], "type": row["title_type"], "genres": row["genres"],
+            "votes": row["num_votes"], "score": round(final_score, 3), "conf": round(conf(final_score), 2),
+            "kind": kind, "status": _status_for(final_score, cfg), "signals": signals,
+            "ambiguity_penalty": penalty, "candidate": text,
+        })
+    return out
+
+
+def candidate_details(con: sqlite3.Connection, s: dict, cfg: Config, limit: int | None = None) -> list[dict]:
+    """Vollstaendige Kandidatenliste inkl. Signale, fuer Diagnose/Support-API."""
+    items = finalize_ranked(rank_candidates(con, s, cfg), cfg)
+    if limit is not None:
+        items = items[:limit]
+    return [{
+        "tconst": item["tconst"], "title": item["title"], "year": item["year"],
+        "end_year": item["end_year"], "type": item["type"], "genres": item["genres"],
+        "votes": item["votes"], "score": item["score"], "raw_score": round(item["_raw_score"], 3),
+        "conf": item["conf"], "kind": item["kind"], "status": item["status"],
+        "signals": item["signals"], "year_title_bonus": item["_bonus"],
+        "ambiguity_penalty": item["ambiguity_penalty"], "candidate": item["candidate"],
+    } for item in items]
 
 
 def suggestions(con: sqlite3.Connection, s: dict, cfg: Config, limit: int = 5) -> list[dict]:
     """Top-Kandidaten mit Status und Konfidenz, fuer die Review-Ansicht."""
-    out = []
-    for sc, row, text, kind, _signals, _bonus in rank_candidates(con, s, cfg)[:limit]:
-        status = "auto" if sc >= cfg.auto_threshold else "review" if sc >= cfg.review_threshold else "none"
-        out.append({
-            "tconst": row["tconst"], "title": row["primary_title"], "year": row["start_year"],
-            "end_year": row["end_year"], "type": row["title_type"], "genres": row["genres"],
-            "votes": row["num_votes"], "score": round(sc, 3), "conf": round(conf(sc), 2),
-            "kind": kind, "status": status,
-        })
-    return out
+    return [{
+        "tconst": item["tconst"], "title": item["title"], "year": item["year"],
+        "end_year": item["end_year"], "type": item["type"], "genres": item["genres"],
+        "votes": item["votes"], "score": item["score"], "conf": item["conf"],
+        "kind": item["kind"], "status": item["status"],
+    } for item in finalize_ranked(rank_candidates(con, s, cfg), cfg)[:limit]]
 
 
 def search_titles(con: sqlite3.Connection, query: str, limit: int = 20) -> list[dict]:
@@ -253,23 +395,19 @@ def match_show(con: sqlite3.Connection, s: dict, cfg: Config) -> dict:
         return dict(status="none", score=0.0, best=None, alt=None, cand="", kind="", dur=dur,
                     reason={"candidate": None, "kind": None, "signals": {}, "year_title_bonus": 0.0,
                             "ambiguity_penalty": 0.0, "final_score": 0.0})
-    best = ranked[0]
-    sc = best[0]
-    penalty = 0.0
-    if len(ranked) > 1 and best[0] - ranked[1][0] < 0.05 and ranked[1][1]["tconst"] != best[1]["tconst"]:
-        penalty = -0.15
-        sc += penalty
-    status = "auto" if sc >= cfg.auto_threshold else "review" if sc >= cfg.review_threshold else "none"
+    final = finalize_ranked(ranked, cfg)[0]
+    sc = final["_final_score"]
     reason = {
-        "candidate": best[2],
-        "kind": best[3],
-        "signals": best[4],
-        "year_title_bonus": best[5],
-        "ambiguity_penalty": penalty,
+        "candidate": final["candidate"],
+        "kind": final["kind"],
+        "signals": final["signals"],
+        "year_title_bonus": final["_bonus"],
+        "ambiguity_penalty": final["ambiguity_penalty"],
         "final_score": round(sc, 6),
     }
-    return dict(status=status, score=sc, best=best[1], alt=ranked[1][1] if len(ranked) > 1 else None,
-                cand=best[2], kind=best[3], dur=dur, reason=reason)
+    return dict(status=final["status"], score=sc, best=ranked[0][1],
+                alt=ranked[1][1] if len(ranked) > 1 else None,
+                cand=final["candidate"], kind=final["kind"], dur=dur, reason=reason)
 
 
 def conf(score_value: float) -> float:

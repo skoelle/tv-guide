@@ -123,9 +123,31 @@
   <h2>Zuordnung prüfen</h2>
   <p class="muted">Diese Show ist noch unsicher zugeordnet. Bestätige den Treffer, lehne ihn ab
     oder wähle einen anderen Titel.</p>
+  {% if review_shows | length > 1 %}
+  {% set work_keys = review_shows | map(attribute='show_key') | join(',') %}
+  <p class="muted">{{ review_shows | length }} EPG-Shows sind diesem Werk zugeordnet.
+    Eine Entscheidung gilt für alle.</p>
+  {% with show_key=review_shows[0].show_key, show_keys=work_keys,
+          suggestions=review_shows[0].suggestions, current_tconst=w.tconst,
+          form_action='/review/group/confirm', reject_action='/review/group/reject',
+          confirm_after="location.reload()", reject_after="location.href='/browse'" %}
+  {% include "_review_form.html" %}
+  {% endwith %}
+  <details>
+    <summary class="btn">Einzelne Shows bearbeiten</summary>
+    {% for r in review_shows %}
+    <div class="review-item" style="margin-top:1rem">
+      <h3>{{ r.show_name }}</h3>
+      {% with show_key=r.show_key, suggestions=r.suggestions, current_tconst=w.tconst,
+              confirm_after="location.reload()", reject_after="location.href='/browse'" %}
+      {% include "_review_form.html" %}
+      {% endwith %}
+    </div>
+    {% endfor %}
+  </details>
+  {% else %}
   {% for r in review_shows %}
   <div class="review-item" style="margin-top:1rem">
-    {% if review_shows | length > 1 %}<h3>{{ r.show_name }}</h3>{% endif %}
     {% with show_key=r.show_key, suggestions=r.suggestions, current_tconst=w.tconst,
             confirm_after="location.reload()", reject_after="location.href='/browse'" %}
     {% include "_review_form.html" %}
@@ -141,6 +163,7 @@
     </details>
   </div>
   {% endfor %}
+  {% endif %}
 </div>
 {% endif %}
 {% if not review_shows %}

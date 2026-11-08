@@ -1,13 +1,15 @@
 """FastAPI-App: Jetzt, Stöbern, Werk-Detail, Status, JSON-API, Healthcheck."""
 from __future__ import annotations
 
+import secrets
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Form, Request, Response
+from fastapi import Depends, FastAPI, Form, Header, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -27,12 +29,18 @@ from ..jobs import (get_job, job_detail, recent_jobs, recover_stale, running_job
                     start_job)
 from ..matching import search_titles
 from ..posters import TCONST_RE, cached_find_summary
-from ..review import (apply_override, list_review, mark_as_format, reopen_work, review_count,
-                      review_entries_for_tconst, show_key_for, undo_last)
+from ..review import (apply_override, apply_overrides, mark_as_format, reopen_work,
+                      review_count, review_entries_for_tconst, review_group_count, review_groups,
+                      show_key_for, undo_last)
 from ..scheduler import Scheduler
 from ..search import (create_search, delete_search, get_search, hits_for, list_searches, run_searches,
                       update_search)
 from ..status import collect, fmt_iso, fmt_num, fmt_size, fmt_ts
+from ..support import overview as support_overview
+from ..support import review_entries as support_review
+from ..support import run_sql as support_run_sql
+from ..support import show_detail as support_show_detail
+from ..support import work_detail as support_work_detail
 from ..tvheadend import TvheadendClient, TvheadendError, api_base
 
 HERE = Path(__file__).parent
@@ -174,8 +182,24 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         finally:
             con.close()
 
+    def get_support_db():
+        try:
+            con = connect(cfg, readonly=True)
+        except FileNotFoundError:
+            raise HTTPException(status_code=503, detail="app.db missing")
+        try:
+            yield con
+        finally:
+            con.close()
+
+    def _support_auth(x_support_token: str | None = Header(default=None, alias="X-Support-Token")):
+        if not cfg.support_token:
+            raise HTTPException(status_code=404)
+        if not x_support_token or not secrets.compare_digest(x_support_token, cfg.support_token):
+            raise HTTPException(status_code=401, detail="invalid support token")
+
     def _nav(con, active: str) -> dict:
-        review = review_count(con)
+        review = review_group_count(con, cfg)
         searches = con.execute("SELECT count(*) FROM saved_searches").fetchone()[0]
         return {"active": active, "review": review, "searches": searches}
 
@@ -326,11 +350,11 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/review")
     def review_page(request: Request, con: Db = Depends(get_db)):
         per_page = 25
-        total = review_count(con)
+        total = review_group_count(con, cfg)
         pages = max(1, (total + per_page - 1) // per_page)
         raw = request.query_params.get("page", "1")
         page = min(max(1, int(raw) if raw.isdigit() else 1), pages)
-        shows = list_review(con, cfg, limit=per_page, offset=(page - 1) * per_page)
+        shows = review_groups(con, cfg, limit=per_page, offset=(page - 1) * per_page)
         ctx = _base(request, con, "review")
         ctx.update({"shows": shows, "total": total, "page": page, "pages": pages,
                     "marks": recent_marks(con)})
@@ -344,18 +368,27 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         return {"ok": True, "tconst": tconst}
 
     @app.post("/api/review/confirm")
-    def api_review_confirm(show_key: str = Form(""), tconst: str = Form(""),
-                           con: Db = Depends(get_db)):
+    def api_review_confirm(show_key: str = Form(""), show_keys: str = Form(""),
+                           tconst: str = Form(""), con: Db = Depends(get_db)):
+        if not tconst.strip():
+            return JSONResponse({"ok": False, "error": "tconst required"}, status_code=400)
+        keys = [k.strip() for k in show_keys.split(",") if k.strip()]
+        if keys:
+            applied = apply_overrides(con, keys, tconst.strip())
+            return {"ok": True, "show_keys": keys, "tconst": tconst.strip(), "applied": applied}
         key = show_key_for(con, show_key)
         if key is None:
             return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
-        if not tconst.strip():
-            return JSONResponse({"ok": False, "error": "tconst required"}, status_code=400)
         apply_override(con, key, tconst.strip())
         return {"ok": True, "show_key": key, "tconst": tconst.strip()}
 
     @app.post("/api/review/reject")
-    def api_review_reject(show_key: str = Form(""), con: Db = Depends(get_db)):
+    def api_review_reject(show_key: str = Form(""), show_keys: str = Form(""),
+                          con: Db = Depends(get_db)):
+        keys = [k.strip() for k in show_keys.split(",") if k.strip()]
+        if keys:
+            applied = apply_overrides(con, keys, None)
+            return {"ok": True, "show_keys": keys, "tconst": None, "applied": applied}
         key = show_key_for(con, show_key)
         if key is None:
             return JSONResponse({"ok": False, "error": "not found"}, status_code=404)
@@ -434,6 +467,21 @@ def create_app(cfg: Config | None = None) -> FastAPI:
             return JSONResponse({"ok": False, "error": str(exc)}, status_code=502)
         return {"ok": True, **result}
 
+    @app.post("/review/group/confirm")
+    def review_group_confirm(show_keys: str = Form(...), tconst: str = Form(...),
+                             con: Db = Depends(get_db)):
+        keys = [k.strip() for k in show_keys.split(",") if k.strip()]
+        if keys and tconst.strip():
+            apply_overrides(con, keys, tconst.strip())
+        return RedirectResponse("/review", status_code=303)
+
+    @app.post("/review/group/reject")
+    def review_group_reject(show_keys: str = Form(...), con: Db = Depends(get_db)):
+        keys = [k.strip() for k in show_keys.split(",") if k.strip()]
+        if keys:
+            apply_overrides(con, keys, None)
+        return RedirectResponse("/review", status_code=303)
+
     @app.post("/review/{show_key}/confirm")
     def review_confirm(show_key: str, tconst: str = Form(...), con: Db = Depends(get_db)):
         key = show_key_for(con, show_key)
@@ -455,9 +503,10 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.get("/review/search")
     def review_search(request: Request, con: Db = Depends(get_db), q: str = "", show_key: str = "",
-                      scope: str = ""):
+                      show_keys: str = "", scope: str = ""):
         results = search_titles(con, q, 20) if q.strip() else []
-        ctx = {"request": request, "results": results, "show_key": show_key, "q": q, "scope": scope}
+        ctx = {"request": request, "results": results, "show_key": show_key,
+               "show_keys": show_keys, "q": q, "scope": scope}
         return templates.TemplateResponse(request, "_review_search.html", ctx)
 
     @app.get("/api/review")
@@ -465,8 +514,8 @@ def create_app(cfg: Config | None = None) -> FastAPI:
         per_page = 50
         raw = request.query_params.get("page", "1")
         page = max(1, int(raw) if raw.isdigit() else 1)
-        return {"total": review_count(con),
-                "shows": list_review(con, cfg, limit=per_page, offset=(page - 1) * per_page)}
+        return {"total": review_group_count(con, cfg),
+                "groups": review_groups(con, cfg, limit=per_page, offset=(page - 1) * per_page)}
 
     @app.post("/api/review/{ident}")
     async def api_review_post(ident: str, request: Request, con: Db = Depends(get_db)):
@@ -615,6 +664,43 @@ def create_app(cfg: Config | None = None) -> FastAPI:
     @app.get("/api/status")
     def api_status(con: Db = Depends(get_db)):
         return JSONResponse(collect(con, cfg))
+
+    @app.get("/api/support/overview")
+    def api_support_overview(_auth=Depends(_support_auth), con: Db = Depends(get_support_db)):
+        return support_overview(con, cfg)
+
+    @app.get("/api/support/review")
+    def api_support_review(limit: int = 50, offset: int = 0, q: str = "",
+                           _auth=Depends(_support_auth), con: Db = Depends(get_support_db)):
+        return support_review(con, cfg, limit=max(1, min(limit, 500)), offset=max(0, offset), q=q)
+
+    @app.get("/api/support/shows/{show_key:path}")
+    def api_support_show(show_key: str, _auth=Depends(_support_auth),
+                         con: Db = Depends(get_support_db)):
+        data = support_show_detail(con, cfg, show_key)
+        if data is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return data
+
+    @app.get("/api/support/works/{tconst}")
+    def api_support_work(tconst: str, _auth=Depends(_support_auth),
+                         con: Db = Depends(get_support_db)):
+        data = support_work_detail(con, cfg, tconst)
+        if data is None:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        return data
+
+    @app.get("/api/support/sql")
+    def api_support_sql(sql: str, limit: int = 1000, _auth=Depends(_support_auth),
+                        con: Db = Depends(get_support_db)):
+        if not cfg.support_sql_enabled:
+            raise HTTPException(status_code=404)
+        try:
+            return support_run_sql(con, sql, limit=limit)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
+        except sqlite3.Error as exc:
+            return JSONResponse({"error": str(exc)}, status_code=400)
 
     @app.get("/healthz")
     def healthz():

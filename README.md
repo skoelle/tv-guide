@@ -89,6 +89,8 @@ Manual control: a work classified as **Format** can be kept as a **film/series**
 
 Uncertain matches can also be resolved directly on the work page: confirm the current match, reject it, or pick another title. The same candidates and actions remain available on the Review page.
 
+Review is grouped by work: several EPG shows with the same candidate (for example many `Tatort` episodes) appear as one card, and one confirm/reject applies to all shows in the group. Strong recurring series prefixes or suffixes are auto-confirmed: `Tatort - ...`, `alpha-retro: ...`, `Praxis mit Meerblick - ...` and similar become `auto` when the franchise appears at least `franchise_min_shows` times and the candidate is a series. A more specific series prefix still wins (for example the `In aller Freundschaft – Die jungen Ärzte` spin-off), and exact full-title matches take precedence. Tune this in `[matching]` with `franchise_auto`, `franchise_min_shows`, `franchise_bonus`, `franchise_mismatch_penalty` and `suffix_penalty`.
+
 The work detail shows both the EPG title and the IMDb title plus the IMDb ID, type, runtime (episode length for series), rating, genres, and data date. If an automatic match is wrong, **Zuordnung entfernen** on the work detail removes the match for all shows of that work and puts them back into Review with fresh suggestions. Poster and TMDB data disappear with the work; cached poster data is reused if the same IMDb title is assigned again. Orphaned poster files are removed by the next poster job with pruning enabled.
 
 For series, the work detail shows the top cast with roles directly in the **IMDb** box; directors and writers are available there in a collapsed **Regie & Buch** section. A collapsible episode list shows season, episode, title, year, and rating. Person names open an internal person page listing upcoming and past shows with that person; an adjacent ↗ icon opens the IMDb profile. When an airing's EPG season/episode matches an IMDb episode, the episode title and rating are shown inline with the airing. Cast, crew, and episodes are built only for currently matched works, keeping `imdb.db` small.
@@ -146,7 +148,7 @@ After every `refresh` (and via `./run.sh notify`) TV-Guide sends **one digest em
 
 Saved searches store a **validated filter JSON** (whitelist: `type`, `decade`, `group`, `genre`, `genre_not`, `retro`, `upcoming`, `q`, plus `include_review`/`notify`). They are evaluated with the same engine as the filter view, so a search and the view always return the same hits. `search_hits` is updated on `refresh` and via `./run.sh searches`; "new" is the number of airings added during the last run.
 
-Review decisions are stored in `overrides` (they take precedence over the automatic matching) and logged in `override_log` so the last decision can be undone.
+Review decisions are stored in `overrides` (they take precedence over the automatic matching) and logged in `override_log` so the last decision can be undone. Group decisions share a `batch_id`; undo reverts the whole group at once.
 
 Filters are controlled via query parameters (`?type=film&decade=1980,1990&genre=Action&genre_not=Animation&group=retro&status=sicher&retro=1&upcoming=1&sort=jahr&q=...`). Genres can be included (`genre`) and excluded (`genre_not`); exclusion wins if both mention the same genre. The page uses a local HTMX build (`static/htmx.min.js`) and still works without JavaScript as a plain form. `?at=<unixtime>` freezes the point in time for tests.
 
@@ -181,6 +183,34 @@ epg_every_minutes = 60    # first EPG change of the day triggers IMDb + posters 
 The IMDb build needs network access to `datasets.imdbws.com` and about 4 GB of free disk on the `imdb_raw` mount (`imdb_raw` including cast/crew datasets + temporary build + final database); the job aborts early with a clear message if space is insufficient. Jobs and logs are stored in `data/logs/`. The raw datasets are reproducible and live outside `data/`, so they are not part of the `data/` backup.
 
 Cast, crew, and episode metadata is only materialised for the tconsts currently matched in `app.db`. The pipeline passes this list to `tools/imdb_build.py`; the standalone tool can also run with `--tconst-file FILE`. Local tests use tiny synthetic gzipped TSV fixtures and never download the full datasets. For a manual smoke test, point `--no-download --raw-dir` at a small hand-made directory with the required `.tsv.gz` files.
+
+## 🔎 Read-only support API
+
+For live diagnostics (review analysis, matching signals, raw EPG titles) the app
+can expose a read-only API. It is disabled unless `TVGUIDE_SUPPORT_TOKEN` is set;
+every request must send the token as `X-Support-Token`. The API opens `app.db`
+read-only (`PRAGMA query_only=ON`), so it cannot change matches, overrides or
+searches.
+
+```bash
+TVGUIDE_SUPPORT_TOKEN=...        # long random value; set on host and dev
+TVGUIDE_SUPPORT_SQL=1            # optional: enable ad-hoc SELECT/WITH queries
+
+curl -H "X-Support-Token: $TVGUIDE_SUPPORT_TOKEN" \
+  "http://docker-host-nas.fritz.box:8085/api/support/overview"
+curl -H "X-Support-Token: $TVGUIDE_SUPPORT_TOKEN" \
+  "http://docker-host-nas.fritz.box:8085/api/support/review?q=Tatort&limit=20"
+curl -H "X-Support-Token: $TVGUIDE_SUPPORT_TOKEN" \
+  "http://docker-host-nas.fritz.box:8085/api/support/shows/tatort"
+curl -H "X-Support-Token: $TVGUIDE_SUPPORT_TOKEN" \
+  "http://docker-host-nas.fritz.box:8085/api/support/works/tt0806910"
+```
+
+Endpoints: `/api/support/overview`, `/review`, `/shows/{show_key}`,
+`/works/{tconst}` and, when `TVGUIDE_SUPPORT_SQL=1`, `/sql?sql=SELECT...`.
+The SQL endpoint accepts a single `SELECT`/`WITH` statement, rejects writes and
+DDL, and enforces a row limit and a short timeout. Keep the token private and do
+not expose the SQL endpoint to the internet.
 
 ## 🐳 Docker operation
 
