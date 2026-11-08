@@ -94,7 +94,7 @@ def review_groups(con: sqlite3.Connection, cfg: Config, limit: int | None = None
         g["show_count"] = len(g["shows"])
         g["show_names"] = [x["show_name"] for x in g["shows"]]
         g["show_keys"] = [x["show_key"] for x in g["shows"]]
-    ordered = sorted(groups.values(), key=lambda g: (-g["events"], g["title"]))
+    ordered = sorted(groups.values(), key=lambda g: (g["title"] or "").casefold())
     if limit is None:
         return ordered[offset:]
     return ordered[offset:offset + limit]

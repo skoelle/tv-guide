@@ -43,6 +43,20 @@ def test_review_groups_fassen_gleiches_werk_zusammen(cfg):
     con.close()
 
 
+def test_review_groups_sortieren_alphabetisch(cfg):
+    con = _three_reviews(cfg)
+    imdb = sqlite3.connect(cfg.imdb_db)
+    imdb.execute("INSERT INTO titles VALUES ('tt0000002','tvSeries','Aardvark',NULL,2020,NULL,NULL,NULL,NULL,NULL)")
+    imdb.commit()
+    imdb.close()
+    show_id = con.execute("SELECT id FROM epg_shows WHERE show_key = 'sendung 2'").fetchone()[0]
+    con.execute("UPDATE show_match SET tconst = 'tt0000002' WHERE show_id = ?", (show_id,))
+    con.commit()
+    groups = review_groups(con, cfg)
+    assert [g["title"] for g in groups] == ["Aardvark", "The A-Team"]
+    con.close()
+
+
 def test_bulk_override_und_batch_undo(cfg):
     con = _three_reviews(cfg)
     group = review_groups(con, cfg)[0]
