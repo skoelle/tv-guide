@@ -48,13 +48,13 @@ def _latest_epg_sha1(path: Path) -> str | None:
         con.close()
 
 
-def _refresh(cfg: Config, log) -> str:
+def _refresh(cfg: Config, log, *, force: bool = False) -> str:
     from .db import connect
     from .refresh import refresh
 
     con = connect(cfg)
     try:
-        stats = refresh(con, cfg)
+        stats = refresh(con, cfg, force=force)
     finally:
         con.close()
     if stats.get("changed"):
@@ -234,5 +234,5 @@ def run_imdb_job(cfg: Config, log=print) -> str:
     return f"{message}; {posters}" if posters else message
 
 
-def run_refresh_job(cfg: Config, log=print) -> str:
-    return _refresh(cfg, log)
+def run_refresh_job(cfg: Config, log=print, *, force: bool = False) -> str:
+    return _refresh(cfg, log, force=force)

@@ -102,3 +102,11 @@ def test_support_sql_is_opt_in_and_read_only(cfg):
     con = connect(cfg)
     assert con.execute("SELECT count(*) FROM app_meta WHERE key='x'").fetchone()[0] == 0
     con.close()
+
+
+def test_status_page_shows_support_enabled(cfg):
+    cfg = _review_cfg(cfg, sql=True)
+    client = TestClient(create_app(cfg))
+    html = client.get("/status").text
+    assert "Support-API" in html
+    assert "SQL aktiv" in html

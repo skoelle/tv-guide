@@ -6,11 +6,13 @@
             {% if job_running %}disabled{% endif %}>IMDb jetzt neu bauen</button>
     <button class="btn" type="button" hx-post="/api/jobs/posters" hx-swap="none"
             {% if job_running %}disabled{% endif %}>Fehlende Poster holen</button>
+    <button class="btn" type="button" hx-post="/api/jobs/match" hx-swap="none"
+            {% if job_running %}disabled{% endif %}>Matching neu berechnen</button>
     {% if job_running %}<span class="tag ok">läuft …</span>{% endif %}
   </div>
   {% if running %}
   <div class="job-running">
-    <h3>Läuft: {{ 'EPG+IMDb' if running.kind == 'epg_chain' else running.kind }} <span class="muted">seit {{ running.started_at | dt }}</span></h3>
+    <h3>Läuft: {{ 'EPG+IMDb' if running.kind == 'epg_chain' else ('Matching' if running.kind == 'match' else running.kind) }} <span class="muted">seit {{ running.started_at | dt }}</span></h3>
     {% if running.log_tail %}<pre class="joblog">{{ running.log_tail }}</pre>{% endif %}
   </div>
   {% endif %}
@@ -21,7 +23,7 @@
       {% for j in jobs %}
       <tr class="job-row" hx-get="/partials/jobs/{{ j.id }}" hx-target="#job-detail" hx-swap="innerHTML"
           title="Details anzeigen">
-        <td>{{ 'EPG+IMDb' if j.kind == 'epg_chain' else j.kind }}</td>
+        <td>{{ 'EPG+IMDb' if j.kind == 'epg_chain' else ('Matching' if j.kind == 'match' else j.kind) }}</td>
         <td><span class="tag {{ 'bad' if j.status == 'error' else ('ok' if j.status == 'ok' else '') }}">{{ j.status }}</span></td>
         <td>{{ j.started_at | dt }}</td>
         <td>{{ (j.finished_at | dt) if j.finished_at else '–' }}</td>

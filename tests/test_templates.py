@@ -44,6 +44,8 @@ def test_status_page_renders(cfg):
     assert "Sendungen" in html
     assert "Information courtesy of IMDb" in html
     assert "01.11.2026" in html
+    assert "IMDb/TMDb" in html
+    assert "TMDB-Poster" in html
 
 
 def test_status_page_with_problem(cfg):

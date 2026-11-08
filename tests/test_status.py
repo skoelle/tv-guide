@@ -17,6 +17,8 @@ def test_collect_numbers(cfg):
     assert s["imdb"]["meta"]["source_date"] == "2026-11-05"
     assert s["app"]["schema_version"] == len(MIGRATIONS)
     assert s["app"]["shows"] == 0
+    assert s["app"]["last_assignment"] is None
+    assert s["support"] == {"enabled": False, "sql_enabled": False}
     assert s["problems"] == []
 
 
@@ -51,6 +53,8 @@ def test_text_output(cfg):
     assert "Sendungen:  3" in text
     assert "Titel:      1" in text
     assert "noch keine" in text
+    assert "TMDB-Poster" in text
+    assert "Schema-Version" in text
 
 
 def test_formatters():
@@ -61,3 +65,22 @@ def test_formatters():
     assert fmt_iso("2026-11-05T17:50:30Z", "Europe/Berlin") == "05.11.2026 18:50"
     assert fmt_iso(None, "Europe/Berlin") == "-"
     assert fmt_iso("kaputt", "Europe/Berlin") == "kaputt"
+
+
+def test_collect_support_status(cfg):
+    from dataclasses import replace
+
+    con = connect(cfg)
+    s = collect(con, replace(cfg, support_token="secret", support_sql_enabled=True))
+    con.close()
+    assert s["support"] == {"enabled": True, "sql_enabled": True}
+
+
+def test_collect_last_assignment(cfg):
+    from tvguide.matching import run_match
+
+    con = connect(cfg)
+    run_match(con, cfg)
+    s = collect(con, cfg)
+    con.close()
+    assert s["app"]["last_assignment"] is not None

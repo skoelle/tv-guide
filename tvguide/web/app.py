@@ -616,7 +616,7 @@ def create_app(cfg: Config | None = None) -> FastAPI:
 
     @app.post("/api/jobs/{kind}")
     def api_jobs_start(kind: str, con: Db = Depends(get_db)):
-        if kind not in ("epg", "imdb", "posters"):
+        if kind not in ("epg", "imdb", "posters", "match"):
             return JSONResponse({"error": "not found"}, status_code=404)
         result = start_job(con, cfg, kind)
         return JSONResponse(result, status_code=202 if result.get("started") else 409)

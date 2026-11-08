@@ -29,7 +29,7 @@
   </section>
 
   <section class="box">
-    <h2>IMDb <span class="tag {{ 'ok' if s.imdb.state in ('ok','immutable') else 'bad' }}">{{ s.imdb.state }}</span></h2>
+    <h2>IMDb/TMDb <span class="tag {{ 'ok' if s.imdb.state in ('ok','immutable') else 'bad' }}">{{ s.imdb.state }}</span></h2>
     <dl>
       <dt>Datei</dt><dd>{{ s.imdb.file.path }}{% if s.imdb.file.exists %}<br><span class="muted">{{ s.imdb.file.size | size }}, geändert {{ s.imdb.file.mtime | ts }}</span>{% endif %}</dd>
       {% if s.imdb.titles is not none %}
@@ -41,20 +41,21 @@
       <dt>Datenstand</dt><dd>{{ s.imdb.meta.get('source_date', '-') }}<br><span class="muted">gebaut {{ s.imdb.meta.get('built_at', '-') }}</span></dd>
       {% endif %}
       {% endif %}
+      <dt>TMDB-Poster</dt><dd>{{ s.app.posters.ok | num }} ok, {{ s.app.posters.missing | num }} fehlend, {{ s.app.posters.error | num }} Fehler{% if s.app.posters.last %}<br><span class="muted">zuletzt {{ s.app.posters.last }}</span>{% endif %}</dd>
     </dl>
   </section>
 
   <section class="box">
     <h2>App</h2>
     <dl>
-      <dt>Datei</dt><dd>{{ s.app.file.path }}<br><span class="muted">Schema-Version {{ s.app.schema_version }}</span></dd>
+      <dt>Datei</dt><dd>{{ s.app.file.path }}{% if s.app.file.exists %}<br><span class="muted">{{ s.app.file.size | size }}, geändert {{ s.app.file.mtime | ts }}</span>{% endif %}<br><span class="muted">Schema-Version {{ s.app.schema_version }}</span></dd>
       <dt>Shows</dt><dd>{{ s.app.shows | num }}</dd>
       <dt>Zuordnungen</dt>
-      <dd>{% if s.app.matches %}{% for k, v in s.app.matches.items() | sort %}{{ k }}: {{ v | num }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">noch keine Zuordnungen</span>{% endif %}</dd>
+      <dd>{% if s.app.matches %}{% for k, v in s.app.matches.items() | sort %}{{ k }}: {{ v | num }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}<span class="muted">noch keine Zuordnungen</span>{% endif %}{% if s.app.last_assignment %}<br><span class="muted">zuletzt {{ s.app.last_assignment | dt }}</span>{% endif %}</dd>
       <dt>Offene Reviews</dt><dd>{{ s.app.review_open_groups | num }} Gruppen · {{ s.app.review_open | num }} Shows</dd>
       <dt>Overrides</dt><dd>{{ s.app.overrides | num }}</dd>
       <dt>Suchprofile</dt><dd>{{ s.app.searches | num }}</dd>
-      <dt>Poster</dt><dd>{{ s.app.posters.ok | num }} ok, {{ s.app.posters.missing | num }} fehlend, {{ s.app.posters.error | num }} Fehler{% if s.app.posters.last %}<br><span class="muted">zuletzt {{ s.app.posters.last }}</span>{% endif %}</dd>
+      <dt>Support-API</dt><dd>{{ 'aktiv' if s.support.enabled else 'aus' }}{% if s.support.enabled %} · SQL {{ 'aktiv' if s.support.sql_enabled else 'aus' }}{% endif %}</dd>
     </dl>
   </section>
 </div>
@@ -64,6 +65,7 @@
   <p class="muted">
     Zeitplan: {{ 'aktiv' if schedule_enabled else 'aus' }}
     {% if schedule_enabled %}· EPG regelmäßig · IMDb nach dem ersten EPG-Wechsel pro Tag{% endif %}
+    · „Matching neu berechnen“ wendet die aktuelle Matching-Logik sofort auf alle Shows an.
   </p>
   {% include "_jobs.html" %}
   <div id="job-detail" class="job-detail"></div>

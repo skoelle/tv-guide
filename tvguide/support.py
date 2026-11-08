@@ -202,9 +202,7 @@ def work_detail(con: sqlite3.Connection, cfg: Config, tconst: str) -> dict | Non
 
 
 def overview(con: sqlite3.Connection, cfg: Config) -> dict:
-    data = collect(con, cfg)
-    data["support"] = {"sql_enabled": cfg.support_sql_enabled}
-    return data
+    return collect(con, cfg)
 
 
 def run_sql(con: sqlite3.Connection, sql: str, limit: int = 1000, timeout_ms: int = 5000) -> dict:

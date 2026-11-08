@@ -92,3 +92,17 @@ def test_recent_jobs_limit_and_detail(cfg, tmp_path):
     assert detail is not None
     assert "zeile 2" in detail["log_tail"]
     con.close()
+
+
+def test_match_kind_forces_refresh(cfg, monkeypatch):
+    from tvguide import pipeline
+
+    calls = []
+
+    def fake(cfg, log=print, *, force=False):
+        calls.append(force)
+        return "ok"
+
+    monkeypatch.setattr(pipeline, "run_refresh_job", fake)
+    assert jobs.run_kind(cfg, "match", print) == "ok"
+    assert calls == [True]

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .config import Config
 
-KINDS = ("epg", "epg_chain", "imdb", "posters", "refresh")
+KINDS = ("epg", "epg_chain", "imdb", "posters", "refresh", "match")
 JOBS_LIMIT = 24
 _LOG_TAIL_BYTES = 4000
 _DETAIL_LOG_BYTES = 20000
@@ -91,6 +91,8 @@ def run_kind(cfg: Config, kind: str, log) -> str:
     if kind == "posters":
         from .posters import run_posters_job
         return run_posters_job(cfg, log=log)
+    if kind == "match":
+        return pipeline.run_refresh_job(cfg, log=log, force=True)
     return pipeline.run_refresh_job(cfg, log=log)
 
 

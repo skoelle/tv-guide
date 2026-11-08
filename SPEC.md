@@ -245,8 +245,10 @@ Technik: FastAPI, Jinja2, HTMX (lokal), SQLite. Kein Frontend-Build, mobil nutzb
 - **Review:** nur Film/Serie; Vorschläge bestätigen, „Kein Treffer“, anderer Titel,
   „Als Format markieren“, Override-Undo und Markierungs-Undo.
 - **Suchen:** Liste, Treffer/„neu“, bearbeiten, löschen, aktualisieren.
-- **Status:** Datenstand, Synchronisierung (Buttons „EPG jetzt importieren“, „IMDb jetzt
-  neu bauen“, „Fehlende Poster holen“), Job-Status/Log, Zeitplan-Info.
+- **Status:** Datenstand (inkl. app.db-Größe/Änderungsdatum und letzter Zuordnung),
+  Synchronisierung (Buttons „EPG jetzt importieren“, „IMDb jetzt neu bauen“, „Fehlende
+  Poster holen“, „Matching neu berechnen“), Support-API-Status, Job-Status/Log,
+  Zeitplan-Info. Die Poster stehen als „TMDB-Poster“ am Ende der IMDb/TMDb-Box.
 
 Alle interaktiven Elemente (Jobs, Kategorien, Review-Aktionen) nutzen root-absolute URLs
 (`/api/...`, `/review/...`). Die App wird am Root-Pfad betrieben; ein Sub-Pfad unter einem
@@ -268,8 +270,9 @@ Reverse Proxy wird nicht unterstützt.
 | `POST /api/marks/undo` | letzte Markierung rückgängig |
 | `GET/POST /api/searches`, `PUT/DELETE /api/searches/{id}` | gespeicherte Suchen |
 | `GET /api/searches/{id}/hits` | Treffer |
-| `GET /api/jobs`, `POST /api/jobs/{kind=epg\|imdb\|posters}` | Jobs |
-| `GET /api/status` | Datenstand |
+| `GET /api/jobs`, `POST /api/jobs/{kind=epg\|imdb\|posters\|match}` | Jobs |
+| `GET /api/status` | Datenstand inkl. Support-API-Status |
+| `GET /api/support/overview\|review\|shows/{key}\|works/{tconst}\|sql` | read-only Diagnose (Token, optional SQL) |
 
 ## 8. Benachrichtigungen per E-Mail
 
@@ -323,11 +326,14 @@ tv-guide/
 - Jobs: genau einer gleichzeitig, Logs in `data/logs/`, verwaiste Jobs werden nach Neustart
   als `error` markiert. IMDb-Build prüft vorher ~2 GB freien Platz.
 - Buttons in `/status` starten dieselben Jobs über `POST /api/jobs/{kind}` (JSON, kein Redirect).
+  `match` erzwingt einen Re-Match (`refresh --force`), auch wenn die EPG-SHA unverändert ist.
 
 ### 9.4 Umgebungsvariablen
 - `TVGUIDE_CONFIG` – Pfad zur `config.toml`.
 - `TVGUIDE_SMTP_PASSWORD`, `TVGUIDE_TVH_PASSWORD` – Passwörter (nie im Git).
 - `TVGUIDE_TMDB_READ_TOKEN` (bevorzugt) / `TVGUIDE_TMDB_API_KEY` – TMDB-Poster.
+- `TVGUIDE_SUPPORT_TOKEN` – aktiviert die read-only Support-API; ohne Token deaktiviert.
+- `TVGUIDE_SUPPORT_SQL=1` – erlaubt zusätzlich einzelne `SELECT`/`WITH`-Abfragen.
 - `TVGUIDE_SCHEDULE_ENABLED` – Scheduler im Container aktivieren.
 - Repo-Secrets für CI: `WEBHOOK_URL`, `WEBHOOK_TOKEN`.
 

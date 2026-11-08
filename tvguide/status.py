@@ -83,6 +83,7 @@ def collect(con: Db, cfg: Config) -> dict:
         "schema_version": _one(con, "SELECT version FROM schema_version"),
         "shows": _one(con, "SELECT count(*) FROM epg_shows"),
         "matches": by_status,
+        "last_assignment": _one(con, "SELECT max(updated_at) FROM show_match"),
         "overrides": _one(con, "SELECT count(*) FROM overrides"),
         "searches": _one(con, "SELECT count(*) FROM saved_searches"),
         "review_open": review_count(con),
@@ -97,6 +98,10 @@ def collect(con: Db, cfg: Config) -> dict:
         "epg": epg,
         "imdb": imdb,
         "app": app,
+        "support": {
+            "enabled": bool(cfg.support_token),
+            "sql_enabled": bool(cfg.support_token and cfg.support_sql_enabled),
+        },
         "problems": problems(epg, imdb),
     }
 
@@ -183,18 +188,23 @@ def render_text(s: dict) -> str:
         m = i.get("meta") or {}
         if m:
             L.append(f"  Datenstand: {m.get('source_date', '-')}, gebaut {m.get('built_at', '-')}")
+    p = a.get("posters") or {}
+    L.append(f"  TMDB-Poster: {fmt_num(p.get('ok'))} ok, {fmt_num(p.get('missing'))} fehlend, "
+             f"{fmt_num(p.get('error'))} Fehler" + (f", zuletzt {p.get('last')}" if p.get("last") else ""))
     L.append("")
 
     L.append(f"App ({a['file']['path']})")
+    if a["file"]["exists"]:
+        L.append(f"  Datei:      {fmt_size(a['file'].get('size'))}, geaendert {fmt_ts(a['file'].get('mtime'), tz)}")
     L.append(f"  Schema-Version: {a['schema_version']}")
     L.append(f"  Shows: {fmt_num(a['shows'])}, Overrides: {fmt_num(a['overrides'])}, gespeicherte Suchen: {fmt_num(a['searches'])}")
     if a["matches"]:
-        L.append("  Zuordnungen: " + ", ".join(f"{k} {fmt_num(v)}" for k, v in sorted(a["matches"].items())))
+        line = "  Zuordnungen: " + ", ".join(f"{k} {fmt_num(v)}" for k, v in sorted(a["matches"].items()))
     else:
-        L.append("  Zuordnungen: noch keine (Matching folgt in M2)")
-    p = a.get("posters") or {}
-    L.append(f"  Poster: {fmt_num(p.get('ok'))} ok, {fmt_num(p.get('missing'))} fehlend, "
-             f"{fmt_num(p.get('error'))} Fehler" + (f", zuletzt {p.get('last')}" if p.get("last") else ""))
+        line = "  Zuordnungen: noch keine (Matching folgt in M2)"
+    if a.get("last_assignment"):
+        line += f" (zuletzt {fmt_iso(a['last_assignment'], tz)})"
+    L.append(line)
     if s["problems"]:
         L.append("")
         L.append("Probleme:")

@@ -205,3 +205,33 @@ def test_poster_route(client, cfg):
     assert r.content == b"image-bytes"
     assert r.headers["content-type"] == "image/jpeg"
     assert client.get("/poster/nope").status_code == 404
+
+
+def test_status_zeigt_support_api_und_matching_button(client):
+    html = client.get("/status").text
+    assert "Support-API" in html
+    assert "Matching neu berechnen" in html
+    assert "IMDb/TMDb" in html
+    assert "TMDB-Poster" in html
+    assert 'hx-post="/api/jobs/match"' in html
+
+
+def test_job_api_match_startet(client, cfg, monkeypatch):
+    from tvguide import jobs
+
+    def fake_run(cfg, kind, log):
+        log("stub")
+        return "ok"
+
+    monkeypatch.setattr(jobs, "run_kind", fake_run)
+    r = client.post("/api/jobs/match")
+    assert r.status_code == 202
+    assert r.json()["started"] is True
+
+
+def test_status_zeigt_letzte_zuordnung(cfg):
+    con = connect(cfg)
+    run_match(con, cfg)
+    con.close()
+    html = TestClient(create_app(cfg)).get("/status").text
+    assert "zuletzt" in html
