@@ -26,6 +26,7 @@ class Config:
     franchise_bonus: float = 0.15
     franchise_mismatch_penalty: float = 0.15
     suffix_penalty: float = 0.15
+    combined_name_bonus: float = 0.25
     retro_from: int = 1980
     retro_to: int = 1999
     retro_end_max: int = 2009
@@ -152,6 +153,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         franchise_bonus=float(matching.get("franchise_bonus", 0.15)),
         franchise_mismatch_penalty=float(matching.get("franchise_mismatch_penalty", 0.15)),
         suffix_penalty=float(matching.get("suffix_penalty", 0.15)),
+        combined_name_bonus=float(matching.get("combined_name_bonus", 0.25)),
         retro_from=int(retro.get("from_year", 1980)),
         retro_to=int(retro.get("to_year", 1999)),
         retro_end_max=int(retro.get("end_max", 2009)),

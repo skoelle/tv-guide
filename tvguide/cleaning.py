@@ -36,10 +36,15 @@ def clean_title(t: str) -> tuple[str, int | None, bool]:
     return t.strip(), year, changed
 
 
+def title_parts(title: str) -> list[str]:
+    """Zerlegt einen Titel an ' - ', ':', '–' oder '—' in seine Bestandteile."""
+    return [p for p in re.split(r"\s+[-\u2013\u2014]\s+|:\s+|\s+:\s+", title) if p.strip()]
+
+
 def candidates(title: str) -> list[tuple[str, str, str]]:
     """Liefert (text, norm, kind) fuer vollen Titel, Praefixe und Suffix."""
     out = [(title, "full")]
-    parts = [p for p in re.split(r"\s+[-\u2013\u2014]\s+|:\s+|\s+:\s+", title) if p.strip()]
+    parts = title_parts(title)
     if len(parts) > 1:
         for k in range(len(parts) - 1, 0, -1):
             out.append((" ".join(parts[:k]) if k > 1 else parts[0], f"prefix{k}"))

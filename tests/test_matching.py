@@ -1,3 +1,4 @@
+import sqlite3
 from collections import Counter
 
 import pytest
@@ -44,6 +45,30 @@ def test_match_show_uses_aka(cfg):
     assert res["best"]["tconst"] == "tt0086659"
     assert res["status"] == "auto"
     assert res["reason"]["signals"]["name"] == 1.0
+
+
+def test_match_show_reconstructs_title_from_aliases(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        ("tt13273744", "tvMovie", "A Christmas Carousel", "A Christmas Carousel",
+         2020, None, 85, "Drama,Romance", 6.1, 1466))
+    con.executemany(
+        "INSERT INTO title_names VALUES (?,?,?,?,?,?)",
+        [("tt13273744", "A Christmas Carousel", "a christmas carousel", "primary", None, None),
+         ("tt13273744", "Das Weihnachtskarussell", "das weihnachtskarussell", "aka", "DE", "de"),
+         ("tt13273744", "Alles dreht sich um die Liebe", "alles dreht sich um die liebe",
+          "aka", "DE", "de")])
+    con.commit()
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Das Weihnachtskarussell - Alles dreht sich um die Liebe", [102, 105])
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["best"]["tconst"] == "tt13273744"
+    assert res["status"] == "auto"
+    assert res["reason"]["signals"]["combined_name"] == cfg.combined_name_bonus
 
 
 def test_retro_class(cfg):

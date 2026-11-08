@@ -14,7 +14,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .cleaning import YEAR_IN_DESC, candidates, clean_title
+from .cleaning import YEAR_IN_DESC, candidates, clean_title, title_parts
 from .config import Config
 from .normalize import normalize
 
@@ -167,6 +167,34 @@ def lookup(con: sqlite3.Connection, norm: str, limit: int = 40):
            WHERE n.norm = ? ORDER BY t.num_votes DESC LIMIT ?""", (norm, limit)).fetchall()
 
 
+def _reconstructed_tconsts(con: sqlite3.Connection, title: str) -> set[str]:
+    """tconsts, deren IMDb-Namen alle Teile des EPG-Titels exakt abdecken.
+
+    Beispiel: ``Das Weihnachtskarussell - Alles dreht sich um die Liebe`` ist
+    kein einzelner IMDb-Name, aber beide Teile sind deutsche Aliase von
+    ``tt13273744``. Der Volltitel selbst darf dafuer kein Treffer sein.
+    """
+    parts: list[str] = []
+    for part in title_parts(title):
+        norm = normalize(part)
+        if len(norm) >= 3 and norm not in parts:
+            parts.append(norm)
+    if len(parts) < 2:
+        return set()
+    matches: list[set[str]] = []
+    for norm in parts:
+        tconsts = {row["tconst"] for row in lookup(con, norm)}
+        if not tconsts:
+            return set()
+        matches.append(tconsts)
+    common = set.intersection(*matches)
+    if not common:
+        return set()
+    full_norm = normalize(title)
+    full = {row["tconst"] for row in lookup(con, full_norm)} if full_norm else set()
+    return common - full
+
+
 def score(cand_norm: str, kind: str, full_norm: str, row, dur: int, n_events: int,
           n_subs: int, desc: str | None) -> tuple[float, dict]:
     """Score und die Einzelsignale. Summe der Signale == Total (bis auf Fliesskomma)."""
@@ -265,10 +293,14 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
     title = s["title"]
     full_norm = normalize(title)
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
+    reconstructed = _reconstructed_tconsts(con, title)
     base: list[tuple] = []
     for text, norm, kind in candidates(title):
         for row in lookup(con, norm):
             sc, signals = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]), s["desc"])
+            if row["tconst"] in reconstructed:
+                sc += cfg.combined_name_bonus
+                signals["combined_name"] = cfg.combined_name_bonus
             bonus = 0.0
             if s["yhint"] and row["start_year"] == s["yhint"]:
                 bonus = 0.15

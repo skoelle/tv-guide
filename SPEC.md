@@ -139,7 +139,9 @@ Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nu
 6. **Bewerten** (Summe gewichteter Signale, Details siehe `tvguide/matching.py`):
    Name, Typ/Laufzeit, Serienerkennung, Laufzeitverhältnis, Stimmen, Jahr, Ambiguität,
    Franchise (wiederkehrender Präfix/Suffix), Suffix-Penalty und spezifischer Serien-Präfix.
-   Ein exakter Volltreffer auf eine Serie hat Vorrang vor einem Präfix.
+   Sind alle Teile eines zusammengesetzten EPG-Titels exakte IMDb-Namen desselben Werks,
+   gibt es einen `combined_name`-Bonus. Ein exakter Volltreffer auf eine Serie hat Vorrang
+   vor einem Präfix.
 7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
    sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
 8. **Overrides** gelten immer zuerst. Review-Einträge werden für die Anzeige nach
