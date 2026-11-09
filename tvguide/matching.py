@@ -414,6 +414,12 @@ def _ambiguity_penalty(ranked: list[tuple], idx: int = 0) -> float:
 
 
 def _status_for(score_value: float, cfg: Config) -> str:
+    """Status anhand des gerundeten Anzeige-Scores (3 Nachkommastellen).
+
+    So stimmen die angezeigte Zahl und die Schwelle ueberein; minimale
+    Unterschreitungen durch die Votes-Signale fallen nicht mehr auf.
+    """
+    score_value = round(score_value, 3)
     if score_value >= cfg.auto_threshold:
         return "auto"
     if score_value >= cfg.review_threshold:

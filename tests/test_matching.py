@@ -4,7 +4,7 @@ from collections import Counter
 import pytest
 
 from tvguide.db import connect
-from tvguide.matching import match_show, retro_class, run_match, score, skip_reason, suggestions
+from tvguide.matching import _status_for, match_show, retro_class, run_match, score, skip_reason, suggestions
 
 
 def _show(title, durs, cats=None, subs=None, n=None, desc=""):
@@ -164,6 +164,12 @@ def test_match_show_exact_unique_short_documentary_ignores_penalties(cfg):
     assert res["best"]["tconst"] == "tt9000001"
     assert res["status"] == "auto"
     assert res["reason"]["signals"]["exact_unique"] > 0
+
+
+def test_status_uses_rounded_display_score(cfg):
+    assert _status_for(0.999971, cfg) == "auto"
+    assert _status_for(0.5996, cfg) == "review"
+    assert _status_for(0.5994, cfg) == "none"
 
 
 def test_score_uses_subtitle_year_once(cfg):

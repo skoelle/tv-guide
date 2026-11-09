@@ -152,7 +152,8 @@ Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nu
    beiden besten Kandidaten nah beieinander, wird der Ambiguitäts-Abzug auf alle Kandidaten
    innerhalb der Penalty-Distanz angewandt, damit die Reihenfolge stabil bleibt.
 7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
-   sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
+   sonst `none`. Verglichen wird der auf drei Nachkommastellen gerundete Anzeige-Score.
+   Anzeige-Konfidenz `min(1, score/1.3)`.
 8. **Overrides** gelten immer zuerst. Review-Einträge werden für die Anzeige nach
    `tconst` gruppiert; eine Entscheidung gilt für alle Shows der Gruppe.
 9. **Kategorie** (siehe 5.3) wird aus dem besten Kandidaten abgeleitet (bzw. durch
