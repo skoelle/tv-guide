@@ -146,7 +146,11 @@ Die App liest Sendungen aus `epg.db`, IMDb-Daten aus `imdb.db`; Nutzerzustand nu
    hat Vorrang vor einem Präfix. Bei einem exakten Film-Volltreffer mit nur einem Kandidaten
    (`exact_unique`) zählen Kurzlaufzeit- und Popularitäts-Penalties nicht, sofern die Laufzeit
    passt (oder fehlt und das Untertitel-Jahr passt) und das Untertitel-Jahr nicht um mehr als
-   ein Jahr abweicht.
+   ein Jahr abweicht. Bei Filmen zählt ein Jahr aus dem Untertitel (`year_in_subtitle`, ±1 Jahr
+   Toleranz) wie ein Jahr aus der Beschreibung; bei Gleichstand wird nur einmal gebonust.
+   Serien nutzen das Untertitel-Jahr nicht, weil es oft ein Episodenjahr ist. Liegen die
+   beiden besten Kandidaten nah beieinander, wird der Ambiguitäts-Abzug auf alle Kandidaten
+   innerhalb der Penalty-Distanz angewandt, damit die Reihenfolge stabil bleibt.
 7. **Entscheiden:** `auto` ab `[matching].auto_threshold`, `review` ab `review_threshold`,
    sonst `none`. Anzeige-Konfidenz `min(1, score/1.3)`.
 8. **Overrides** gelten immer zuerst. Review-Einträge werden für die Anzeige nach

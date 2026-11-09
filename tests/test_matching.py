@@ -4,7 +4,7 @@ from collections import Counter
 import pytest
 
 from tvguide.db import connect
-from tvguide.matching import match_show, retro_class, run_match, score, skip_reason
+from tvguide.matching import match_show, retro_class, run_match, score, skip_reason, suggestions
 
 
 def _show(title, durs, cats=None, subs=None, n=None, desc=""):
@@ -164,6 +164,43 @@ def test_match_show_exact_unique_short_documentary_ignores_penalties(cfg):
     assert res["best"]["tconst"] == "tt9000001"
     assert res["status"] == "auto"
     assert res["reason"]["signals"]["exact_unique"] > 0
+
+
+def test_score_uses_subtitle_year_once(cfg):
+    row = {"title_type": "movie", "runtime_min": 90, "num_votes": 1000, "start_year": 2020,
+           "primary_title": "X", "original_title": "X"}
+    _total, signals = score("x", "full", "x", row, 90, 1, 0, "USA 2020", {2020})
+    assert signals["year_in_desc"] == 0.1
+    assert "year_in_subtitle" not in signals
+
+    _total, signals = score("x", "full", "x", row, 90, 1, 0, "", {2020})
+    assert signals["year_in_subtitle"] == 0.1
+    assert "year_in_desc" not in signals
+
+    series = dict(row, title_type="tvSeries")
+    _total, signals = score("x", "full", "x", series, 90, 1, 0, "", {2020})
+    assert "year_in_subtitle" not in signals
+
+
+def test_match_show_prefers_subtitle_year(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    _insert_title(con, "tt9000101", "movie", "Schneewittchen", "Schneewittchen",
+                  1916, 60, "Fantasy", 500,
+                  [("Schneewittchen", "schneewittchen", "primary")])
+    _insert_title(con, "tt9000102", "movie", "Schneewittchen", "Schneewittchen",
+                  1961, 60, "Fantasy", 500,
+                  [("Schneewittchen", "schneewittchen", "primary")])
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Schneewittchen", [60], subs={"Spielfilm /DDR 1961"})
+    res = match_show(con, s, cfg)
+    su = suggestions(con, s, cfg, 5)
+    con.close()
+    assert res["best"]["tconst"] == "tt9000102"
+    assert res["status"] == "auto"
+    assert res["reason"]["signals"]["year_in_subtitle"] == 0.1
+    assert [x["score"] for x in su] == sorted((x["score"] for x in su), reverse=True)
 
 
 def test_match_show_exact_unique_needs_runtime_fit(cfg):

@@ -220,7 +220,7 @@ def _reconstructed_tconsts(con: sqlite3.Connection, title: str) -> set[str]:
 
 
 def score(cand_norm: str, kind: str, full_norm: str, row, dur: int, n_events: int,
-          n_subs: int, desc: str | None) -> tuple[float, dict]:
+          n_subs: int, desc: str | None, sub_years=()) -> tuple[float, dict]:
     """Score und die Einzelsignale. Summe der Signale == Total (bis auf Fliesskomma)."""
     signals: dict[str, float] = {}
     words_c, words_f = len(cand_norm.split()), max(1, len(full_norm.split()))
@@ -281,6 +281,9 @@ def score(cand_norm: str, kind: str, full_norm: str, row, dur: int, n_events: in
         years = {int(y) for y in YEAR_IN_DESC.findall(desc or "")}
         if row["start_year"] in years:
             add("year_in_desc", 0.1)
+        elif is_movie and any(abs(row["start_year"] - y) <= 1 for y in sub_years):
+            # Bei Serien sind Untertitel-Jahre oft Episodenjahre, nicht das Startjahr.
+            add("year_in_subtitle", 0.1)
     return name + adj, signals
 
 
@@ -319,10 +322,12 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
     dur = int(statistics.median(s["durs"])) if s["durs"] else 0
     reconstructed = _reconstructed_tconsts(con, title)
     parts = [normalize(part) for part in title_parts(title) if normalize(part)]
+    sub_years = _subtitle_years(s["subs"])
     base: list[tuple] = []
     for text, norm, kind in candidates(title):
         for row in lookup(con, norm):
-            sc, signals = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]), s["desc"])
+            sc, signals = score(norm, kind, full_norm, row, dur, s["n"], len(s["subs"]),
+                                s["desc"], sub_years)
             if row["tconst"] in reconstructed:
                 sc += cfg.combined_name_bonus
                 signals["combined_name"] = cfg.combined_name_bonus
@@ -332,7 +337,6 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
                 sc += bonus
             base.append((sc, row, text, kind, signals, bonus, norm))
     single_candidate = len({item[1]["tconst"] for item in base}) == 1
-    sub_years = _subtitle_years(s["subs"])
     rest_unknown: bool | None = None
     adjusted: list[tuple] = []
     for sc, row, text, kind, signals, bonus, norm in base:
@@ -393,11 +397,18 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
 
 
 def _ambiguity_penalty(ranked: list[tuple], idx: int = 0) -> float:
-    """Abzug nur fuer den besten Kandidaten, wenn der zweite sehr nah liegt."""
-    if idx != 0 or len(ranked) < 2:
+    """Abzug fuer nah beieinanderliegende Kandidaten.
+
+    Liegen die beiden besten Kandidaten nah beieinander, werden alle Kandidaten
+    innerhalb der Penalty-Distanz zum besten abgewertet. Dadurch bleibt die
+    Reihenfolge stabil; kein besser bewerteter Kandidat steht hinter dem Top.
+    """
+    if len(ranked) < 2:
         return 0.0
     best, second = ranked[0], ranked[1]
-    if best[0] - second[0] < 0.05 and best[1]["tconst"] != second[1]["tconst"]:
+    if best[0] - second[0] >= 0.05 or best[1]["tconst"] == second[1]["tconst"]:
+        return 0.0
+    if best[0] - ranked[idx][0] <= 0.15:
         return -0.15
     return 0.0
 
