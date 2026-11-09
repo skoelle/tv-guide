@@ -29,6 +29,7 @@ class Config:
     combined_name_bonus: float = 0.25
     original_prefix_bonus: float = 0.25
     single_exact_bonus: float = 0.10
+    exact_unique_auto: bool = True
     retro_from: int = 1980
     retro_to: int = 1999
     retro_end_max: int = 2009
@@ -158,6 +159,7 @@ def load_config(path: str | os.PathLike | None = None) -> Config:
         combined_name_bonus=float(matching.get("combined_name_bonus", 0.25)),
         original_prefix_bonus=float(matching.get("original_prefix_bonus", 0.25)),
         single_exact_bonus=float(matching.get("single_exact_bonus", 0.10)),
+        exact_unique_auto=bool(matching.get("exact_unique_auto", True)),
         retro_from=int(retro.get("from_year", 1980)),
         retro_to=int(retro.get("to_year", 1999)),
         retro_end_max=int(retro.get("end_max", 2009)),

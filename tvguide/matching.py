@@ -20,6 +20,12 @@ from .normalize import normalize
 
 MOVIE_TYPES = {"movie", "tvMovie"}
 RETRO_BAD_GENRES = {"News", "Talk-Show", "Game-Show", "Reality-TV", "Documentary", "Music", "Sport", "Short"}
+# Penalties, die bei einem exakten, eindeutigen Film-Volltreffer nicht zaehlen:
+# Kurzlaufzeit-Priors und Popularitaet sagen bei eindeutigem Namen nichts ueber
+# die Trefferqualitaet aus.
+EXACT_UNIQUE_SOFT_PENALTIES = {
+    "movie_short", "movie_too_short", "movie_very_short", "low_votes", "one_word_low_votes",
+}
 
 
 def _now() -> str:
@@ -178,6 +184,13 @@ def _is_original_or_primary(norm: str, row) -> bool:
     return bool(original and norm == normalize(original))
 
 
+def _subtitle_years(subs) -> set[int]:
+    years: set[int] = set()
+    for text in subs or ():
+        years.update(int(y) for y in YEAR_IN_DESC.findall(text or ""))
+    return years
+
+
 def _reconstructed_tconsts(con: sqlite3.Connection, title: str) -> set[str]:
     """tconsts, deren IMDb-Namen alle Teile des EPG-Titels exakt abdecken.
 
@@ -319,6 +332,7 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
                 sc += bonus
             base.append((sc, row, text, kind, signals, bonus, norm))
     single_candidate = len({item[1]["tconst"] for item in base}) == 1
+    sub_years = _subtitle_years(s["subs"])
     rest_unknown: bool | None = None
     adjusted: list[tuple] = []
     for sc, row, text, kind, signals, bonus, norm in base:
@@ -332,6 +346,19 @@ def rank_candidates(con: sqlite3.Connection, s: dict, cfg: Config) -> list[tuple
             if kind == "full" and single_candidate and _is_original_or_primary(norm, row):
                 sc += cfg.single_exact_bonus
                 signals["single_exact"] = cfg.single_exact_bonus
+        start_year = row["start_year"]
+        year_match = bool(start_year and any(abs(start_year - y) <= 1 for y in sub_years))
+        year_mismatch = bool(start_year and sub_years and not year_match)
+        runtime_missing = not row["runtime_min"]
+        if (cfg.exact_unique_auto and kind == "full" and single_candidate
+                and row["title_type"] in MOVIE_TYPES and not year_mismatch
+                and (_runtime_fit(dur, row["runtime_min"])
+                     or (runtime_missing and dur and year_match))):
+            soft = -sum(v for k, v in signals.items()
+                        if k in EXACT_UNIQUE_SOFT_PENALTIES and v < 0)
+            if soft:
+                sc += soft
+                signals["exact_unique"] = round(soft, 6)
         adjusted.append((sc, row, text, kind, signals, bonus, norm))
     base = adjusted
     # Ein exakter Volltreffer auf eine Serie ist staerker als ein Serien-Praefix

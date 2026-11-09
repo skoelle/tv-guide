@@ -140,6 +140,79 @@ def test_match_show_single_exact_needs_unique_candidate(cfg):
     assert "single_exact" not in res["reason"]["signals"]
 
 
+def _insert_title(con, tconst, title_type, primary, original, year, runtime, genres, votes, names):
+    con.execute(
+        "INSERT INTO titles VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (tconst, title_type, primary, original, year, None, runtime, genres, 6.0, votes))
+    con.executemany(
+        "INSERT INTO title_names VALUES (?,?,?,?,?,?)",
+        [(tconst, name, norm, kind, None, None) for name, norm, kind in names])
+    con.commit()
+
+
+def test_match_show_exact_unique_short_documentary_ignores_penalties(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    _insert_title(con, "tt9000001", "tvMovie", "Allianz gegen China", "Allianz gegen China",
+                  2025, 55, "Documentary", 12,
+                  [("Allianz gegen China", "allianz gegen china", "primary")])
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Allianz gegen China", [55], subs={"Deutschland 2025"})
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["best"]["tconst"] == "tt9000001"
+    assert res["status"] == "auto"
+    assert res["reason"]["signals"]["exact_unique"] > 0
+
+
+def test_match_show_exact_unique_needs_runtime_fit(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    _insert_title(con, "tt9000002", "tvMovie", "Kurzer Film", "Kurzer Film",
+                  2025, 90, "Drama", 1000,
+                  [("Kurzer Film", "kurzer film", "primary")])
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Kurzer Film", [45])
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["status"] == "review"
+    assert "exact_unique" not in res["reason"]["signals"]
+
+
+def test_match_show_exact_unique_rejects_subtitle_year_mismatch(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    _insert_title(con, "tt9000003", "tvMovie", "Alter Film", "Alter Film",
+                  1987, 55, "Drama", 0,
+                  [("Alter Film", "alter film", "primary")])
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Alter Film", [55], subs={"Deutschland 2024"})
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["status"] == "review"
+    assert "exact_unique" not in res["reason"]["signals"]
+
+
+def test_match_show_exact_unique_alias_without_primary(cfg):
+    con = sqlite3.connect(cfg.imdb_db)
+    _insert_title(con, "tt9000004", "movie", "Crocodiles Revealed", None,
+                  2022, None, "Documentary", 0,
+                  [("Okavango: Auf Tauchgang mit den Krokodilen",
+                    "okavango auf tauchgang mit den krokodilen", "aka")])
+    con.close()
+
+    con = connect(cfg)
+    s = _show("Okavango: Auf Tauchgang mit den Krokodilen", [45], subs={"USA 2022"})
+    res = match_show(con, s, cfg)
+    con.close()
+    assert res["status"] == "auto"
+    assert "single_exact" not in res["reason"]["signals"]
+    assert res["reason"]["signals"]["exact_unique"] > 0
+
+
 def test_retro_class(cfg):
     class R(dict):
         def __getitem__(self, k):
